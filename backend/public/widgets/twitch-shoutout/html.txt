@@ -1,0 +1,53 @@
+<div id="so-container">
+  <div id="so-card">
+    <!-- Header Banner -->
+    <div class="so-header">
+      <div class="so-badge" id="so-badge">📢 GO CHECK OUT</div>
+      <div class="so-cta" id="so-cta">Support this awesome creator on Twitch!</div>
+    </div>
+
+    <!-- Main Content Body -->
+    <div class="so-body">
+      <!-- Streamer Profile Column -->
+      <div class="so-profile">
+        <div class="so-avatar-box">
+          <div class="so-avatar-glow"></div>
+          <img id="so-avatar" src="" alt="Streamer Avatar" />
+        </div>
+        <div class="so-names">
+          <h2 id="so-display-name">StreamerName</h2>
+          <div class="so-channel-link">
+            <svg class="twitch-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
+            </svg>
+            <span id="so-login">twitch.tv/channel</span>
+          </div>
+        </div>
+        
+        <div class="so-game-badge" id="so-game-badge">
+          <span class="so-game-icon">🎮</span>
+          <span id="so-game-name">Just Chatting</span>
+        </div>
+
+        <p class="so-bio" id="so-bio"></p>
+      </div>
+
+      <!-- Video Clip Preview Column (Shown if playClip is enabled) -->
+      <div class="so-clip-wrapper" id="so-clip-wrapper">
+        <div class="so-video-card">
+          <div class="so-clip-label">
+            <span class="pulse-dot"></span>
+            <span>FEATURED CLIP</span>
+          </div>
+          <video id="so-video" playsinline></video>
+          <div class="so-clip-title" id="so-clip-title"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Countdown Progress Bar -->
+    <div class="so-progress-track">
+      <div id="so-progress-bar"></div>
+    </div>
+  </div>
+</div>

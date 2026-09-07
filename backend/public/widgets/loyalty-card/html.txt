@@ -1,0 +1,53 @@
+<div id="loyalty-card" class="notebook-style">
+  <!-- Spiral Binder Rings at Top Edge -->
+  <div class="notebook-spirals">
+    <div class="spiral-ring"></div>
+    <div class="spiral-ring"></div>
+    <div class="spiral-ring"></div>
+    <div class="spiral-ring"></div>
+    <div class="spiral-ring"></div>
+    <div class="spiral-ring"></div>
+    <div class="spiral-ring"></div>
+    <div class="spiral-ring"></div>
+  </div>
+
+  <div class="card-stack-back"></div>
+  
+  <div class="card-inner">
+    <!-- Notebook Index Tab Divider at Top Right -->
+    <div class="notebook-index-tab">
+      <span class="tab-label" id="notebook-tab-text">NOTES</span>
+    </div>
+
+    <!-- Notebook Paper Red Margin Line -->
+    <div class="notebook-margin-line"></div>
+    
+    <div class="card-header">
+      <div class="avatar-wrap">
+        <img id="user-avatar" src="https://ui-avatars.com/api/?name=User&background=8e90f6&color=ffffff" alt="Avatar">
+        <div class="avatar-badge">★</div>
+      </div>
+      <div class="header-info">
+        <div class="card-title-row">
+          <div class="card-icon-el" id="card-icon-el"></div>
+          <span class="card-tag" id="card-title">Loyalty Card</span>
+          <span class="card-round-badge" id="card-round-badge">1st card</span>
+        </div>
+        <div class="user-subtitle">
+          <strong id="user-name">@Username</strong>
+        </div>
+        <div class="count-status">
+          <span id="checkin-text">Checked in:</span> <strong id="user-count">0</strong>
+        </div>
+      </div>
+    </div>
+    
+    <div class="stamp-section">
+      <div class="stamp-grid" id="stamp-grid"></div>
+    </div>
+    
+    <div class="card-footer">
+      <div class="remaining-note" id="remaining-note">10 more stamp(s) needed to complete your card!</div>
+    </div>
+  </div>
+</div>

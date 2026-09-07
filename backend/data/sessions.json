@@ -1,0 +1,23 @@
+{
+  "8a2fe3ce-8b3f-48f2-98e0-5fadd5a80cd9": {
+    "userId": "1536233139",
+    "username": "legionxiz0",
+    "displayName": "legionxiz0",
+    "isAdmin": true,
+    "createdAt": 1788814003689
+  },
+  "e60bb3b4-c7f3-4ded-b643-ad309579b88c": {
+    "userId": "148596257",
+    "username": "LegionXIZ",
+    "displayName": "LegionXIZ",
+    "isAdmin": true,
+    "createdAt": 1788814098877
+  },
+  "20bf8330-9b7f-4eb8-9024-a9f8c31bc831": {
+    "userId": "148596257",
+    "username": "LegionXIZ",
+    "displayName": "LegionXIZ",
+    "isAdmin": true,
+    "createdAt": 1788818323727
+  }
+}

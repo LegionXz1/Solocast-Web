@@ -1,0 +1,188 @@
+{
+  "rewardName": {
+    "type": "text",
+    "label": "Reward Name",
+    "value": "Random Killer",
+    "group": "Twitch & Bot Settings"
+  },
+  "enableChat": {
+    "type": "checkbox",
+    "label": "ส่งผลลัพธ์ลงแชท Twitch (Send result to Twitch chat)",
+    "value": true,
+    "group": "Twitch & Bot Settings"
+  },
+  "chatTemplate": {
+    "type": "text",
+    "label": "Twitch Chat Message Template",
+    "value": "☠ {username} rolled → {killer} ☠",
+    "group": "Twitch & Bot Settings"
+  },
+  "headerText": {
+    "type": "text",
+    "label": "Header Title",
+    "value": "Killer Roulette",
+    "group": "Texts"
+  },
+  "dividerText": {
+    "type": "text",
+    "label": "Divider Text",
+    "value": "The Entity Chooses",
+    "group": "Texts"
+  },
+  "spinSubtitle": {
+    "type": "text",
+    "label": "Searching Subtitle",
+    "value": "analyzing biological threat",
+    "group": "Texts"
+  },
+  "chosenSubtitle": {
+    "type": "text",
+    "label": "Revealed Subtitle",
+    "value": "SUBJECT IDENTIFIED",
+    "group": "Texts"
+  },
+  "headerFontSize": {
+    "type": "slider",
+    "label": "Header Title Font Size (px)",
+    "value": 34,
+    "min": 14,
+    "max": 80,
+    "step": 1,
+    "group": "Font Sizes"
+  },
+  "targetFontSize": {
+    "type": "slider",
+    "label": "Target / Username Font Size (px)",
+    "value": 24,
+    "min": 12,
+    "max": 60,
+    "step": 1,
+    "group": "Font Sizes"
+  },
+  "dividerFontSize": {
+    "type": "slider",
+    "label": "Divider Text Font Size (px)",
+    "value": 20,
+    "min": 10,
+    "max": 50,
+    "step": 1,
+    "group": "Font Sizes"
+  },
+  "resultNameFontSize": {
+    "type": "slider",
+    "label": "Killer Name Font Size (px)",
+    "value": 56,
+    "min": 20,
+    "max": 120,
+    "step": 1,
+    "group": "Font Sizes"
+  },
+  "subtitleFontSize": {
+    "type": "slider",
+    "label": "Subtitle Font Size (px)",
+    "value": 20,
+    "min": 10,
+    "max": 50,
+    "step": 1,
+    "group": "Font Sizes"
+  },
+  "accentColor": {
+    "type": "colorpicker",
+    "label": "Gold Accent Color",
+    "value": "#c9a84c",
+    "group": "Colors"
+  },
+  "headerColor": {
+    "type": "colorpicker",
+    "label": "Header Title Color",
+    "value": "#c9a84c",
+    "group": "Colors"
+  },
+  "targetColor": {
+    "type": "colorpicker",
+    "label": "Target / Username Color",
+    "value": "#f3f4f6",
+    "group": "Colors"
+  },
+  "dividerColor": {
+    "type": "colorpicker",
+    "label": "Divider Text Color",
+    "value": "#c9a84c",
+    "group": "Colors"
+  },
+  "resultNameColor": {
+    "type": "colorpicker",
+    "label": "Killer Name Color",
+    "value": "#f5d07a",
+    "group": "Colors"
+  },
+  "bloodColor": {
+    "type": "colorpicker",
+    "label": "Laser & Subtitle Color",
+    "value": "#ef4444",
+    "group": "Colors"
+  },
+  "strokeSize": {
+    "type": "slider",
+    "label": "Text Stroke Width (px)",
+    "value": 2,
+    "min": 0,
+    "max": 10,
+    "step": 1,
+    "group": "Text Stroke"
+  },
+  "strokeColor": {
+    "type": "colorpicker",
+    "label": "Main Text Stroke Color",
+    "value": "#000000",
+    "group": "Text Stroke"
+  },
+  "headerStrokeColor": {
+    "type": "colorpicker",
+    "label": "Header Title Stroke Color",
+    "value": "#000000",
+    "group": "Text Stroke"
+  },
+  "targetStrokeColor": {
+    "type": "colorpicker",
+    "label": "Target / Username Stroke Color",
+    "value": "#000000",
+    "group": "Text Stroke"
+  },
+  "dividerStrokeColor": {
+    "type": "colorpicker",
+    "label": "Divider Text Stroke Color",
+    "value": "#000000",
+    "group": "Text Stroke"
+  },
+  "resultNameStrokeColor": {
+    "type": "colorpicker",
+    "label": "Killer Name Stroke Color",
+    "value": "#000000",
+    "group": "Text Stroke"
+  },
+  "subtitleStrokeColor": {
+    "type": "colorpicker",
+    "label": "Subtitle Stroke Color",
+    "value": "#000000",
+    "group": "Text Stroke"
+  },
+  "spinDuration": {
+    "type": "slider",
+    "label": "Search Duration (seconds)",
+    "value": 5,
+    "min": 3,
+    "max": 10,
+    "step": 1,
+    "group": "Settings"
+  },
+  "hideAfter": {
+    "type": "slider",
+    "label": "Show Result For (seconds)",
+    "value": 8,
+    "min": 3,
+    "max": 20,
+    "step": 1,
+    "group": "Settings"
+  }
+}

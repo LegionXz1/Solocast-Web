@@ -1,0 +1,282 @@
+// Twitch Shoutout Widget Logic
+// Powered by https://legionx.alwaysdata.net/
+
+const API_BASE = 'https://legionx.alwaysdata.net';
+
+// Default configuration settings
+let config = {
+  headerText: '📢 GO CHECK OUT',
+  subHeaderText: 'Support this awesome creator on Twitch!',
+  displayDuration: 15,
+  playClip: true,
+  clipDuration: 15,
+  clipVolume: 35,
+  showBio: true,
+  showGame: true,
+  accentColor: '#9146ff',
+  secondaryColor: '#00f2fe',
+  cardBgColor: 'rgba(15, 15, 23, 0.94)',
+  textColor: '#ffffff',
+  soundUrl: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+  soundVolume: 60
+};
+
+// Queue system for consecutive shoutouts
+const shoutoutQueue = [];
+let isShowing = false;
+let hideTimeout = null;
+
+// Apply settings to DOM and CSS
+function applySettings(data) {
+  if (!data) return;
+  config = { ...config, ...data };
+
+  // Update CSS Variables
+  const root = document.documentElement;
+  if (config.accentColor) root.style.setProperty('--accent-color', config.accentColor);
+  if (config.secondaryColor) root.style.setProperty('--secondary-color', config.secondaryColor);
+  if (config.cardBgColor) root.style.setProperty('--card-bg', config.cardBgColor);
+  if (config.textColor) root.style.setProperty('--text-color', config.textColor);
+  if (config.displayDuration) root.style.setProperty('--duration', `${config.displayDuration}s`);
+
+  // Update Static Texts
+  const badgeEl = document.getElementById('so-badge');
+  if (badgeEl && config.headerText) badgeEl.textContent = config.headerText;
+
+  const ctaEl = document.getElementById('so-cta');
+  if (ctaEl && config.subHeaderText) ctaEl.textContent = config.subHeaderText;
+}
+
+// Listen to StreamElements / Solocast events
+window.addEventListener('onWidgetLoad', (e) => {
+  const fieldData = e.detail?.fieldData || e.detail;
+  applySettings(fieldData);
+});
+
+window.addEventListener('onFieldsUpdate', (e) => {
+  const fieldData = e.detail?.fieldData || e.detail;
+  applySettings(fieldData);
+});
+
+// Event Listener for Shoutouts
+window.addEventListener('onEventReceived', (e) => {
+  const obj = e.detail;
+  if (!obj) return;
+
+  let targetChannel = '';
+
+  // 1. Direct shoutout event from Twitch EventSub / Solocast
+  if (obj.listener === 'shoutout-latest' || obj.event?.type === 'shoutout' || obj.type === 'shoutout') {
+    const ev = obj.event || obj;
+    targetChannel = ev.targetChannel || ev.channel || ev.data?.channel || ev.data?.username || ev.username || '';
+  }
+  // 2. Twitch Chat Command (!so or !shoutout)
+  else if (obj.listener === 'message' || obj.event?.type === 'message') {
+    const text = (obj.event?.text || obj.event?.data?.text || obj.data?.text || '').trim();
+    const parts = text.split(/\s+/);
+    if (parts.length >= 2 && (parts[0].toLowerCase() === '!so' || parts[0].toLowerCase() === '!shoutout')) {
+      targetChannel = parts[1].replace('@', '').toLowerCase();
+    }
+  }
+
+  if (targetChannel) {
+    queueShoutout(targetChannel);
+  }
+});
+
+// Queue a channel for shoutout
+function queueShoutout(channel) {
+  console.log('[Shoutout] 📥 Queued shoutout for channel:', channel);
+  shoutoutQueue.push(channel);
+  processQueue();
+}
+
+// Process next shoutout in queue
+async function processQueue() {
+  if (isShowing || shoutoutQueue.length === 0) return;
+
+  isShowing = true;
+  const channel = shoutoutQueue.shift();
+  await displayShoutout(channel);
+}
+
+// Fetch data from legionx.alwaysdata.net and display widget
+async function displayShoutout(channelName) {
+  const cleanName = channelName.trim().toLowerCase().replace('@', '');
+  console.log('[Shoutout] 🚀 Fetching data for:', cleanName);
+
+  let userInfo = null;
+  let userStatus = null;
+  let clipData = null;
+
+  // 1. Fetch User Info (Avatar, Display Name, Bio)
+  try {
+    const res = await fetch(`${API_BASE}/getuserinfo.php?channel=${encodeURIComponent(cleanName)}`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.data && json.data.length > 0) {
+        userInfo = json.data[0];
+      }
+    }
+  } catch (err) {
+    console.warn('[Shoutout] Error fetching user info:', err);
+  }
+
+  // Fallback if user info was not found
+  if (!userInfo) {
+    userInfo = {
+      login: cleanName,
+      display_name: cleanName,
+      profile_image_url: 'https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7ba-40d2-965a-52834b6f79e8-profile_image-300x300.png',
+      description: 'Check out this awesome streamer on Twitch!'
+    };
+  }
+
+  // 2. Fetch User Status (Last Played Game)
+  if (config.showGame) {
+    try {
+      const res = await fetch(`${API_BASE}/getuserstatus.php?channel=${encodeURIComponent(cleanName)}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && json.data.length > 0) {
+          userStatus = json.data[0];
+        }
+      }
+    } catch (err) {
+      console.warn('[Shoutout] Error fetching user status:', err);
+    }
+  }
+
+  // 3. Fetch Featured Clip
+  if (config.playClip) {
+    try {
+      const res = await fetch(`${API_BASE}/getuserclips.php?channel=${encodeURIComponent(cleanName)}&limit=1&random=true`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && json.data.length > 0) {
+          clipData = json.data[0];
+        }
+      }
+    } catch (err) {
+      console.warn('[Shoutout] Error fetching clip:', err);
+    }
+  }
+
+  // Populate DOM elements
+  const avatarEl = document.getElementById('so-avatar');
+  const nameEl = document.getElementById('so-display-name');
+  const linkEl = document.getElementById('so-login');
+  const gameBadgeEl = document.getElementById('so-game-badge');
+  const gameNameEl = document.getElementById('so-game-name');
+  const bioEl = document.getElementById('so-bio');
+  const clipWrapper = document.getElementById('so-clip-wrapper');
+  const videoEl = document.getElementById('so-video');
+  const clipTitleEl = document.getElementById('so-clip-title');
+  const container = document.getElementById('so-container');
+  const progressBar = document.getElementById('so-progress-bar');
+
+  // Set Profile Information
+  if (avatarEl) avatarEl.src = userInfo.profile_image_url || '';
+  if (nameEl) nameEl.textContent = userInfo.display_name || cleanName;
+  if (linkEl) linkEl.textContent = `twitch.tv/${userInfo.login || cleanName}`;
+
+  // Set Game Information
+  if (gameBadgeEl) {
+    if (config.showGame && userStatus && userStatus.game_name) {
+      gameNameEl.textContent = userStatus.game_name;
+      gameBadgeEl.style.display = 'inline-flex';
+    } else {
+      gameBadgeEl.style.display = 'none';
+    }
+  }
+
+  // Set Bio
+  if (bioEl) {
+    if (config.showBio && userInfo.description) {
+      bioEl.textContent = userInfo.description;
+      bioEl.style.display = '-webkit-box';
+    } else {
+      bioEl.style.display = 'none';
+    }
+  }
+
+  // Setup Video Clip or Hide
+  let hasVideo = false;
+  if (config.playClip && clipData && (clipData.clip_url || clipData.id)) {
+    const streamVideoUrl = clipData.clip_url || `${API_BASE}/getclipurl.php?id=${clipData.id}&url=true`;
+    if (videoEl) {
+      videoEl.src = streamVideoUrl;
+      videoEl.volume = Math.max(0, Math.min(1, (config.clipVolume || 35) / 100));
+      videoEl.play().catch(e => console.log('[Shoutout] Autoplay blocked or failed:', e));
+    }
+    if (clipTitleEl) {
+      clipTitleEl.textContent = clipData.title || 'Featured Clip';
+    }
+    if (clipWrapper) clipWrapper.style.display = 'flex';
+    hasVideo = true;
+  } else {
+    if (clipWrapper) clipWrapper.style.display = 'none';
+    if (videoEl) {
+      videoEl.pause();
+      videoEl.src = '';
+    }
+  }
+
+  // Play Shoutout Chime Sound
+  // กำหนดระยะเวลาแสดงผล (ถ้าเล่นคลิปให้ใช้ clipDuration หรือถ้าไม่มีคลิปให้ใช้ displayDuration)
+  const durationSec = hasVideo
+    ? (parseInt(config.clipDuration || config.displayDuration, 10) || 15)
+    : (parseInt(config.displayDuration, 10) || 15);
+  const durationMs = durationSec * 1000;
+
+  // ปรับ animation ของ Progress Bar และ CSS ให้ตรงตามระยะเวลาที่ตั้งไว้
+  document.documentElement.style.setProperty('--duration', `${durationSec}s`);
+  if (progressBar) {
+    progressBar.style.animationDuration = `${durationSec}s`;
+    progressBar.classList.remove('anim-progress');
+    void progressBar.offsetWidth; // force reflow
+    progressBar.classList.add('anim-progress');
+  }
+
+  // Show Container
+  if (container) {
+    container.classList.add('active');
+  }
+
+  // Auto Hide after duration
+  clearTimeout(hideTimeout);
+  hideTimeout = setTimeout(() => {
+    hideShoutout();
+  }, durationMs);
+}
+
+// Hide the shoutout overlay and proceed with queue
+function hideShoutout() {
+  const container = document.getElementById('so-container');
+  const videoEl = document.getElementById('so-video');
+
+  if (container) {
+    container.classList.remove('active');
+  }
+
+  if (videoEl) {
+    videoEl.pause();
+    videoEl.src = '';
+  }
+
+  // Wait for transition before processing next in queue
+  setTimeout(() => {
+    isShowing = false;
+    processQueue();
+  }, 600);
+}
+
+// Sound effect player
+function playNotificationSound() {
+  if (!config.soundUrl) return;
+  try {
+    const audio = new Audio(config.soundUrl);
+    audio.volume = Math.max(0, Math.min(1, (config.soundVolume || 60) / 100));
+    audio.play().catch(err => console.log('[Shoutout] Audio play error:', err));
+  } catch (err) {}
+}

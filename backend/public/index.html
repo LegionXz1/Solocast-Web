@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget Dashboard</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #121212;
+      color: #fff;
+      padding: 30px;
+      margin: 0;
+    }
+    .card {
+      background: #1e1e1e;
+      border-radius: 8px;
+      padding: 20px;
+      max-width: 600px;
+      margin: 0 auto;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    h1 { margin-top: 0; color: #bf94ff; }
+    
+    .status-box {
+      background: #2a2a2a;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: #f44336; /* Red by default */
+    }
+    .dot.connected {
+      background-color: #4caf50; /* Green when connected */
+      box-shadow: 0 0 10px #4caf50;
+    }
+
+    .btn-login {
+      background: #9146FF;
+      color: white;
+      padding: 10px 15px;
+      text-decoration: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: bold;
+      display: inline-block;
+      transition: background 0.2s;
+    }
+    .btn-login:hover { background: #a970ff; }
+    
+    .btn-test {
+      background: #3a3a3a;
+      color: white;
+      border: 1px solid #555;
+      padding: 10px 15px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .btn-test:hover { background: #4a4a4a; }
+
+    .event-card {
+      background: #2a2a2a;
+      border-left: 5px solid #9146FF;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(-20px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    #login-section { display: block; }
+  </style>
+</head>
+<body>
+  
+  <div class="card">
+    <h1>Solocast Backend</h1>
+    
+    <div class="status-box">
+      <div class="status-indicator">
+        <div class="dot" id="status-dot"></div>
+        <div>
+          <strong id="status-text">Disconnected from Twitch</strong>
+          <div id="username-display" style="font-size: 12px; color: #aaa;"></div>
+        </div>
+      </div>
+      
+      <div id="login-section">
+        <a href="/auth/twitch" class="btn-login">Login with Twitch</a>
+      </div>
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+      <button id="testBtn" class="btn-test">Simulate Follow Event</button>
+    </div>
+
+    <h3>Live Events (Test Log)</h3>
+    <div id="events-container"></div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const eventsContainer = document.getElementById('events-container');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const loginSection = document.getElementById('login-section');
+    const usernameDisplay = document.getElementById('username-display');
+
+    // Receive status from backend
+    socket.on('backend_status', (status) => {
+      if (status.connected) {
+        statusDot.classList.add('connected');
+        statusText.innerText = 'Connected & Listening';
+        usernameDisplay.innerText = `Channel: ${status.username}`;
+        loginSection.style.display = 'none'; // Hide login button!
+      } else {
+        statusDot.classList.remove('connected');
+        statusText.innerText = 'Not Connected to Twitch';
+        usernameDisplay.innerText = '';
+        loginSection.style.display = 'block';
+      }
+    });
+
+    socket.on('onEventReceived', (event) => {
+      const el = document.createElement('div');
+      el.className = 'event-card';
+      
+      if (event.type === 'follower') {
+        el.innerHTML = `<strong>🎉 New Follower!</strong> ${event.data.name} just followed the channel.`;
+      } else if (event.type === 'subscriber') {
+        el.innerHTML = `<strong>⭐ New Subscriber!</strong> ${event.data.name} just subscribed (Tier: ${event.data.tier}).`;
+      } else {
+        el.innerHTML = `<strong>Unknown Event:</strong> ${JSON.stringify(event)}`;
+      }
+
+      eventsContainer.prepend(el);
+      setTimeout(() => el.remove(), 5000);
+    });
+
+    document.getElementById('testBtn').addEventListener('click', () => {
+      socket.emit('test_event', {
+        type: 'follower',
+        data: { name: 'TestUser123' }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+{
+  "headerText": {
+    "type": "text",
+    "label": "ข้อความหัวเรื่อง (Header Title)",
+    "value": "📢 GO CHECK OUT",
+    "group": "General"
+  },
+  "subHeaderText": {
+    "type": "text",
+    "label": "ข้อความเชิญชวน (Call to Action)",
+    "value": "Support this awesome creator on Twitch!",
+    "group": "General"
+  },
+  "displayDuration": {
+    "type": "slider",
+    "label": "ระยะเวลาแสดงผลรวม (วินาที)",
+    "value": 15,
+    "min": 5,
+    "max": 60,
+    "step": 1,
+    "group": "General"
+  },
+  "playClip": {
+    "type": "checkbox",
+    "label": "เล่นคลิปไฮไลท์ (Play Streamer Clip)",
+    "value": true,
+    "group": "Clips & Video"
+  },
+  "clipDuration": {
+    "type": "slider",
+    "label": "ระยะเวลาเล่นคลิปวิดีโอ (วินาที)",
+    "value": 15,
+    "min": 5,
+    "max": 60,
+    "step": 1,
+    "group": "Clips & Video"
+  },
+  "clipVolume": {
+    "type": "slider",
+    "label": "ระดับเสียงคลิปวิดีโอ (Clip Volume %)",
+    "value": 35,
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "group": "Clips & Video"
+  },
+  "showBio": {
+    "type": "checkbox",
+    "label": "แสดงคำอธิบายช่อง (Show Bio / Description)",
+    "value": true,
+    "group": "Details"
+  },
+  "showGame": {
+    "type": "checkbox",
+    "label": "แสดงเกม/หมวดหมู่ที่เล่นล่าสุด (Show Last Played Game)",
+    "value": true,
+    "group": "Details"
+  },
+  "accentColor": {
+    "type": "colorpicker",
+    "label": "สีหลัก / แสงนีออน (Primary Glow Color)",
+    "value": "#9146ff",
+    "group": "Colors & Style"
+  },
+  "secondaryColor": {
+    "type": "colorpicker",
+    "label": "สีรอง / ปลายเกรเดียนต์ (Secondary Color)",
+    "value": "#00f2fe",
+    "group": "Colors & Style"
+  },
+  "cardBgColor": {
+    "type": "text",
+    "label": "สีพื้นหลังการ์ด (Card Background)",
+    "value": "rgba(15, 15, 23, 0.92)",
+    "group": "Colors & Style"
+  },
+  "textColor": {
+    "type": "colorpicker",
+    "label": "สีข้อความหลัก (Text Color)",
+    "value": "#ffffff",
+    "group": "Colors & Style"
+  },
+  "soundUrl": {
+    "type": "text",
+    "label": "ลิงก์เสียงแจ้งเตือน (Sound Effect URL)",
+    "value": "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3",
+    "group": "Audio"
+  },
+  "soundVolume": {
+    "type": "slider",
+    "label": "ระดับเสียงเอฟเฟกต์ (Sound Volume %)",
+    "value": 60,
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "group": "Audio"
+  }
+}
