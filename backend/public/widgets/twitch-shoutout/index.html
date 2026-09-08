@@ -321,7 +321,7 @@
     <div id="so-card">
       <!-- Header Banner -->
       <div class="so-header">
-        <div class="so-badge" id="so-badge">📢 GO CHECK OUT</div>
+        <div class="so-badge" id="so-badge">GO CHECK OUT</div>
         <div class="so-cta" id="so-cta">Support this awesome creator on Twitch!</div>
       </div>
 
@@ -345,7 +345,10 @@
           </div>
 
           <div class="so-game-badge" id="so-game-badge">
-            <span class="so-game-icon">🎮</span>
+            <svg class="so-game-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+              <path d="M6 12h4m-2-2v4m7-1h.01m3-2h.01"></path>
+            </svg>
             <span id="so-game-name">Just Chatting</span>
           </div>
 
@@ -376,7 +379,7 @@
     const API_BASE = 'https://legionx.alwaysdata.net';
 
     let config = {
-      headerText: '📢 GO CHECK OUT',
+      headerText: 'GO CHECK OUT',
       subHeaderText: 'Support this awesome creator on Twitch!',
       displayDuration: 15,
       playClip: true,

@@ -5,7 +5,7 @@ const API_BASE = 'https://legionx.alwaysdata.net';
 
 // Default configuration settings
 let config = {
-  headerText: '📢 GO CHECK OUT',
+  headerText: 'GO CHECK OUT',
   subHeaderText: 'Support this awesome creator on Twitch!',
   displayDuration: 15,
   playClip: true,

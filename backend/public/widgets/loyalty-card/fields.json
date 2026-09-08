@@ -1,42 +1,4 @@
 {
-  "btnTest": {
-    "type": "button",
-    "label": "Test Widget",
-    "value": "test",
-    "group": "Test & Control ⚙️"
-  },
-  "btnReset": {
-    "type": "button",
-    "label": "Reset All Users Data",
-    "value": "reset",
-    "group": "Test & Control ⚙️"
-  },
-  "triggerTwitchSub": {
-    "type": "dropdown",
-    "label": "Twitch Subscription / Re-sub Trigger",
-    "value": "yes",
-    "options": {
-      "yes": "Enabled",
-      "no": "Disabled"
-    },
-    "group": "Twitch Triggers 🟣"
-  },
-  "triggerBits": {
-    "type": "dropdown",
-    "label": "Twitch Bits (Cheer) Trigger",
-    "value": "yes",
-    "options": {
-      "yes": "Enabled",
-      "no": "Disabled"
-    },
-    "group": "Twitch Triggers 🟣"
-  },
-  "minBits": {
-    "type": "number",
-    "label": "Minimum Bits Required",
-    "value": 100,
-    "group": "Twitch Triggers 🟣"
-  },
   "triggerChannelPoints": {
     "type": "dropdown",
     "label": "Twitch Channel Points Trigger",
@@ -45,45 +7,19 @@
       "yes": "Enabled",
       "no": "Disabled"
     },
-    "group": "Twitch Triggers 🟣"
+    "group": "Twitch Triggers"
   },
   "rewardName": {
     "type": "text",
     "label": "Twitch Channel Point Reward Name",
     "value": "Check-in",
-    "group": "Twitch Triggers 🟣"
-  },
-  "triggerYTSub": {
-    "type": "dropdown",
-    "label": "YouTube Membership Trigger",
-    "value": "yes",
-    "options": {
-      "yes": "Enabled",
-      "no": "Disabled"
-    },
-    "group": "YouTube Triggers 🔴"
-  },
-  "triggerYTSuperChat": {
-    "type": "dropdown",
-    "label": "YouTube SuperChat Trigger",
-    "value": "yes",
-    "options": {
-      "yes": "Enabled",
-      "no": "Disabled"
-    },
-    "group": "YouTube Triggers 🔴"
-  },
-  "minSuperChat": {
-    "type": "number",
-    "label": "Minimum SuperChat Amount Required",
-    "value": 1,
-    "group": "YouTube Triggers 🔴"
+    "group": "Twitch Triggers"
   },
   "cardTitle": {
     "type": "text",
     "label": "Card Header Title",
     "value": "Loyalty Card",
-    "group": "Typography 🖋️"
+    "group": "Typography"
   },
   "fontFamily": {
     "type": "dropdown",
@@ -105,92 +41,92 @@
       "Poppins": "Poppins (Clean Geometric)",
       "Sniglet": "Sniglet (Cute Bubble)"
     },
-    "group": "Typography 🖋️"
+    "group": "Typography"
   },
   "notebookTabText": {
     "type": "text",
     "label": "Top Right Index Tab Text",
     "value": "NOTES",
-    "group": "Typography 🖋️"
+    "group": "Typography"
   },
   "remainingTemplate": {
     "type": "text",
     "label": "Remaining Note Template ({remaining} = count left)",
     "value": "{remaining} more stamp(s) needed to complete your card!",
-    "group": "Typography 🖋️"
+    "group": "Typography"
   },
   "checkinText": {
     "type": "text",
     "label": "Count Prefix",
     "value": "Count:",
-    "group": "Typography 🖋️"
+    "group": "Typography"
   },
   "colorPreset": {
     "type": "dropdown",
     "label": "Color Theme Preset",
     "value": "lavender",
     "options": {
-      "lavender": "Pastel Lavender 💜",
-      "sakura": "Sakura Pink 🌸",
-      "matcha": "Matcha Latte 🍵",
-      "milktea": "Milk Tea Caramel 🧋",
-      "ocean": "Ocean Sky Blue 🌊",
-      "midnight": "Midnight Dark Mode 🌙",
-      "custom": "Custom Colors (Manual) 🎨"
+      "lavender": "Pastel Lavender",
+      "sakura": "Sakura Pink",
+      "matcha": "Matcha Latte",
+      "milktea": "Milk Tea Caramel",
+      "ocean": "Ocean Sky Blue",
+      "midnight": "Midnight Dark Mode",
+      "custom": "Custom Colors (Manual)"
     },
-    "group": "Theme Colors 🎨"
+    "group": "Theme Colors"
   },
   "accentColor": {
     "type": "colorpicker",
     "label": "Main Accent Color (If Custom)",
     "value": "#8e90f6",
-    "group": "Theme Colors 🎨"
+    "group": "Theme Colors"
   },
   "bgColor": {
     "type": "colorpicker",
     "label": "Card Background Color (If Custom)",
     "value": "#fffdfa",
-    "group": "Theme Colors 🎨"
+    "group": "Theme Colors"
   },
   "stackColor": {
     "type": "colorpicker",
     "label": "Stack Back Card Color (If Custom)",
     "value": "#e0e2ff",
-    "group": "Theme Colors 🎨"
+    "group": "Theme Colors"
   },
   "borderColor": {
     "type": "colorpicker",
     "label": "Card Border Color (If Custom)",
     "value": "#8e90f6",
-    "group": "Theme Colors 🎨"
+    "group": "Theme Colors"
   },
   "textColor": {
     "type": "colorpicker",
     "label": "Text Color (If Custom)",
     "value": "#393a6e",
-    "group": "Theme Colors 🎨"
+    "group": "Theme Colors"
   },
   "avatarGlowColor": {
     "type": "colorpicker",
     "label": "Avatar Glow Color (If Custom)",
     "value": "#8e90f6",
-    "group": "Theme Colors 🎨"
+    "group": "Theme Colors"
   },
   "cardIcon": {
     "type": "dropdown",
     "label": "Title Header Icon",
     "value": "Heart",
     "options": {
-      "Heart": "Heart 💖",
-      "Star": "Star ⭐️",
-      "Bunny": "Bunny 🐰",
-      "Paw": "Paw 🐾",
-      "Crown": "Crown 👑",
-      "Diamond": "Diamond 💎",
-      "Moon": "Moon 🌙",
-      "Cloud": "Cloud ☁️"
+      "Heart": "Heart",
+      "Star": "Star",
+      "Bunny": "Bunny",
+      "Paw": "Paw",
+      "Crown": "Crown",
+      "Diamond": "Diamond",
+      "Moon": "Moon",
+      "Cloud": "Cloud"
     },
-    "group": "Icons & Stamps 🎨"
+    "group": "Icons & Stamps"
   },
   "avatarShape": {
     "type": "dropdown",
@@ -200,35 +136,35 @@
       "circle": "Circle",
       "square": "Rounded Square"
     },
-    "group": "Layout & Appearance 📐"
+    "group": "Layout & Appearance"
   },
   "stampShapePreset": {
     "type": "dropdown",
     "label": "Stamp Slot Preset",
     "value": "paw",
     "options": {
-      "paw": "Cute Paw 🐾",
-      "bunny": "Cute Bunny 🐰",
-      "star": "Shining Star ⭐️",
-      "heart": "Sweet Heart 💖",
-      "circle": "Classic Circle ⚪️",
-      "genetic": "Genetic Atom 🧬",
-      "penguin": "Cute Penguin 🐧",
-      "custom": "Custom Image Upload 🖼️"
+      "paw": "Cute Paw",
+      "bunny": "Cute Bunny",
+      "star": "Shining Star",
+      "heart": "Sweet Heart",
+      "circle": "Classic Circle",
+      "genetic": "Genetic Atom",
+      "penguin": "Cute Penguin",
+      "custom": "Custom Image Upload"
     },
-    "group": "Icons & Stamps 🎨"
+    "group": "Icons & Stamps"
   },
   "stampImage": {
     "type": "image-input",
     "label": "Custom Stamp Image (If preset is Custom)",
     "value": "",
-    "group": "Icons & Stamps 🎨"
+    "group": "Icons & Stamps"
   },
   "rubberStampImage": {
     "type": "image-input",
     "label": "Rubber Stamp Image (If preset is Custom)",
     "value": "",
-    "group": "Icons & Stamps 🎨"
+    "group": "Icons & Stamps"
   },
   "cardCornerRadius": {
     "type": "slider",
@@ -237,7 +173,7 @@
     "min": 0,
     "max": 36,
     "step": 2,
-    "group": "Layout & Appearance 📐"
+    "group": "Layout & Appearance"
   },
   "stampShape": {
     "type": "dropdown",
@@ -247,7 +183,7 @@
       "circle": "Circle",
       "square": "Rounded Square"
     },
-    "group": "Layout & Appearance 📐"
+    "group": "Layout & Appearance"
   },
   "overlayScale": {
     "type": "slider",
@@ -256,7 +192,7 @@
     "min": 50,
     "max": 200,
     "step": 5,
-    "group": "Layout & Appearance 📐"
+    "group": "Layout & Appearance"
   },
   "cardPosition": {
     "type": "dropdown",
@@ -268,7 +204,7 @@
       "top-left": "Top Left",
       "top-right": "Top Right"
     },
-    "group": "Layout & Appearance 📐"
+    "group": "Layout & Appearance"
   },
   "animStyle": {
     "type": "dropdown",
@@ -279,13 +215,13 @@
       "fade": "Fade",
       "bounce": "Bounce"
     },
-    "group": "Layout & Appearance 📐"
+    "group": "Layout & Appearance"
   },
   "soundUrl": {
     "type": "sound-input",
     "label": "Check-in Sound Effect MP3",
     "value": "",
-    "group": "Audio Settings 🔊"
+    "group": "Audio Settings"
   },
   "soundVolume": {
     "type": "slider",
@@ -294,7 +230,7 @@
     "min": 0,
     "max": 100,
     "step": 5,
-    "group": "Audio Settings 🔊"
+    "group": "Audio Settings"
   },
   "stampTotal": {
     "type": "slider",
@@ -303,19 +239,19 @@
     "min": 1,
     "max": 25,
     "step": 1,
-    "group": "General Settings 📌"
+    "group": "General Settings"
   },
   "cardWidth": {
     "type": "number",
     "label": "Card Width (px)",
     "value": 440,
-    "group": "Layout & Appearance 📐"
+    "group": "Layout & Appearance"
   },
   "cardOffset": {
     "type": "number",
     "label": "Screen Offset (px)",
     "value": 36,
-    "group": "Layout & Appearance 📐"
+    "group": "Layout & Appearance"
   },
   "displayDuration": {
     "type": "slider",
@@ -324,7 +260,7 @@
     "min": 2,
     "max": 30,
     "step": 1,
-    "group": "General Settings 📌"
+    "group": "General Settings"
   },
   "enableChatMsg": {
     "type": "dropdown",
@@ -334,7 +270,7 @@
       "yes": "Enabled",
       "no": "Disabled"
     },
-    "group": "Bot Chat Messages 💬"
+    "group": "Bot Chat Messages"
   },
   "enableChatCmd": {
     "type": "dropdown",
@@ -344,24 +280,18 @@
       "yes": "Enabled",
       "no": "Disabled"
     },
-    "group": "Bot Chat Messages 💬"
+    "group": "Bot Chat Messages"
   },
   "chatCmdPrefix": {
     "type": "text",
     "label": "Chat Command Keyword (!loyalty / !loyalty @user)",
     "value": "!loyalty",
-    "group": "Bot Chat Messages 💬"
-  },
-  "seJwtToken": {
-    "type": "text",
-    "label": "StreamElements JWT Token (Secret)",
-    "value": "",
-    "group": "Bot Chat Messages 💬"
+    "group": "Bot Chat Messages"
   },
   "chatMsgTemplate": {
     "type": "text",
     "label": "Chat Message Template ({user} = name, {count} = count)",
     "value": "{user} checked in {count} times!",
-    "group": "Bot Chat Messages 💬"
+    "group": "Bot Chat Messages"
   }
 }

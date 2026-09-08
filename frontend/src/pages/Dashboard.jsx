@@ -1,6 +1,41 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
+import {
+  Sliders,
+  History,
+  CalendarCheck,
+  Save,
+  Loader2,
+  Eye,
+  Megaphone,
+  Play,
+  RotateCw,
+  Maximize2,
+  ChevronDown,
+  ChevronUp,
+  Link,
+  Zap,
+  Copy,
+  Check,
+  Info,
+  Trash2,
+  Users,
+  Ticket,
+  Dices,
+  Skull,
+  User,
+  Award,
+  Gift,
+  Clock,
+  UserCheck,
+  Grid,
+  Square,
+  X,
+  ShieldCheck,
+  Star,
+  LogOut
+} from 'lucide-react';
 
 const socket = io('http://localhost:3000');
 
@@ -18,6 +53,7 @@ function Dashboard() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState('');
   const saveTimeoutRef = useRef(null);
+  const [copiedUrl, setCopiedUrl] = useState(false);
 
   // Tab & History State
   const [activeTab, setActiveTab] = useState('settings'); // 'settings' | 'history'
@@ -29,6 +65,32 @@ function Dashboard() {
   const [isPreviewCollapsed, setIsPreviewCollapsed] = useState(false);
   const [bgMode, setBgMode] = useState('checker'); // 'checker' | 'dark-solid' | 'green-screen'
   const [shoutoutChannel, setShoutoutChannel] = useState('legionxiz');
+  const hasRollHistory = selectedWidget && selectedWidget !== 'twitch-shoutout';
+
+  // สรุปยอดนับการเช็คอินของผู้ใช้แต่ละคน (สำหรับ Loyalty Card)
+  const loyaltyUserSummary = useMemo(() => {
+    if (selectedWidget !== 'loyalty-card') return [];
+    const map = new Map();
+    for (const item of rollHistory) {
+      const u = (item.username || '').toLowerCase();
+      if (!u) continue;
+      const countVal = item.count !== undefined ? Number(item.count) : 1;
+      if (!map.has(u)) {
+        map.set(u, {
+          username: item.username,
+          count: countVal,
+          avatar: item.avatar || `/api/twitch/avatar/${encodeURIComponent(item.username)}`,
+          lastTime: item.timestamp
+        });
+      } else {
+        const existing = map.get(u);
+        if (countVal > existing.count) {
+          existing.count = countVal;
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [rollHistory, selectedWidget]);
 
   // 1. ดักจับ Token ที่ส่งกลับมาจาก Twitch OAuth Redirect
   useEffect(() => {
@@ -112,7 +174,10 @@ function Dashboard() {
 
   // 5. โหลดประวัติการสุ่ม (Roll History) ของ Widget นี้
   useEffect(() => {
-    if (!selectedWidget) return;
+    if (!selectedWidget || selectedWidget === 'twitch-shoutout') {
+      setRollHistory([]);
+      return;
+    }
     fetch(`http://localhost:3000/api/widgets/${selectedWidget}/history?user=${encodeURIComponent(status.userId || '')}`)
       .then(res => res.ok ? res.json() : [])
       .then(data => {
@@ -166,7 +231,7 @@ function Dashboard() {
         })
       });
       if (res.ok) {
-        setSaveSuccess('ซิงค์ไปยัง OBS เรียบร้อยแล้ว ✓');
+        setSaveSuccess('ซิงค์ไปยัง OBS เรียบร้อยแล้ว');
         setTimeout(() => setSaveSuccess(''), 2500);
       }
     } catch (e) {
@@ -215,11 +280,19 @@ function Dashboard() {
     // บันทึกค่าล่าสุดทันทีเพื่อให้มั่นใจว่า Widget ได้รับการอัพเดท
     handleSaveSettings(fieldData);
 
+    const testUser = status.username || 'legionxiz';
     const simEvent = {
       userId: status.userId,
       type: 'redemption',
       isTest: true,
-      data: { name: 'GamerGod88', rewardTitle: title, isTest: true }
+      data: { 
+        name: testUser,
+        displayName: testUser,
+        rewardTitle: title, 
+        avatar: `/api/twitch/avatar/${encodeURIComponent(testUser)}`,
+        profileImage: `/api/twitch/avatar/${encodeURIComponent(testUser)}`,
+        isTest: true 
+      }
     };
 
     socket.emit('test_event', simEvent);
@@ -275,12 +348,18 @@ function Dashboard() {
     const params = new URLSearchParams();
     if (status.userId) params.append('user', status.userId);
     if (status.username) params.append('channel', status.username);
-    for (const key in fieldData) {
-      if (fieldData[key] !== '') params.append(key, fieldData[key]);
-    }
+    // ลิงก์ Browser Source ของ OBS จะคงที่ถาวร ไม่ต้องมี Query parameters ของการตั้งค่า
+    // เพราะระบบจะซิงค์การตั้งค่าล่าสุดผ่าน Database & WebSocket แบบเรียลไทม์อัตโนมัติ
     widgetUrl = `http://localhost:3000/widgets/${selectedWidget}/index.html?${params.toString()}`;
     previewUrl = `http://localhost:3000/widgets/${selectedWidget}/index.html?user=${encodeURIComponent(status.userId || '')}&preview=1&_k=${previewKey}`;
   }
+
+  const handleCopyUrl = () => {
+    if (!widgetUrl) return;
+    navigator.clipboard.writeText(widgetUrl);
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 2500);
+  };
 
   const renderSchemaForm = () => {
     if (!schema) return <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>กำลังโหลดหน้าจอตั้งค่า...</p>;
@@ -294,8 +373,11 @@ function Dashboard() {
     }
 
     return Object.keys(groups).map(groupName => (
-      <div key={groupName} style={{ marginBottom: '2rem' }}>
-        <h4>{groupName}</h4>
+      <div key={groupName} style={{ marginBottom: '1.75rem', padding: '1.25rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '1.15rem', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.15rem' }}>
+          <span style={{ width: '4px', height: '14px', background: 'var(--accent-color)', borderRadius: '2px', display: 'inline-block' }}></span>
+          <h4 style={{ margin: 0, fontSize: '0.85rem', letterSpacing: '0.08em', color: '#C084FC' }}>{groupName}</h4>
+        </div>
         {groups[groupName].map(field => (
           <div key={field.key} className="input-group">
             <label title={field.key}>{field.label}</label>
@@ -306,18 +388,38 @@ function Dashboard() {
                 onChange={e => handleFieldChange(field.key, field.type === 'number' ? Number(e.target.value) : e.target.value)}
               />
             )}
+            {(field.type === 'dropdown' || field.type === 'select') && (
+              <select
+                value={fieldData[field.key] !== undefined ? fieldData[field.key] : (field.value || '')}
+                onChange={e => handleFieldChange(field.key, e.target.value)}
+              >
+                {field.options && (
+                  Array.isArray(field.options)
+                    ? field.options.map((opt, idx) => {
+                        const val = typeof opt === 'object' && opt !== null ? (opt.value ?? opt.id ?? idx) : opt;
+                        const lbl = typeof opt === 'object' && opt !== null ? (opt.label ?? opt.name ?? val) : opt;
+                        return <option key={val} value={val}>{lbl}</option>;
+                      })
+                    : Object.entries(field.options).map(([optVal, optLabel]) => (
+                        <option key={optVal} value={optVal}>{optLabel}</option>
+                      ))
+                )}
+              </select>
+            )}
             {field.type === 'colorpicker' && (
-              <div className="color-wrapper">
+              <div className="color-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <input
                   type="color"
                   value={fieldData[field.key] || '#000000'}
                   onChange={e => handleFieldChange(field.key, e.target.value)}
                 />
-                <span style={{ fontFamily: 'monospace', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{fieldData[field.key]}</span>
+                <span style={{ fontFamily: 'Consolas, monospace', fontSize: '0.85rem', color: '#E2E8F0', background: 'rgba(0,0,0,0.4)', padding: '0.35rem 0.75rem', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  {fieldData[field.key] || '#000000'}
+                </span>
               </div>
             )}
             {field.type === 'slider' && (
-              <div className="slider-wrapper">
+              <div className="slider-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <input
                   type="range"
                   min={field.min}
@@ -326,19 +428,41 @@ function Dashboard() {
                   value={fieldData[field.key] !== undefined ? fieldData[field.key] : 0}
                   onChange={e => handleFieldChange(field.key, Number(e.target.value))}
                 />
-                <span style={{ fontFamily: 'monospace', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{fieldData[field.key]}</span>
+                <span style={{ fontFamily: 'Consolas, monospace', fontSize: '0.85rem', fontWeight: 600, color: '#A78BFA', minWidth: '40px', textAlign: 'right', background: 'rgba(139, 92, 246, 0.12)', padding: '0.2rem 0.5rem', borderRadius: '0.4rem', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                  {fieldData[field.key] !== undefined ? fieldData[field.key] : 0}
+                </span>
               </div>
             )}
             {field.type === 'checkbox' && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', marginTop: '0.35rem', userSelect: 'none' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', cursor: 'pointer', marginTop: '0.35rem', userSelect: 'none' }}>
+                <div style={{
+                  width: '40px',
+                  height: '22px',
+                  borderRadius: '11px',
+                  background: (fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? 'var(--accent-color)' : 'rgba(255,255,255,0.15)',
+                  position: 'relative',
+                  transition: 'all 200ms ease',
+                  boxShadow: (fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? '0 0 10px var(--accent-glow)' : 'none'
+                }}>
+                  <div style={{
+                    width: '16px',
+                    height: '16px',
+                    borderRadius: '50%',
+                    background: '#FFFFFF',
+                    position: 'absolute',
+                    top: '3px',
+                    left: (fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? '21px' : '3px',
+                    transition: 'all 200ms cubic-bezier(0.32, 0.72, 0, 1)'
+                  }} />
+                </div>
                 <input
                   type="checkbox"
-                  style={{ width: '1.25rem', height: '1.25rem', accentColor: 'var(--accent-color)', cursor: 'pointer' }}
+                  style={{ display: 'none' }}
                   checked={fieldData[field.key] !== undefined ? Boolean(fieldData[field.key]) : Boolean(field.value)}
                   onChange={e => handleFieldChange(field.key, e.target.checked)}
                 />
-                <span style={{ fontSize: '0.9rem', fontWeight: 500, color: (fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? 'var(--accent-color)' : 'var(--text-secondary)' }}>
-                  {(fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? 'เปิดใช้งาน (ON)' : 'ปิดการใช้งาน (OFF)'}
+                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: (fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? '#FFFFFF' : 'var(--text-secondary)' }}>
+                  {(fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? 'เปิดใช้งาน (Enabled)' : 'ปิดใช้งาน (Disabled)'}
                 </span>
               </label>
             )}
@@ -349,6 +473,38 @@ function Dashboard() {
                 value={fieldData[field.key] || ''}
                 onChange={e => handleFieldChange(field.key, e.target.value)}
               />
+            )}
+            {(field.type === 'image-input' || field.type === 'image') && (
+              <input
+                type="text"
+                placeholder="URL รูปภาพ (เช่น https://... หรือเว้นว่างไว้)"
+                value={fieldData[field.key] !== undefined ? fieldData[field.key] : (field.value || '')}
+                onChange={e => handleFieldChange(field.key, e.target.value)}
+              />
+            )}
+            {field.type === 'textarea' && (
+              <textarea
+                rows={3}
+                placeholder="กรอกข้อความ..."
+                value={fieldData[field.key] !== undefined ? fieldData[field.key] : (field.value || '')}
+                onChange={e => handleFieldChange(field.key, e.target.value)}
+              />
+            )}
+            {field.type === 'button' && (
+              <button
+                type="button"
+                className="btn-island"
+                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', width: 'fit-content' }}
+                onClick={() => {
+                  socket.emit('test_event', {
+                    userId: status.userId,
+                    type: 'button_action',
+                    action: field.value || field.key
+                  });
+                }}
+              >
+                <span>{field.label}</span>
+              </button>
             )}
           </div>
         ))}
@@ -369,7 +525,9 @@ function Dashboard() {
               className="btn-island"
               style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)', padding: '0.6rem 1.25rem' }}
             >
-              <span>⚙️ ผู้ดูแลระบบ (Admin)</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <ShieldCheck size={16} /> ผู้ดูแลระบบ (Admin)
+              </span>
             </button>
           )}
           {status.connected && (
@@ -378,7 +536,9 @@ function Dashboard() {
               className="btn-island"
               style={{ background: 'var(--bg-color)', color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.6rem 1rem' }}
             >
-              <span>ออกจากระบบ</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <LogOut size={15} /> ออกจากระบบ
+              </span>
             </button>
           )}
         </div>
@@ -424,10 +584,23 @@ function Dashboard() {
                   <span className="eyebrow">ประวัติล่าสุด (Live Logs)</span>
                   <div className="event-log">
                     {events.map((ev, idx) => (
-                      <div key={idx} className="event-card">
-                        {ev.type === 'follower' ? `🎉 ${ev.data.name} กดติดตาม!` :
-                          ev.type === 'redemption' ? `🎁 ${ev.data.name} แลกของรางวัล ${ev.data.rewardTitle}` :
-                            `⭐ ${ev.data.name} กดซับสไครบ์!`}
+                      <div key={idx} className="event-card" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                        {ev.type === 'follower' ? (
+                          <>
+                            <UserCheck size={14} style={{ color: '#10B981', flexShrink: 0 }} />
+                            <span><strong>{ev.data.name}</strong> กดติดตาม!</span>
+                          </>
+                        ) : ev.type === 'redemption' ? (
+                          <>
+                            <Gift size={14} style={{ color: '#8e90f6', flexShrink: 0 }} />
+                            <span><strong>{ev.data.name}</strong> แลกรางวัล: {ev.data.rewardTitle}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Star size={14} style={{ color: '#F59E0B', flexShrink: 0 }} />
+                            <span><strong>{ev.data.name}</strong> กดซับสไครบ์!</span>
+                          </>
+                        )}
                       </div>
                     ))}
                     {events.length === 0 && <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>รอรับข้อมูล...</span>}
@@ -439,7 +612,7 @@ function Dashboard() {
         </div>
 
         {/* Right Column: Configurator & Roll History */}
-        {status.connected && (
+        {status.connected ? (
           <div className="doppel-shell animate-fade-up" style={{ animationDelay: '200ms' }}>
             <div className="doppel-core">
               <span className="eyebrow">แผงควบคุมอัจฉริยะ</span>
@@ -450,7 +623,10 @@ function Dashboard() {
                   <div
                     key={w.id}
                     className={`widget-card ${selectedWidget === w.id ? 'active' : ''}`}
-                    onClick={() => setSelectedWidget(w.id)}
+                    onClick={() => {
+                      setSelectedWidget(w.id);
+                      setActiveTab('settings');
+                    }}
                   >
                     <h4>{w.name}</h4>
                     <p>ID: {w.id}</p>
@@ -467,11 +643,11 @@ function Dashboard() {
                     <h3 style={{ margin: 0, fontSize: '1.25rem' }}>
                       {widgets.find(w => w.id === selectedWidget)?.name}
                     </h3>
-                    {activeTab === 'settings' && (
+                    {(activeTab === 'settings' || !hasRollHistory) && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         {saveSuccess && (
-                          <span style={{ color: '#10B981', fontSize: '0.85rem', fontWeight: 600 }}>
-                            {saveSuccess}
+                          <span style={{ color: '#10B981', fontSize: '0.85rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <Check size={14} /> {saveSuccess}
                           </span>
                         )}
                         <button
@@ -480,41 +656,53 @@ function Dashboard() {
                           style={{ padding: '0.5rem 1.15rem', fontSize: '0.85rem' }}
                           disabled={isSaving}
                         >
-                          <span>{isSaving ? 'กำลังบันทึก...' : '💾 บันทึกการตั้งค่า'}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                            {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                            {isSaving ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า'}
+                          </span>
                         </button>
                       </div>
                     )}
                   </div>
 
-                  {/* 📑 Tab Navigation: Settings vs Roll History */}
-                  <div className="widget-tab-nav">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('settings')}
-                      className={`widget-tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
-                    >
-                      <span>⚙️ ตั้งค่า Widget (Settings)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('history')}
-                      className={`widget-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-                    >
-                      <span>📜 ประวัติการสุ่ม (Roll History)</span>
-                      {rollHistory.length > 0 && (
-                        <span className="tab-badge">{rollHistory.length}</span>
-                      )}
-                    </button>
-                  </div>
+                  {/* Tab Navigation: Settings vs Roll History */}
+                  {hasRollHistory && (
+                    <div className="widget-tab-nav">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('settings')}
+                        className={`widget-tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                          <Sliders size={16} /> ตั้งค่า Widget (Settings)
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('history')}
+                        className={`widget-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                          {selectedWidget === 'loyalty-card' ? <CalendarCheck size={16} /> : <History size={16} />}
+                          {selectedWidget === 'loyalty-card' ? 'ประวัติการเช็คอิน (Check-in History)' : 'ประวัติการสุ่ม (Roll History)'}
+                        </span>
+                        {rollHistory.length > 0 && (
+                          <span className="tab-badge">{rollHistory.length}</span>
+                        )}
+                      </button>
+                    </div>
+                  )}
 
                   {/* TAB 1: SETTINGS & LIVE PREVIEW */}
-                  {activeTab === 'settings' && (
+                  {(!hasRollHistory || activeTab === 'settings') && (
                     <>
-                      {/* 📺 Live Preview Canvas Box */}
+                      {/* Live Preview Canvas Box */}
                       <div className="live-preview-box">
                         <div className="live-preview-header">
                           <div className="live-preview-title">
-                            <span>📺 ตัวอย่างผลลัพธ์สด (Live Preview)</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                              <Eye size={16} /> ตัวอย่างผลลัพธ์สด (Live Preview)
+                            </span>
                             <span className="live-preview-badge">Real-Time Sync</span>
                           </div>
 
@@ -542,7 +730,9 @@ function Dashboard() {
                                   className="btn-preview-action accent"
                                   title="ทดสอบยิง Shoutout ช่องนี้ทันที"
                                 >
-                                  <span>📢 ยิง Shoutout</span>
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                    <Megaphone size={14} /> ยิง Shoutout
+                                  </span>
                                 </button>
                               </div>
                             ) : (
@@ -552,7 +742,9 @@ function Dashboard() {
                                 className="btn-preview-action accent"
                                 title="ทดสอบแสดงผล Roulette ทันที"
                               >
-                                <span>⚡ ทดสอบสุ่ม (Trigger)</span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                  <Play size={14} /> ทดสอบสุ่ม (Trigger)
+                                </span>
                               </button>
                             )}
 
@@ -562,7 +754,9 @@ function Dashboard() {
                               className="btn-preview-action"
                               title="รีเฟรชหน้าต่าง Preview"
                             >
-                              <span>🔄 รีเฟรช</span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <RotateCw size={14} /> รีเฟรช
+                              </span>
                             </button>
 
                             <button
@@ -571,7 +765,9 @@ function Dashboard() {
                               className="btn-preview-action"
                               title="เปิดดูแบบขยายเต็มจอ"
                             >
-                              <span>⛶ ขยายเต็มจอ</span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <Maximize2 size={14} /> ขยายเต็มจอ
+                              </span>
                             </button>
 
                             <button
@@ -580,7 +776,10 @@ function Dashboard() {
                               className="btn-preview-action"
                               title={isPreviewCollapsed ? "แสดงตัวอย่าง" : "ย่อตัวอย่าง"}
                             >
-                              <span>{isPreviewCollapsed ? '👁️ แสดง' : '▲ ย่อ'}</span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                {isPreviewCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                                {isPreviewCollapsed ? 'แสดง' : 'ย่อ'}
+                              </span>
                             </button>
                           </div>
                         </div>
@@ -602,26 +801,116 @@ function Dashboard() {
                         {renderSchemaForm()}
                       </div>
 
-                      {/* OBS URL Box */}
-                      <div className="url-box">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
-                          ลิงก์สำหรับนำไปใส่ใน OBS (Browser Source)
-                        </label>
-                        <textarea readOnly value={widgetUrl} rows={4} onClick={e => e.target.select()} />
+                      {/* OBS URL Box (Static & Auto-Syncing) */}
+                      <div className="url-box" style={{
+                        marginTop: '1.5rem',
+                        padding: '1.25rem',
+                        background: 'var(--card-bg, rgba(255, 255, 255, 0.03))',
+                        borderRadius: '12px',
+                        border: '1px solid var(--shell-border, rgba(255, 255, 255, 0.1))'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Link size={16} style={{ color: 'var(--text-secondary)' }} />
+                            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                              ลิงก์ Browser Source สำหรับ OBS
+                            </span>
+                            <span style={{
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: '10px',
+                              background: 'rgba(16, 185, 129, 0.15)',
+                              color: '#10B981',
+                              border: '1px solid rgba(16, 185, 129, 0.3)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              <Zap size={12} /> ซิงค์ค่าอัตโนมัติ Real-Time
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={handleCopyUrl}
+                            className="btn-island"
+                            style={{
+                              padding: '0.4rem 0.85rem',
+                              fontSize: '0.8rem',
+                              background: copiedUrl ? '#10B981' : 'var(--accent-color, #8e90f6)',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              fontWeight: 600,
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              {copiedUrl ? <Check size={14} /> : <Copy size={14} />}
+                              {copiedUrl ? 'คัดลอกสำเร็จแล้ว!' : 'คัดลอกลิงก์ OBS'}
+                            </span>
+                          </button>
+                        </div>
+
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            type="text"
+                            readOnly
+                            value={widgetUrl}
+                            onClick={e => e.target.select()}
+                            style={{
+                              width: '100%',
+                              padding: '0.65rem 0.85rem',
+                              background: 'rgba(0, 0, 0, 0.35)',
+                              border: '1px solid rgba(255, 255, 255, 0.12)',
+                              borderRadius: '8px',
+                              color: 'var(--text-primary)',
+                              fontSize: '0.85rem',
+                              fontFamily: 'monospace',
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        </div>
+
+                        <div style={{
+                          marginTop: '0.65rem',
+                          fontSize: '0.8rem',
+                          color: 'var(--text-secondary)',
+                          lineHeight: 1.55,
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '0.45rem',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          padding: '0.5rem 0.75rem',
+                          borderRadius: '8px'
+                        }}>
+                          <Info size={16} style={{ color: '#F59E0B', flexShrink: 0, marginTop: '2px' }} />
+                          <span>
+                            <strong>ใส่เพียงครั้งเดียวจบ:</strong> ลิงก์นี้จะคงที่ถาวร เมื่อคุณเปลี่ยนสี, ปรับฟอนต์, สลับไอคอน หรือแก้ไขข้อความใดๆ ในหน้านี้ ระบบจะบันทึกและส่งข้อมูลไปอัปเดตหน้าจอ OBS แบบ <strong>Real-time ทันที</strong> โดยไม่ต้องคัดลอกลิงก์ใหม่ และไม่ต้องกด Refresh ใน OBS ครับ
+                          </span>
+                        </div>
                       </div>
                     </>
                   )}
 
                   {/* TAB 2: ROLL HISTORY LOG */}
-                  {activeTab === 'history' && (
+                  {hasRollHistory && activeTab === 'history' && (
                     <div className="roll-history-container">
                       <div className="roll-history-header">
                         <div>
-                          <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>
-                            📜 ประวัติการแลกและการสุ่มผลลัพธ์
+                          <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                            {selectedWidget === 'loyalty-card' ? <CalendarCheck size={18} style={{ color: '#8e90f6' }} /> : <History size={18} style={{ color: '#8e90f6' }} />}
+                            {selectedWidget === 'loyalty-card' ? 'ประวัติการเช็คอินสะสมแต้ม' : 'ประวัติการแลกและการสุ่มผลลัพธ์'}
                           </h4>
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                            บันทึกผลลัพธ์แบบเรียลไทม์ (ทั้งหมด {rollHistory.length} รายการ)
+                            {selectedWidget === 'loyalty-card'
+                              ? `บันทึกการเช็คอินแบบเรียลไทม์ (ทั้งหมด ${rollHistory.length} รายการ)`
+                              : `บันทึกผลลัพธ์แบบเรียลไทม์ (ทั้งหมด ${rollHistory.length} รายการ)`}
                           </span>
                         </div>
 
@@ -632,56 +921,172 @@ function Dashboard() {
                             className="btn-preview-action"
                             style={{ color: '#EF4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
                           >
-                            <span>🗑️ ล้างประวัติทั้งหมด</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <Trash2 size={13} /> ล้างประวัติทั้งหมด
+                            </span>
                           </button>
                         )}
                       </div>
 
+                      {/* สรุปยอดเช็คอินสะสมของผู้ใช้แต่ละคน (Leaderboard / Summary Cards) สำหรับ Loyalty Card */}
+                      {selectedWidget === 'loyalty-card' && loyaltyUserSummary.length > 0 && (
+                        <div style={{
+                          marginBottom: '1.25rem',
+                          padding: '1rem',
+                          background: 'var(--card-bg, rgba(255, 255, 255, 0.03))',
+                          borderRadius: '12px',
+                          border: '1px solid var(--shell-border, rgba(255, 255, 255, 0.08))'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                              <Users size={16} style={{ color: '#8e90f6' }} /> ยอดเช็คอินสะสมรวม ({loyaltyUserSummary.length} คน)
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              เรียงตามจำนวนครั้งที่เช็คอินมากที่สุด
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '0.75rem' }}>
+                            {loyaltyUserSummary.map((u) => (
+                              <div
+                                key={u.username}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.65rem',
+                                  padding: '0.6rem 0.75rem',
+                                  background: 'rgba(255, 255, 255, 0.03)',
+                                  borderRadius: '10px',
+                                  border: '1px solid rgba(255, 255, 255, 0.06)'
+                                }}
+                              >
+                                <img
+                                  src={u.avatar || `/api/twitch/avatar/${encodeURIComponent(u.username)}`}
+                                  alt={u.username}
+                                  style={{
+                                    width: '38px',
+                                    height: '38px',
+                                    borderRadius: '50%',
+                                    objectFit: 'cover',
+                                    border: '2px solid rgba(142, 144, 246, 0.5)',
+                                    flexShrink: 0
+                                  }}
+                                  onError={(e) => {
+                                    e.target.src = 'https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7ba-40d2-965a-52834b6f79e8-profile_image-300x300.png';
+                                  }}
+                                />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{
+                                    fontSize: '0.85rem',
+                                    fontWeight: 600,
+                                    color: 'var(--text-primary)',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
+                                  }}>
+                                    @{u.username}
+                                  </div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                    เช็คอินไปแล้ว: <strong style={{ color: '#8e90f6', fontSize: '0.9rem' }}>{u.count}</strong> ครั้ง
+                                  </div>
+                                </div>
+                                <span style={{
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  background: 'rgba(142, 144, 246, 0.15)',
+                                  color: '#8e90f6',
+                                  padding: '3px 8px',
+                                  borderRadius: '12px',
+                                  border: '1px solid rgba(142, 144, 246, 0.3)',
+                                  whiteSpace: 'nowrap',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}>
+                                  {u.count} <Ticket size={12} />
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {rollHistory.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
-                          <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🎲</div>
-                          <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>ยังไม่มีประวัติการสุ่ม</h4>
+                          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem', opacity: 0.35 }}>
+                            {selectedWidget === 'loyalty-card' ? <Ticket size={44} /> : <Dices size={44} />}
+                          </div>
+                          <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                            {selectedWidget === 'loyalty-card' ? 'ยังไม่มีประวัติการเช็คอิน' : 'ยังไม่มีประวัติการสุ่ม'}
+                          </h4>
                           <p style={{ fontSize: '0.875rem', maxWidth: '400px', margin: '0 auto', lineHeight: 1.6 }}>
-                            เมื่อมีผู้ชมแลกแต้มในช่อง Twitch หรือคุณกดปุ่ม "จำลองการแลกแต้ม" รายชื่อและผลลัพธ์ที่สุ่มได้จะถูกบันทึกและแสดงที่นี่แบบเรียลไทม์ทันที
+                            {selectedWidget === 'loyalty-card'
+                              ? 'เมื่อมีผู้ชมแลกแต้มในช่อง Twitch หรือคุณกดปุ่ม "จำลองการแลกแต้ม" รายชื่อและจำนวนครั้งที่เช็คอินจะถูกบันทึกและแสดงที่นี่แบบเรียลไทม์ทันที'
+                              : 'เมื่อมีผู้ชมแลกแต้มในช่อง Twitch หรือคุณกดปุ่ม "จำลองการแลกแต้ม" รายชื่อและผลลัพธ์ที่สุ่มได้จะถูกบันทึกและแสดงที่นี่แบบเรียลไทม์ทันที'}
                           </p>
                         </div>
                       ) : (
                         <div className="roll-history-list">
-                          {rollHistory.map((item) => (
-                            <div key={item.id} className="roll-history-card">
-                              <div className="roll-card-left">
-                                {item.killerImg ? (
-                                  <img 
-                                    src={item.killerImg} 
-                                    alt={item.killer || 'Killer'} 
-                                    className="roll-killer-thumb"
-                                    onError={(e) => { e.target.style.display = 'none'; }}
-                                  />
-                                ) : (
-                                  <div className="roll-killer-placeholder">☠️</div>
-                                )}
-                                <div>
-                                  <div className="roll-info-name">
-                                    {item.killer || item.result || 'ไม่ทราบผลลัพธ์'}
-                                  </div>
-                                  <div className="roll-info-meta">
-                                    <span>
-                                      👤 ผู้แลก: <strong className="roll-info-user">@{item.username || 'นิรนาม'}</strong>
-                                    </span>
-                                    {item.rewardTitle && (
-                                      <span className="roll-info-reward">
-                                        🎁 {item.rewardTitle}
+                          {rollHistory.map((item) => {
+                            const isLoyalty = selectedWidget === 'loyalty-card' || item.count !== undefined;
+                            return (
+                              <div key={item.id} className="roll-history-card">
+                                <div className="roll-card-left">
+                                  {isLoyalty ? (
+                                    <img 
+                                      src={item.avatar || `/api/twitch/avatar/${encodeURIComponent(item.username || '')}`} 
+                                      alt={item.username || 'User'} 
+                                      className="roll-killer-thumb"
+                                      style={{ borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(142, 144, 246, 0.4)' }}
+                                      onError={(e) => { 
+                                        e.target.src = 'https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7ba-40d2-965a-52834b6f79e8-profile_image-300x300.png';
+                                      }}
+                                    />
+                                  ) : item.killerImg ? (
+                                    <img 
+                                      src={item.killerImg} 
+                                      alt={item.killer || 'Killer'} 
+                                      className="roll-killer-thumb"
+                                      onError={(e) => { e.target.style.display = 'none'; }}
+                                    />
+                                  ) : (
+                                    <div className="roll-killer-placeholder">
+                                      <Skull size={20} style={{ opacity: 0.6 }} />
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div className="roll-info-name">
+                                      {isLoyalty ? (
+                                        item.result || `เช็คอินครั้งที่ ${item.count || 1}`
+                                      ) : (
+                                        item.killer || item.result || 'ไม่ทราบผลลัพธ์'
+                                      )}
+                                    </div>
+                                    <div className="roll-info-meta">
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                        <User size={13} style={{ color: 'var(--text-secondary)' }} />
+                                        ผู้แลก: <strong className="roll-info-user">@{item.username || 'นิรนาม'}</strong>
                                       </span>
-                                    )}
+                                      {isLoyalty && item.count !== undefined && (
+                                        <span className="roll-info-reward" style={{ background: 'rgba(142, 144, 246, 0.15)', color: '#8e90f6', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                          <Award size={13} /> เช็คอินไปแล้ว {item.count} ครั้ง
+                                        </span>
+                                      )}
+                                      {item.rewardTitle && (
+                                        <span className="roll-info-reward" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                          <Gift size={13} /> {item.rewardTitle}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
 
-                              <div className="roll-time">
-                                🕒 {formatTime(item.timestamp)}
+                                <div className="roll-time" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <Clock size={13} style={{ color: 'var(--text-secondary)' }} /> {formatTime(item.timestamp)}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -691,17 +1096,85 @@ function Dashboard() {
               )}
             </div>
           </div>
+        ) : (
+          <div className="doppel-shell animate-fade-up" style={{ animationDelay: '150ms' }}>
+            <div className="doppel-core" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '4rem 2rem' }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '1.25rem',
+                background: 'rgba(139, 92, 246, 0.15)',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '1.5rem',
+                boxShadow: '0 0 30px -5px var(--accent-glow)'
+              }}>
+                <Zap size={32} color="#A78BFA" />
+              </div>
+              <h2 style={{
+                fontSize: '1.85rem',
+                fontWeight: 800,
+                marginBottom: '0.75rem',
+                color: '#FFFFFF',
+                letterSpacing: '-0.03em'
+              }}>
+                Solocast Overlay Studio
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', maxWidth: '480px', lineHeight: 1.6, marginBottom: '2rem', fontSize: '0.95rem' }}>
+                เชื่อมต่อบัญชี Twitch ของคุณเพื่อเริ่มปรับแต่ง Widget แบบเรียลไทม์ ซิงค์การตั้งค่าเข้ากับ OBS ทันทีโดยไม่ต้องคอยเปลี่ยน URL
+              </p>
+              <a href="http://localhost:3000/auth/twitch" className="btn-island accent" style={{ padding: '0.85rem 1.75rem', fontSize: '1rem' }}>
+                <span>เชื่อมต่อบัญชี Twitch ตอนนี้</span>
+                <div className="btn-icon-wrapper">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+                </div>
+              </a>
+
+              {/* Feature Highlights Bento Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', width: '100%', maxWidth: '700px', marginTop: '3.5rem', textAlign: 'left' }}>
+                <div style={{ padding: '1.25rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '1rem', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <Zap size={16} color="#F59E0B" />
+                    <h5 style={{ color: '#F8FAFC', margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Real-Time OBS Sync</h5>
+                  </div>
+                  <p style={{ color: '#94A3B8', margin: 0, fontSize: '0.8rem', lineHeight: 1.5 }}>
+                    เปลี่ยนสี ข้อความ รูปแบบในแดชบอร์ด อัปเดตสดใน OBS Browser Source ทันที
+                  </p>
+                </div>
+                <div style={{ padding: '1.25rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '1rem', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <Sliders size={16} color="#8B5CF6" />
+                    <h5 style={{ color: '#F8FAFC', margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Exclusive Widgets</h5>
+                  </div>
+                  <p style={{ color: '#94A3B8', margin: 0, fontSize: '0.8rem', lineHeight: 1.5 }}>
+                    Loyalty Card สมุดเช็กอิน, สุ่ม Killer Roulette, และระบบ Twitch Shoutout
+                  </p>
+                </div>
+                <div style={{ padding: '1.25rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '1rem', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <Users size={16} color="#10B981" />
+                    <h5 style={{ color: '#F8FAFC', margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Twitch EventSub</h5>
+                  </div>
+                  <p style={{ color: '#94A3B8', margin: 0, fontSize: '0.8rem', lineHeight: 1.5 }}>
+                    ดักจับ Follow, Subscribe, Channel Points แลกของรางวัลโดยตรง ไม่มีดีเลย์
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* ⛶ Fullscreen Live Preview Modal */}
+      {/* Fullscreen Live Preview Modal */}
       {showFullscreenPreview && selectedWidget && (
         <div className="modal-overlay" onClick={() => setShowFullscreenPreview(false)}>
           <div className="modal-card fullscreen-preview-card" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <h3 style={{ margin: 0, fontSize: '1.25rem' }}>
-                  📺 Live Preview: {widgets.find(w => w.id === selectedWidget)?.name}
+                <h3 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <Eye size={18} /> Live Preview: {widgets.find(w => w.id === selectedWidget)?.name}
                 </h3>
                 <span className="live-preview-badge">Real-Time Sync</span>
               </div>
@@ -713,21 +1186,27 @@ function Dashboard() {
                   onClick={() => setBgMode('checker')}
                   className={`btn-preview-action ${bgMode === 'checker' ? 'accent' : ''}`}
                 >
-                  🏁 ตารางโปร่งใส
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Grid size={13} /> โปร่งใส
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setBgMode('dark-solid')}
                   className={`btn-preview-action ${bgMode === 'dark-solid' ? 'accent' : ''}`}
                 >
-                  ⬛ พื้นหลังสีดำ
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Square size={13} style={{ fill: '#000' }} /> พื้นหลังสีดำ
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setBgMode('green-screen')}
                   className={`btn-preview-action ${bgMode === 'green-screen' ? 'accent' : ''}`}
                 >
-                  🟩 กรีนสกรีน
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Square size={13} style={{ color: '#10B981', fill: '#10B981' }} /> กรีนสกรีน
+                  </span>
                 </button>
               </div>
 
@@ -738,14 +1217,18 @@ function Dashboard() {
                   onClick={handleTriggerPreview}
                   className="btn-preview-action accent"
                 >
-                  <span>⚡ ทดสอบสุ่ม (Trigger)</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Play size={13} /> ทดสอบสุ่ม (Trigger)
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={handleReloadPreview}
                   className="btn-preview-action"
                 >
-                  <span>🔄 รีเฟรช</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <RotateCw size={13} /> รีเฟรช
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -753,7 +1236,9 @@ function Dashboard() {
                   className="btn-island"
                   style={{ padding: '0.45rem 1rem', fontSize: '0.85rem', background: '#EF4444', color: '#fff', border: 'none' }}
                 >
-                  <span>✕ ปิด</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <X size={14} /> ปิด
+                  </span>
                 </button>
               </div>
             </div>

@@ -1,5 +1,51 @@
 {
   "random-killer": {
-    "148596257": []
+    "148596257": [
+      {
+        "id": "roll_1788829135612_2f3od",
+        "timestamp": 1788829135610,
+        "username": "LegionXIZ",
+        "killer": "The Trickster",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K23_TheTrickster_Portrait.png?e4204c",
+        "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
+      },
+      {
+        "id": "roll_1788829109461_2tob8",
+        "timestamp": 1788829109458,
+        "username": "LegionXIZ",
+        "killer": "The Judgment",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K44_TheJudgment_Portrait.png?a744a3",
+        "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
+      },
+      {
+        "id": "roll_1788829090540_7xfb2",
+        "timestamp": 1788829090537,
+        "username": "LegionXIZ",
+        "killer": "The Oni",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K18_TheOni_Portrait.png?22e37f",
+        "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
+      },
+      {
+        "id": "roll_1788828791084_69hh5",
+        "timestamp": 1788828791081,
+        "username": "LegionXIZ",
+        "killer": "The Skull Merchant",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K31_TheSkullMerchant_Portrait.png?91edf3",
+        "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
+      }
+    ]
+  },
+  "loyalty-card": {
+    "148596257": [
+      {
+        "id": "roll_1788830622900_8m9js",
+        "timestamp": 1788830622898,
+        "username": "LegionXIZ",
+        "count": 10,
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png",
+        "rewardTitle": "จุ่มๆๆๆ",
+        "result": "เช็คอินครั้งที่ 10"
+      }
+    ]
   }
 }

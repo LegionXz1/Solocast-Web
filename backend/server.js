@@ -497,8 +497,63 @@ app.get('/api/widgets/:id/history', (req, res) => {
   try {
     const widgetId = req.params.id;
     const user = req.query.user || req.query.channel || 'default';
-    const list = rollHistoryStore[widgetId]?.[user] || [];
+    let list = rollHistoryStore[widgetId]?.[user] || [];
+
+    // สำหรับ loyalty-card: หากประวัติยังว่างอยู่ ให้สร้างรายการจากยอดเช็คอินที่บันทึกไว้ใน widgetStore
+    if (widgetId === 'loyalty-card' && list.length === 0 && widgetStore['loyalty-card']?.[user]) {
+      const storeData = widgetStore['loyalty-card'][user];
+      const items = [];
+      for (const [k, v] of Object.entries(storeData)) {
+        if (k.startsWith('ci_')) {
+          const parts = k.split('_');
+          const cleanUser = parts.slice(2).join('_');
+          const count = parseInt(v) || 1;
+          items.push({
+            id: 'store_' + k,
+            username: cleanUser,
+            count: count,
+            avatar: `/api/twitch/avatar/${encodeURIComponent(cleanUser)}`,
+            rewardTitle: 'จุ่มๆๆๆ',
+            result: `เช็คอินครั้งที่ ${count}`,
+            timestamp: Date.now()
+          });
+        }
+      }
+      if (items.length > 0) {
+        if (!rollHistoryStore[widgetId]) rollHistoryStore[widgetId] = {};
+        rollHistoryStore[widgetId][user] = items;
+        saveRollHistory(rollHistoryStore);
+        list = items;
+      }
+    }
+
     res.json(list);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Endpoint ดึงสรุปยอดเช็คอินของผู้ใช้แต่ละคน (สำหรับ loyalty-card)
+app.get('/api/widgets/:id/checkin-summary', (req, res) => {
+  try {
+    const widgetId = req.params.id;
+    const user = req.query.user || req.query.channel || 'default';
+    const storeObj = widgetStore[widgetId]?.[user] || {};
+    const summary = [];
+    for (const [k, v] of Object.entries(storeObj)) {
+      if (k.startsWith('ci_')) {
+        const parts = k.split('_');
+        const username = parts.slice(2).join('_');
+        const count = parseInt(v) || 0;
+        summary.push({
+          username,
+          count,
+          avatar: `/api/twitch/avatar/${encodeURIComponent(username)}`
+        });
+      }
+    }
+    summary.sort((a, b) => b.count - a.count);
+    res.json(summary);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -567,6 +622,80 @@ app.delete('/api/widgets/:id/history', (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// File-based Widget Key-Value Store (จำลอง kvstore เช่น ข้อมูลนับแต้มเช็คอินของ Loyalty Card)
+const WIDGET_STORE_FILE = path.join(__dirname, 'data', 'widget_store.json');
+
+function loadWidgetStore() {
+  try {
+    if (fs.existsSync(WIDGET_STORE_FILE)) {
+      return JSON.parse(fs.readFileSync(WIDGET_STORE_FILE, 'utf8'));
+    }
+  } catch (e) { }
+  return {};
+}
+
+function saveWidgetStore(data) {
+  try {
+    const dir = path.dirname(WIDGET_STORE_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(WIDGET_STORE_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) { }
+}
+
+const widgetStore = loadWidgetStore();
+
+// 1. ดึงค่า Key-Value
+app.get('/api/widgets/:id/store/:key', (req, res) => {
+  try {
+    const widgetId = req.params.id;
+    const key = req.params.key;
+    const user = req.query.user || req.query.channel || 'default';
+    const val = widgetStore[widgetId]?.[user]?.[key];
+    if (val === undefined || val === null) {
+      return res.status(404).json({ error: 'Key not found' });
+    }
+    res.json({ key, value: val });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// 2. บันทึกค่า Key-Value
+app.post('/api/widgets/:id/store/:key', (req, res) => {
+  try {
+    const widgetId = req.params.id;
+    const key = req.params.key;
+    const { user, value } = req.body;
+    const userKey = user || 'default';
+
+    if (!widgetStore[widgetId]) widgetStore[widgetId] = {};
+    if (!widgetStore[widgetId][userKey]) widgetStore[widgetId][userKey] = {};
+
+    widgetStore[widgetId][userKey][key] = String(value !== undefined ? value : '');
+    saveWidgetStore(widgetStore);
+
+    res.json({ success: true, key, value: widgetStore[widgetId][userKey][key] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// 3. ล้างค่า Store ของ Widget
+app.delete('/api/widgets/:id/store', (req, res) => {
+  try {
+    const widgetId = req.params.id;
+    const user = req.query.user || req.query.channel || 'default';
+    if (widgetStore[widgetId] && widgetStore[widgetId][user]) {
+      delete widgetStore[widgetId][user];
+      saveWidgetStore(widgetStore);
+    }
+    res.json({ success: true, message: `Store cleared for widget ${widgetId}` });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 
 // จำลองการยิง Shoutout สำหรับทดสอบ Widget
 app.post('/api/widgets/twitch-shoutout/simulate', (req, res) => {
@@ -760,6 +889,49 @@ app.post('/api/chat/send', async (req, res) => {
   }
 });
 
+// Cache สำหรับเก็บรูป Avatar ผู้ใช้ Twitch เพื่อความรวดเร็ว
+const avatarCache = new Map();
+
+async function getTwitchUserAvatar(userIdOrName) {
+  if (!userIdOrName) return '';
+  const key = String(userIdOrName).trim().toLowerCase().replace(/^@/, '');
+  if (avatarCache.has(key)) return avatarCache.get(key);
+
+  if (!apiClient) return '';
+  try {
+    let user = null;
+    if (/^\d+$/.test(key)) {
+      user = await apiClient.users.getUserById(key);
+    } else {
+      user = await apiClient.users.getUserByName(key);
+    }
+    if (user && user.profilePictureUrl) {
+      avatarCache.set(key, user.profilePictureUrl);
+      if (user.name) avatarCache.set(user.name.toLowerCase(), user.profilePictureUrl);
+      if (user.displayName) avatarCache.set(user.displayName.toLowerCase(), user.profilePictureUrl);
+      return user.profilePictureUrl;
+    }
+  } catch (err) {
+    console.warn(`[Avatar] Failed to fetch avatar for ${key}:`, err?.message || err);
+  }
+  return '';
+}
+
+// Endpoint เสิร์ฟ Avatar ของผู้ใช้ Twitch (Redirect ไปยัง Twitch CDN URL โดยตรง)
+app.get('/api/twitch/avatar/:username', async (req, res) => {
+  try {
+    const { username } = req.params;
+    const cleanUser = (username || '').trim().toLowerCase().replace(/^@/, '');
+    const avatar = await getTwitchUserAvatar(cleanUser);
+    if (avatar) {
+      return res.redirect(avatar);
+    }
+    res.redirect('https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7ba-40d2-965a-52834b6f79e8-profile_image-300x300.png');
+  } catch (e) {
+    res.redirect('https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7ba-40d2-965a-52834b6f79e8-profile_image-300x300.png');
+  }
+});
+
 function initEventSubListener() {
   if (!eventSubListener && apiClient) {
     eventSubListener = new EventSubWsListener({ apiClient });
@@ -799,14 +971,33 @@ function startEventSub(userId) {
     io.emit('onEventReceived', ev);
   });
 
-  el.onChannelRedemptionAdd(userId, (e) => {
-    console.log(`[EventSub] 🎁 Redemption received for user ${userId} by ${e.userName}: "${e.rewardTitle}"`);
+  el.onChannelRedemptionAdd(userId, async (e) => {
+    let avatar = '';
+    try {
+      const userObj = await e.getUser();
+      avatar = userObj?.profilePictureUrl || '';
+      if (avatar && e.userName) {
+        avatarCache.set(e.userName.toLowerCase(), avatar);
+      }
+    } catch (err) {}
+
+    if (!avatar && e.userName) {
+      avatar = await getTwitchUserAvatar(e.userName);
+    }
+
+    console.log(`[EventSub] 🎁 Redemption received for user ${userId} by ${e.userName}: "${e.rewardTitle}" (avatar: ${avatar ? 'found' : 'none'})`);
     const ev = {
       type: 'redemption',
       userId,
       isTest: false,
       data: {
-        name: e.userName,
+        name: e.userDisplayName || e.userName,
+        userName: e.userName,
+        userDisplayName: e.userDisplayName,
+        userId: e.userId,
+        avatar: avatar,
+        profileImage: avatar,
+        profileImageUrl: avatar,
         rewardTitle: e.rewardTitle,
         input: e.input,
         isTest: false

@@ -2,7 +2,7 @@
   "headerText": {
     "type": "text",
     "label": "ข้อความหัวเรื่อง (Header Title)",
-    "value": "📢 GO CHECK OUT",
+    "value": "GO CHECK OUT",
     "group": "General"
   },
   "subHeaderText": {

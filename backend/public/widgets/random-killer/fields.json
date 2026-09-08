@@ -14,7 +14,7 @@
   "chatTemplate": {
     "type": "text",
     "label": "Twitch Chat Message Template",
-    "value": "☠ {username} rolled → {killer} ☠",
+    "value": "[Roll] {username} rolled -> {killer}",
     "group": "Twitch & Bot Settings"
   },
   "headerText": {

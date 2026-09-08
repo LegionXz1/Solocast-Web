@@ -100,6 +100,79 @@ window.recordRollHistory = async function(item) {
   }
 };
 
+// จำลอง StreamElements Store API (SE_API.store) เพื่อรองรับ Widget ที่มีการนับแต้ม (เช่น Loyalty Card)
+window.SE_API = window.SE_API || {};
+window.SE_API.store = {
+  get: function(key) {
+    return new Promise((resolve, reject) => {
+      const u = targetUser || window.SolocastTargetUser || getUrlParams().user || getUrlParams().channel || 'default';
+      const userParam = `?user=${encodeURIComponent(u)}`;
+      const localKey = `se_store_${currentWidgetId}_${u}_${key}`;
+
+      let cachedVal = null;
+      try {
+        cachedVal = localStorage.getItem(localKey);
+      } catch (e) {}
+
+      fetch(`/api/widgets/${currentWidgetId}/store/${encodeURIComponent(key)}${userParam}`)
+        .then(res => {
+          if (res.ok) {
+            return res.json();
+          }
+          if (res.status === 404) {
+            // ไม่พบ Key บนเซิร์ฟเวอร์
+            if (cachedVal !== null) {
+              return { value: cachedVal };
+            }
+            throw new Error('Key not found');
+          }
+          throw new Error('Store request failed');
+        })
+        .then(data => {
+          console.log(`[Solocast Adapter] 📦 SE_API.store.get "${key}":`, data.value);
+          try {
+            localStorage.setItem(localKey, String(data.value));
+          } catch (e) {}
+          resolve({ value: data.value });
+        })
+        .catch(err => {
+          if (cachedVal !== null) {
+            console.log(`[Solocast Adapter] 📦 SE_API.store.get (cached) "${key}":`, cachedVal);
+            resolve({ value: cachedVal });
+          } else {
+            console.log(`[Solocast Adapter] ℹ️ SE_API.store.get "${key}": not found (initial state)`);
+            reject(err);
+          }
+        });
+    });
+  },
+  set: function(key, payload) {
+    return new Promise((resolve) => {
+      const val = (payload && payload.value !== undefined) ? payload.value : payload;
+      const u = targetUser || window.SolocastTargetUser || getUrlParams().user || getUrlParams().channel || 'default';
+      const localKey = `se_store_${currentWidgetId}_${u}_${key}`;
+
+      console.log(`[Solocast Adapter] 💾 SE_API.store.set "${key}":`, val);
+      try {
+        localStorage.setItem(localKey, String(val));
+      } catch (e) {}
+
+      fetch(`/api/widgets/${currentWidgetId}/store/${encodeURIComponent(key)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user: u,
+          value: val
+        })
+      })
+      .then(res => res.json())
+      .then(() => resolve({ success: true }))
+      .catch(() => resolve({ success: true }));
+    });
+  }
+};
+
+
 // เก็บ Fields ปัจจุบัน
 let activeFields = { ...getUrlParams() };
 
@@ -138,7 +211,8 @@ async function syncSavedSettings() {
     const res = await fetch(`/api/widgets/${currentWidgetId}/settings${userParam}`);
     if (res.ok) {
       const saved = await res.json();
-      activeFields = { ...saved, ...getUrlParams() };
+      // การตั้งค่าจากฐานข้อมูลเซิร์ฟเวอร์จะมีความสำคัญกว่า URL Query Params แบบเดิม
+      activeFields = { ...getUrlParams(), ...saved };
       dispatchWidgetLoad(activeFields);
       console.log('[Solocast Adapter] Synchronized saved settings from server:', activeFields);
     }
@@ -166,7 +240,8 @@ socket.on('widget_settings_updated', (payload) => {
   if (payload.userId && targetUser && payload.userId !== targetUser) return;
 
   console.log('[Solocast Adapter] ⚡ Live settings update received from Dashboard:', payload.settings);
-  activeFields = { ...activeFields, ...payload.settings, ...getUrlParams() };
+  // อัปเดตการตั้งค่าแบบ Real-time เข้าสู่ Widget ทันที ไม่ต้องเปลี่ยน URL หรือรีเฟรชหน้า
+  activeFields = { ...activeFields, ...payload.settings };
   dispatchWidgetLoad(activeFields);
 });
 
@@ -211,6 +286,7 @@ socket.on('onEventReceived', (event) => {
   } else if (event.type === 'redemption') {
     const rTitle = event.data.rewardTitle || event.data.title || event.data.redemption || '';
     const uName = event.data.name || event.data.user || event.data.username || 'User';
+    const av = event.data.avatar || event.data.profileImage || event.data.profileImageUrl || `/api/twitch/avatar/${encodeURIComponent(uName)}`;
 
     seEventDetail = {
       listener: 'redemption-latest',
@@ -221,12 +297,26 @@ socket.on('onEventReceived', (event) => {
         title: rTitle,
         name: uName,
         username: uName,
-        displayName: uName,
+        displayName: event.data.displayName || uName,
+        avatar: av,
+        profileImage: av,
+        profileImageUrl: av,
         data: {
           name: uName,
           rewardTitle: rTitle,
           redemption: rTitle,
-          title: rTitle
+          title: rTitle,
+          avatar: av,
+          profileImage: av,
+          profileImageUrl: av
+        },
+        user: {
+          name: uName,
+          avatar: av
+        },
+        author: {
+          name: uName,
+          avatar: av
         },
         reward: {
           title: rTitle,

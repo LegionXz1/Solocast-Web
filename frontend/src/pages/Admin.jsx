@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CheckCircle2, AlertTriangle, X, ExternalLink } from 'lucide-react';
 
 const API_BASE = 'http://localhost:3000';
 
@@ -26,18 +27,23 @@ const SAMPLE_TEMPLATE = {
 }
 
 .card {
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 16px;
-  padding: 24px 32px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  background: rgba(15, 23, 42, 0.9);
+  color: white;
+  padding: 1.5rem 2.5rem;
+  border-radius: 1rem;
+  border: 2px solid #8B5CF6;
   text-align: center;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
   animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 @keyframes popIn {
-  from { transform: scale(0.8); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}`,
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+h2 { margin: 0 0 0.5rem 0; font-size: 1.5rem; color: #C084FC; }
+p { margin: 0; font-size: 1.1rem; }`,
   js: `// รับอีเวนต์เมื่อมีคน Follow หรือ ซับสไครบ์ หรือ แลกแต้ม
 window.addEventListener('onEventReceived', function (obj) {
   const event = obj.detail;
@@ -47,13 +53,13 @@ window.addEventListener('onEventReceived', function (obj) {
   const userEl = document.getElementById('event-user');
 
   if (event.type === 'follower') {
-    titleEl.textContent = '🎉 ผู้ติดตามใหม่!';
+    titleEl.textContent = 'ผู้ติดตามใหม่!';
     userEl.textContent = event.data.name;
   } else if (event.type === 'redemption') {
-    titleEl.textContent = '🎁 แลกของรางวัล!';
+    titleEl.textContent = 'แลกของรางวัล!';
     userEl.textContent = event.data.name + ' (' + event.data.rewardTitle + ')';
   } else if (event.type === 'subscriber') {
-    titleEl.textContent = '⭐ ผู้ซับสไครบ์!';
+    titleEl.textContent = 'ผู้ซับสไครบ์!';
     userEl.textContent = event.data.name;
   }
 });`,
@@ -374,7 +380,9 @@ function Admin() {
       {/* Toast Notification */}
       {toast && (
         <div className={`toast-notification ${toast.type}`}>
-          <span>{toast.type === 'success' ? '✅' : '⚠️'}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+            {toast.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+          </span>
           <span>{toast.message}</span>
         </div>
       )}
@@ -626,7 +634,9 @@ function Admin() {
       {showDeleteModal && (
         <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
           <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <h3 style={{ color: '#EF4444', marginBottom: '0.75rem', fontSize: '1.25rem' }}>⚠️ ยืนยันการลบ Widget</h3>
+            <h3 style={{ color: '#EF4444', marginBottom: '0.75rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={20} /> ยืนยันการลบ Widget
+            </h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
               คุณแน่ใจหรือไม่ว่าต้องการลบ <strong>{formData.name}</strong> (<code>{selectedId}</code>)?
               การกระทำนี้ไม่สามารถย้อนกลับได้ และลิงก์ Browser Source ที่ใช้อยู่ใน OBS จะหยุดทำงานทันที
@@ -670,16 +680,17 @@ function Admin() {
                   target="_blank"
                   rel="noreferrer"
                   className="code-action-btn"
-                  style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                  style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                 >
-                  เปิดแท็บใหม่ ↗
+                  <ExternalLink size={14} /> เปิดแท็บใหม่
                 </a>
                 <button
                   type="button"
                   onClick={() => setShowPreviewModal(false)}
                   className="code-action-btn"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                 >
-                  ปิดหน้าต่าง ✕
+                  <X size={14} /> ปิดหน้าต่าง
                 </button>
               </div>
             </div>
