@@ -1,0 +1,222 @@
+[
+  {
+    "id": "the-trapper",
+    "name": "The Trapper",
+    "img": "https://deadbydaylight.wiki.gg/images/K01_TheTrapper_Portrait.png?564c1d"
+  },
+  {
+    "id": "the-wraith",
+    "name": "The Wraith",
+    "img": "https://deadbydaylight.wiki.gg/images/K02_TheWraith_Portrait.png?fbb21b"
+  },
+  {
+    "id": "the-hillbilly",
+    "name": "The Hillbilly",
+    "img": "https://deadbydaylight.wiki.gg/images/K03_TheHillbilly_Portrait.png?b1fa3b"
+  },
+  {
+    "id": "the-nurse",
+    "name": "The Nurse",
+    "img": "https://deadbydaylight.wiki.gg/images/K04_TheNurse_Portrait.png?f00131"
+  },
+  {
+    "id": "the-huntress",
+    "name": "The Huntress",
+    "img": "https://deadbydaylight.wiki.gg/images/K08_TheHuntress_Portrait.png?194544"
+  },
+  {
+    "id": "the-hag",
+    "name": "The Hag",
+    "img": "https://deadbydaylight.wiki.gg/images/K06_TheHag_Portrait.png?60f88f"
+  },
+  {
+    "id": "the-doctor",
+    "name": "The Doctor",
+    "img": "https://deadbydaylight.wiki.gg/images/K07_TheDoctor_Portrait.png?9b025f"
+  },
+  {
+    "id": "the-cannibal",
+    "name": "The Cannibal",
+    "img": "https://deadbydaylight.wiki.gg/images/K09_TheCannibal_Portrait.png?2b9b38"
+  },
+  {
+    "id": "the-nightmare",
+    "name": "The Nightmare",
+    "img": "https://deadbydaylight.wiki.gg/images/K10_TheNightmare_Portrait.png?8dfa33"
+  },
+  {
+    "id": "the-pig",
+    "name": "The Pig",
+    "img": "https://deadbydaylight.wiki.gg/images/K11_ThePig_Portrait.png?893de3"
+  },
+  {
+    "id": "the-clown",
+    "name": "The Clown",
+    "img": "https://deadbydaylight.wiki.gg/images/K12_TheClown_Portrait.png?26bd2a"
+  },
+  {
+    "id": "the-spirit",
+    "name": "The Spirit",
+    "img": "https://deadbydaylight.wiki.gg/images/K13_TheSpirit_Portrait.png?c6efeb"
+  },
+  {
+    "id": "the-legion",
+    "name": "The Legion",
+    "img": "https://deadbydaylight.wiki.gg/images/K14_TheLegion_Portrait.png?f9a179"
+  },
+  {
+    "id": "the-plague",
+    "name": "The Plague",
+    "img": "https://deadbydaylight.wiki.gg/images/K15_ThePlague_Portrait.png?e5926a"
+  },
+  {
+    "id": "the-ghost-face",
+    "name": "The Ghost Face",
+    "img": "https://deadbydaylight.wiki.gg/images/K16_TheGhostFace_Portrait.png?5a4629"
+  },
+  {
+    "id": "the-demogorgon",
+    "name": "The Demogorgon",
+    "img": "https://deadbydaylight.wiki.gg/images/K17_TheDemogorgon_Portrait.png?20c7d0"
+  },
+  {
+    "id": "the-oni",
+    "name": "The Oni",
+    "img": "https://deadbydaylight.wiki.gg/images/K18_TheOni_Portrait.png?22e37f"
+  },
+  {
+    "id": "the-deathslinger",
+    "name": "The Deathslinger",
+    "img": "https://deadbydaylight.wiki.gg/images/K19_TheDeathslinger_Portrait.png?52fc47"
+  },
+  {
+    "id": "the-executioner",
+    "name": "The Executioner",
+    "img": "https://deadbydaylight.wiki.gg/images/K20_TheExecutioner_Portrait.png?286cd2"
+  },
+  {
+    "id": "the-blight",
+    "name": "The Blight",
+    "img": "https://deadbydaylight.wiki.gg/images/K21_TheBlight_Portrait.png?bb5b92"
+  },
+  {
+    "id": "the-twins",
+    "name": "The Twins",
+    "img": "https://deadbydaylight.wiki.gg/images/K22_TheTwins_Portrait.png?71ef1c"
+  },
+  {
+    "id": "the-nemesis",
+    "name": "The Nemesis",
+    "img": "https://deadbydaylight.wiki.gg/images/K24_TheNemesis_Portrait.png?891941"
+  },
+  {
+    "id": "the-artist",
+    "name": "The Artist",
+    "img": "https://deadbydaylight.wiki.gg/images/K26_TheArtist_Portrait.png?594628"
+  },
+  {
+    "id": "the-onry",
+    "name": "The Onryō",
+    "img": "https://deadbydaylight.wiki.gg/images/K27_TheOnryo_Portrait.png?50d2b8"
+  },
+  {
+    "id": "the-dredge",
+    "name": "The Dredge",
+    "img": "https://deadbydaylight.wiki.gg/images/K28_TheDredge_Portrait.png?66319e"
+  },
+  {
+    "id": "the-mastermind",
+    "name": "The Mastermind",
+    "img": "https://deadbydaylight.wiki.gg/images/K29_TheMastermind_Portrait.png?84582c"
+  },
+  {
+    "id": "the-knight",
+    "name": "The Knight",
+    "img": "https://deadbydaylight.wiki.gg/images/K30_TheKnight_Portrait.png?b89c9d"
+  },
+  {
+    "id": "the-skull-merchant",
+    "name": "The Skull Merchant",
+    "img": "https://deadbydaylight.wiki.gg/images/K31_TheSkullMerchant_Portrait.png?91edf3"
+  },
+  {
+    "id": "the-singularity",
+    "name": "The Singularity",
+    "img": "https://deadbydaylight.wiki.gg/images/K32_TheSingularity_Portrait.png?3d6300"
+  },
+  {
+    "id": "the-xenomorph",
+    "name": "The Xenomorph",
+    "img": "https://deadbydaylight.wiki.gg/images/K33_TheXenomorph_Portrait.png?17ff7e"
+  },
+  {
+    "id": "the-good-guy",
+    "name": "The Good Guy",
+    "img": "https://deadbydaylight.wiki.gg/images/K34_TheGoodGuy_Portrait.png?4dc7a9"
+  },
+  {
+    "id": "the-unknown",
+    "name": "The Unknown",
+    "img": "https://deadbydaylight.wiki.gg/images/K35_TheUnknown_Portrait.png?88bbed"
+  },
+  {
+    "id": "the-lich",
+    "name": "The Lich",
+    "img": "https://deadbydaylight.wiki.gg/images/K36_TheLich_Portrait.png?25df98"
+  },
+  {
+    "id": "the-dark-lord",
+    "name": "The Dark Lord",
+    "img": "https://deadbydaylight.wiki.gg/images/K37_TheDarkLord_Portrait.png?d391a7"
+  },
+  {
+    "id": "the-houndmaster",
+    "name": "The Houndmaster",
+    "img": "https://deadbydaylight.wiki.gg/images/K38_TheHoundmaster_Portrait.png?6e438f"
+  },
+  {
+    "id": "the-ghoul",
+    "name": "The Ghoul",
+    "img": "https://deadbydaylight.wiki.gg/images/K39_TheGhoul_Portrait.png?fbb95c"
+  },
+  {
+    "id": "the-animatronic",
+    "name": "The Animatronic",
+    "img": "https://deadbydaylight.wiki.gg/images/K40_TheAnimatronic_Portrait.png?636799"
+  },
+  {
+    "id": "the-krasue",
+    "name": "The Krasue",
+    "img": "https://deadbydaylight.wiki.gg/images/K41_TheKrasue_Portrait.png?3513ba"
+  },
+  {
+    "id": "the-first",
+    "name": "The First",
+    "img": "https://deadbydaylight.wiki.gg/images/K42_TheFirst_Portrait.png?e12bf6"
+  },
+  {
+    "id": "the-trickster",
+    "name": "The Trickster",
+    "img": "https://deadbydaylight.wiki.gg/images/K23_TheTrickster_Portrait.png?e4204c"
+  },
+  {
+    "id": "the-slasher",
+    "name": "The Slasher",
+    "img": "https://deadbydaylight.wiki.gg/images/K43_TheSlasher_Portrait.png?2fe4c9"
+  },
+  {
+    "id": "the-cenobite",
+    "name": "The Cenobite",
+    "img": "https://deadbydaylight.wiki.gg/images/K25_TheCenobite_Portrait.png?6b9046"
+  },
+  {
+    "id": "the-shape",
+    "name": "The Shape",
+    "img": "https://deadbydaylight.wiki.gg/images/K05_TheShape_Portrait.png?f9bf22"
+  },
+  {
+    "id": "the-judgment",
+    "name": "The Judgment",
+    "img": "https://deadbydaylight.wiki.gg/images/K44_TheJudgment_Portrait.png?a744a3"
+  }
+]

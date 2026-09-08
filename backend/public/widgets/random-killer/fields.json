@@ -184,5 +184,11 @@
     "max": 20,
     "step": 1,
     "group": "Settings"
+  },
+  "excludedKillers": {
+    "type": "custom",
+    "label": "คิลเลอร์ที่ไม่ต้องการให้สุ่ม (Excluded Killers)",
+    "value": [],
+    "group": "Excluded Killers"
   }
 }

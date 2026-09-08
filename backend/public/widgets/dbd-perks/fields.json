@@ -1,0 +1,84 @@
+{
+  "role": {
+    "type": "dropdown",
+    "label": "เลือกบทบาท (Role)",
+    "value": "survivor",
+    "options": {
+      "survivor": "Survivor (ผู้รอดชีวิต)",
+      "killer": "Killer (ฆาตกร)"
+    },
+    "group": "Game Settings"
+  },
+  "perkCount": {
+    "type": "slider",
+    "label": "จำนวนเปิร์คที่สุ่ม (Perks Count)",
+    "value": 4,
+    "min": 1,
+    "max": 4,
+    "step": 1,
+    "group": "Game Settings"
+  },
+  "showUserPill": {
+    "type": "checkbox",
+    "label": "แสดงแถบชื่อผู้แลก / สตรีมเมอร์ (Show User Badge)",
+    "value": true,
+    "group": "Display Settings"
+  },
+  "showPerkName": {
+    "type": "checkbox",
+    "label": "แสดงชื่อเปิร์คใต้ไอคอน (Show Perk Name)",
+    "value": true,
+    "group": "Display Settings"
+  },
+  "showCharacterName": {
+    "type": "checkbox",
+    "label": "แสดงชื่อตัวละครเจ้าของเปิร์ค (Show Character Name)",
+    "value": true,
+    "group": "Display Settings"
+  },
+  "iconScale": {
+    "type": "slider",
+    "label": "ขนาดไอคอนเปิร์ค (Icon Size px)",
+    "value": 94,
+    "min": 60,
+    "max": 140,
+    "step": 2,
+    "group": "Display Settings"
+  },
+  "displayDuration": {
+    "type": "slider",
+    "label": "ระยะเวลาแสดงผล (วินาที)",
+    "value": 10,
+    "min": 5,
+    "max": 60,
+    "step": 1,
+    "group": "Display Settings"
+  },
+  "rewardName": {
+    "type": "text",
+    "label": "ชื่อรางวัล Channel Points (Reward Name)",
+    "value": "สุ่มเปิร์ค DBD",
+    "group": "Twitch & Bot Settings"
+  },
+  "enableChat": {
+    "type": "checkbox",
+    "label": "ส่งผลลัพธ์ลงแชท Twitch (Send result to Twitch chat)",
+    "value": true,
+    "group": "Twitch & Bot Settings"
+  },
+  "chatTemplate": {
+    "type": "text",
+    "label": "รูปแบบข้อความในแชท (Chat Template)",
+    "value": "[DBD] {username} สุ่มเปิร์ค ({role}): {perks}",
+    "group": "Twitch & Bot Settings"
+  },
+  "soundVolume": {
+    "type": "slider",
+    "label": "ระดับเสียงเอฟเฟกต์ (%)",
+    "value": 60,
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "group": "Audio"
+  }
+}

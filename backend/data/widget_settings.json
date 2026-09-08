@@ -31,7 +31,11 @@
       "soundVolume": 50,
       "spinDuration": 5,
       "hideAfter": 8,
-      "enableChat": true
+      "enableChat": true,
+      "excludedKillers": [
+        "The Nurse",
+        "The Blight"
+      ]
     }
   },
   "twitch-shoutout": {
@@ -88,6 +92,24 @@
       "enableChatCmd": "yes",
       "chatCmdPrefix": "!loyalty",
       "chatMsgTemplate": "{user} checked in {count} times!"
+    }
+  },
+  "dbd-perks": {
+    "148596257": {
+      "role": "survivor",
+      "perkCount": 4,
+      "rewardName": "GG",
+      "enableChat": true,
+      "chatTemplate": "[DBD] {username} สุ่มเปิร์ค ({role}): {perks}",
+      "headerText": "DEAD BY DAYLIGHT",
+      "subHeaderText": "The Entity Grants Your Build",
+      "displayDuration": 14,
+      "soundVolume": 0,
+      "excludedPerks": [],
+      "showUserPill": true,
+      "showPerkName": true,
+      "showCharacterName": true,
+      "iconScale": 94
     }
   }
 }

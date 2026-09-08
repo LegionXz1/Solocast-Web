@@ -338,6 +338,22 @@ socket.on('onEventReceived', (event) => {
         data: event.data || {}
       }
     };
+  } else if (event.type === 'dbd_perk_roll') {
+    seEventDetail = {
+      listener: 'dbd_perk_roll',
+      event: {
+        type: 'dbd_perk_roll',
+        role: event.role || 'survivor',
+        username: event.username || 'Streamer',
+        avatar: event.avatar || '',
+        timestamp: event.timestamp || Date.now()
+      }
+    };
+  } else {
+    seEventDetail = {
+      listener: event.type || 'custom',
+      event: event
+    };
   }
 
   // ส่งต่อให้ Widget ของ StreamElements

@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, AlertTriangle, X, ExternalLink } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { 
+  CheckCircle2, AlertTriangle, X, ExternalLink, Plus, Trash2, 
+  RotateCw, Loader2, Search, Skull, UserCheck, Layers, Ban, Check 
+} from 'lucide-react';
 
 const API_BASE = 'http://localhost:3000';
 
@@ -81,6 +84,12 @@ window.addEventListener('onEventReceived', function (obj) {
 
 function Admin() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Section Selector ('widgets' | 'dbd_perks')
+  const [adminSection, setAdminSection] = useState(
+    searchParams.get('tab') === 'dbd_perks' ? 'dbd_perks' : 'widgets'
+  );
 
   // Auth State
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -113,6 +122,23 @@ function Admin() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
+  // DBD Perks Management State
+  const [dbdData, setDbdData] = useState({ survivor: [], killer: [], total: 0, survivorCount: 0, killerCount: 0, updatedAt: '' });
+  const [dbdRole, setDbdRole] = useState('all'); // 'all' | 'survivor' | 'killer'
+  const [dbdSearch, setDbdSearch] = useState('');
+  const [isSyncingDbd, setIsSyncingDbd] = useState(false);
+  const [showAddPerkModal, setShowAddPerkModal] = useState(false);
+  const [newPerkForm, setNewPerkForm] = useState({
+    name: '',
+    role: 'survivor',
+    character: '',
+    icon: '',
+    description: ''
+  });
+  const [isSubmittingPerk, setIsSubmittingPerk] = useState(false);
+  const [deleteConfirmPerk, setDeleteConfirmPerk] = useState(null);
+  const [isDeletingPerk, setIsDeletingPerk] = useState(false);
+
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
@@ -122,6 +148,108 @@ function Admin() {
     const token = localStorage.getItem('solocast_user_token');
     return token ? { 'Authorization': `Bearer ${token}` } : {};
   };
+
+  // Fetch DBD Perks
+  const fetchDbdPerks = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/widgets/dbd-perks/perks`);
+      if (res.ok) {
+        const data = await res.json();
+        setDbdData(data);
+      }
+    } catch (err) {
+      console.error('Error fetching DBD perks:', err);
+    }
+  };
+
+  // Sync DBD Perks from Wiki
+  const handleSyncDbd = async () => {
+    setIsSyncingDbd(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/dbd-perks/sync`, {
+        method: 'POST',
+        headers: getAuthHeader()
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || 'Failed to sync perks');
+      setDbdData(result.data);
+      showToast(`อัปเดตเปิร์คจาก Wiki สำเร็จ! รวม ${result.data.total} เปิร์ค`, 'success');
+    } catch (err) {
+      showToast('เกิดข้อผิดพลาดในการซิงค์: ' + err.message, 'error');
+    } finally {
+      setIsSyncingDbd(false);
+    }
+  };
+
+  // Add New Perk
+  const handleSubmitAddPerk = async (e) => {
+    if (e) e.preventDefault();
+    if (!newPerkForm.name.trim()) {
+      showToast('กรุณาระบุชื่อเปิร์ค', 'error');
+      return;
+    }
+    setIsSubmittingPerk(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/dbd-perks`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newPerkForm)
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || 'Failed to add perk');
+      if (result.data) setDbdData(result.data);
+      setShowAddPerkModal(false);
+      setNewPerkForm({ name: '', role: dbdRole === 'killer' ? 'killer' : 'survivor', character: '', icon: '', description: '' });
+      showToast(`เพิ่มเปิร์ค "${result.perk.name}" สำเร็จ!`, 'success');
+    } catch (err) {
+      showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+    } finally {
+      setIsSubmittingPerk(false);
+    }
+  };
+
+  // Delete Perk
+  const handleConfirmDeletePerk = async () => {
+    if (!deleteConfirmPerk) return;
+    setIsDeletingPerk(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/dbd-perks/${deleteConfirmPerk.role}/${encodeURIComponent(deleteConfirmPerk.id)}`, {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || 'Failed to delete perk');
+      if (result.data) setDbdData(result.data);
+      showToast(`ลบเปิร์ค "${deleteConfirmPerk.name}" เรียบร้อยแล้ว`, 'success');
+      setDeleteConfirmPerk(null);
+    } catch (err) {
+      showToast('เกิดข้อผิดพลาดในการลบเปิร์ค: ' + err.message, 'error');
+    } finally {
+      setIsDeletingPerk(false);
+    }
+  };
+
+  // Filtered DBD Perks calculation
+  const filteredDbdPerks = useMemo(() => {
+    const list = [];
+    if (dbdRole === 'all' || dbdRole === 'survivor') {
+      (dbdData.survivor || []).forEach(p => list.push({ ...p, role: 'survivor' }));
+    }
+    if (dbdRole === 'all' || dbdRole === 'killer') {
+      (dbdData.killer || []).forEach(p => list.push({ ...p, role: 'killer' }));
+    }
+
+    if (!dbdSearch.trim()) return list;
+    const q = dbdSearch.toLowerCase().trim();
+    return list.filter(p => 
+      (p.name && p.name.toLowerCase().includes(q)) ||
+      (p.character && p.character.toLowerCase().includes(q)) ||
+      (p.description && p.description.toLowerCase().includes(q))
+    );
+  }, [dbdData, dbdRole, dbdSearch]);
 
   // Verify Admin Access purely via Twitch Broadcaster session
   const verifyAuth = async () => {
@@ -140,6 +268,7 @@ function Admin() {
       if (data.authorized) {
         setIsAuthorized(true);
         fetchWidgets();
+        fetchDbdPerks();
       } else {
         setIsAuthorized(false);
       }
@@ -389,10 +518,45 @@ function Admin() {
 
       {/* Header Bar */}
       <div className="admin-header-nav animate-fade-up">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
           <div className="floating-nav" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span>SoloCast Powered by LegionX</span>
             <span style={{ fontSize: '0.75rem', background: 'var(--accent-color)', color: '#fff', padding: '0.2rem 0.6rem', borderRadius: '9999px' }}>Admin</span>
+          </div>
+
+          {/* Section Switcher Tabs */}
+          <div className="admin-section-nav">
+            <button
+              type="button"
+              className={`admin-section-btn ${adminSection === 'widgets' ? 'active' : ''}`}
+              onClick={() => {
+                setAdminSection('widgets');
+                setSearchParams({ tab: 'widgets' });
+              }}
+            >
+              <Layers size={15} />
+              <span>จัดการ Widgets</span>
+            </button>
+            <button
+              type="button"
+              className={`admin-section-btn ${adminSection === 'dbd_perks' ? 'active' : ''}`}
+              onClick={() => {
+                setAdminSection('dbd_perks');
+                setSearchParams({ tab: 'dbd_perks' });
+              }}
+            >
+              <Skull size={15} />
+              <span>จัดการเปิร์ค DBD</span>
+              <span style={{
+                fontSize: '0.7rem',
+                background: adminSection === 'dbd_perks' ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)',
+                padding: '1px 6px',
+                borderRadius: '10px',
+                marginLeft: '2px'
+              }}>
+                {dbdData.total || 0}
+              </span>
+            </button>
           </div>
         </div>
 
@@ -400,22 +564,59 @@ function Admin() {
           <button onClick={() => navigate('/dashboard')} className="btn-island" style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)' }}>
             <span>แดชบอร์ดผู้ใช้</span>
           </button>
-          {selectedId && !isCreatingNew && (
-            <button onClick={() => setShowPreviewModal(true)} className="btn-island" style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)' }}>
-              <span>ดูตัวอย่าง Widget</span>
-            </button>
+
+          {adminSection === 'widgets' ? (
+            <>
+              {selectedId && !isCreatingNew && (
+                <button onClick={() => setShowPreviewModal(true)} className="btn-island" style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)' }}>
+                  <span>ดูตัวอย่าง Widget</span>
+                </button>
+              )}
+              <button onClick={handleSave} disabled={isLoading} className="btn-island accent">
+                <span>{isLoading ? 'กำลังบันทึก...' : isCreatingNew ? 'สร้าง Widget ใหม่' : 'บันทึกการแก้ไข'}</span>
+                <div className="btn-icon-wrapper">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+                </div>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleSyncDbd}
+                disabled={isSyncingDbd}
+                className="btn-island"
+                style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)' }}
+                title="ดึงเปิร์คอัปเดตใหม่ทั้งหมดจาก deadbydaylight.wiki.gg"
+              >
+                {isSyncingDbd ? <Loader2 size={15} className="animate-spin" /> : <RotateCw size={15} />}
+                <span>{isSyncingDbd ? 'กำลังซิงค์...' : 'อัปเดตเปิร์คจาก Wiki'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNewPerkForm({
+                    name: '',
+                    role: dbdRole === 'killer' ? 'killer' : 'survivor',
+                    character: '',
+                    icon: '',
+                    description: ''
+                  });
+                  setShowAddPerkModal(true);
+                }}
+                className="btn-island accent"
+              >
+                <Plus size={15} />
+                <span>เพิ่มเปิร์คใหม่</span>
+              </button>
+            </>
           )}
-          <button onClick={handleSave} disabled={isLoading} className="btn-island accent">
-            <span>{isLoading ? 'กำลังบันทึก...' : isCreatingNew ? 'สร้าง Widget ใหม่' : 'บันทึกการแก้ไข'}</span>
-            <div className="btn-icon-wrapper">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-            </div>
-          </button>
         </div>
       </div>
 
-      {/* Main Grid */}
-      <div className="admin-grid">
+      {/* Main Grid: Widgets View */}
+      {adminSection === 'widgets' && (
+        <div className="admin-grid">
         {/* Left Column: Widgets List */}
         <div className="doppel-shell animate-fade-up" style={{ animationDelay: '100ms' }}>
           <div className="doppel-core">
@@ -629,6 +830,248 @@ function Admin() {
           </div>
         </div>
       </div>
+    )}
+
+      {/* Main Content: DBD Perks View */}
+      {adminSection === 'dbd_perks' && (
+        <div className="admin-perks-dashboard animate-fade-up">
+          {/* Top Stat Cards */}
+          <div className="admin-stats-card-group">
+            <div className="admin-stat-card">
+              <div className="admin-stat-card-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: 'var(--accent-color)' }}>
+                <Skull size={22} />
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>เปิร์คทั้งหมดในฐานข้อมูล</span>
+                <h3 style={{ margin: '0.15rem 0 0 0', fontSize: '1.4rem', fontWeight: 700 }}>
+                  {dbdData.total || ((dbdData.survivor?.length || 0) + (dbdData.killer?.length || 0))} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>เปิร์ค</span>
+                </h3>
+              </div>
+            </div>
+
+            <div className="admin-stat-card">
+              <div className="admin-stat-card-icon" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3B82F6' }}>
+                <UserCheck size={22} />
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ผู้รอดชีวิต (Survivor)</span>
+                <h3 style={{ margin: '0.15rem 0 0 0', fontSize: '1.4rem', fontWeight: 700, color: '#3B82F6' }}>
+                  {dbdData.survivor?.length || 0} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>เปิร์ค</span>
+                </h3>
+              </div>
+            </div>
+
+            <div className="admin-stat-card">
+              <div className="admin-stat-card-icon" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444' }}>
+                <Skull size={22} />
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ฆาตกร (Killer)</span>
+                <h3 style={{ margin: '0.15rem 0 0 0', fontSize: '1.4rem', fontWeight: 700, color: '#EF4444' }}>
+                  {dbdData.killer?.length || 0} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>เปิร์ค</span>
+                </h3>
+              </div>
+            </div>
+
+            <div className="admin-stat-card">
+              <div className="admin-stat-card-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981' }}>
+                <RotateCw size={22} />
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>อัปเดตล่าสุด</span>
+                <h4 style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                  {dbdData.updatedAt ? new Date(dbdData.updatedAt).toLocaleDateString('th-TH', { hour: '2-digit', minute: '2-digit' }) : 'ซิงค์แล้ว'}
+                </h4>
+              </div>
+            </div>
+          </div>
+
+          {/* Perks Toolbar */}
+          <div className="admin-perks-toolbar">
+            <div className="admin-perks-filter-group">
+              {/* Role Switcher */}
+              <div style={{ display: 'inline-flex', background: 'rgba(255,255,255,0.05)', padding: '3px', borderRadius: '8px', border: '1px solid var(--shell-border)' }}>
+                <button
+                  type="button"
+                  onClick={() => setDbdRole('all')}
+                  style={{
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '5px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    background: dbdRole === 'all' ? 'var(--accent-color)' : 'transparent',
+                    color: dbdRole === 'all' ? '#fff' : 'var(--text-secondary)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  ทั้งหมด ({dbdData.total || 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDbdRole('survivor')}
+                  style={{
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '5px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    background: dbdRole === 'survivor' ? '#3B82F6' : 'transparent',
+                    color: dbdRole === 'survivor' ? '#fff' : 'var(--text-secondary)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  Survivor ({dbdData.survivor?.length || 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDbdRole('killer')}
+                  style={{
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '5px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    background: dbdRole === 'killer' ? '#EF4444' : 'transparent',
+                    color: dbdRole === 'killer' ? '#fff' : 'var(--text-secondary)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  Killer ({dbdData.killer?.length || 0})
+                </button>
+              </div>
+
+              {/* Search Bar */}
+              <div style={{ position: 'relative', width: '280px' }}>
+                <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                <input
+                  type="text"
+                  placeholder="ค้นหาชื่อเปิร์ค หรือ ตัวละคร..."
+                  value={dbdSearch}
+                  onChange={e => setDbdSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px 6px 32px',
+                    fontSize: '0.8rem',
+                    borderRadius: '8px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid var(--shell-border)',
+                    color: 'var(--text-primary)',
+                    outline: 'none'
+                  }}
+                />
+                {dbdSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setDbdSearch('')}
+                    style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer' }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                (แสดง {filteredDbdPerks.length} รายการ)
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={handleSyncDbd}
+                disabled={isSyncingDbd}
+                className="btn-island"
+                style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)', padding: '0.45rem 0.95rem' }}
+                title="ดึงเปิร์คทั้งหมดจาก deadbydaylight.wiki.gg"
+              >
+                {isSyncingDbd ? <Loader2 size={15} className="animate-spin" /> : <RotateCw size={15} />}
+                <span>{isSyncingDbd ? 'กำลังซิงค์...' : 'อัปเดตเปิร์คจาก Wiki'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setNewPerkForm({
+                    name: '',
+                    role: dbdRole === 'killer' ? 'killer' : 'survivor',
+                    character: '',
+                    icon: '',
+                    description: ''
+                  });
+                  setShowAddPerkModal(true);
+                }}
+                className="btn-island accent"
+                style={{ padding: '0.45rem 1rem' }}
+              >
+                <Plus size={15} />
+                <span>เพิ่มเปิร์คใหม่</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Perks Grid Cards */}
+          <div className="admin-perk-table-wrap">
+            {filteredDbdPerks.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
+                <Search size={36} style={{ opacity: 0.35, marginBottom: '0.75rem' }} />
+                <h4>ไม่พบเปิร์คที่ตรงกับคำค้นหา "{dbdSearch}"</h4>
+                <p style={{ fontSize: '0.85rem' }}>ลองเปลี่ยนคำค้นหา หรือกดปุ่ม "เพิ่มเปิร์คใหม่" ด้านบนเพื่อเพิ่มเปิร์คนี้เข้าระบบ</p>
+              </div>
+            ) : (
+              <div className="admin-perk-grid-cards">
+                {filteredDbdPerks.map(perk => (
+                  <div key={`${perk.role}_${perk.id}`} className="admin-perk-card-item">
+                    <div className="admin-perk-card-thumb">
+                      <img
+                        src={perk.icon || 'https://deadbydaylight.wiki.gg/images/thumb/IconPerks_unknown.png/96px-IconPerks_unknown.png'}
+                        alt={perk.name}
+                        loading="lazy"
+                        onError={e => { e.target.src = 'https://deadbydaylight.wiki.gg/images/thumb/IconPerks_unknown.png/96px-IconPerks_unknown.png'; }}
+                      />
+                    </div>
+                    <div className="admin-perk-card-content">
+                      <div className="admin-perk-card-title">
+                        <span>{perk.name}</span>
+                        <span style={{
+                          fontSize: '0.65rem',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontWeight: 700,
+                          background: perk.role === 'killer' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                          color: perk.role === 'killer' ? '#EF4444' : '#3B82F6',
+                          border: `1px solid ${perk.role === 'killer' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`
+                        }}>
+                          {perk.role === 'killer' ? 'Killer' : 'Survivor'}
+                        </span>
+                      </div>
+                      <div className="admin-perk-card-char">
+                        👤 {perk.character || 'General (เปิร์คทั่วไป)'}
+                      </div>
+                      {perk.description && (
+                        <div className="admin-perk-card-desc" title={perk.description}>
+                          {perk.description.replace(/<[^>]*>?/gm, '')}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="admin-perk-delete-btn"
+                      onClick={() => setDeleteConfirmPerk(perk)}
+                      title={`ลบเปิร์ค "${perk.name}"`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirm Modal */}
       {showDeleteModal && (
@@ -699,6 +1142,251 @@ function Admin() {
               src={`${API_BASE}/widgets/${selectedId}/index.html`}
               title="Widget Preview"
             />
+          </div>
+        </div>
+      )}
+
+      {/* Add New Perk Modal */}
+      {showAddPerkModal && (
+        <div className="modal-overlay" onClick={() => setShowAddPerkModal(false)}>
+          <div className="modal-card admin-add-perk-modal" onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Plus size={20} style={{ color: 'var(--accent-color)' }} /> เพิ่มเปิร์คใหม่ (Add Perk)
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddPerkModal(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitAddPerk}>
+              {/* Role Radio Pills */}
+              <div style={{ marginBottom: '1.15rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                  บทบาทของเปิร์ค (Role) *
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setNewPerkForm(p => ({ ...p, role: 'survivor' }))}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      borderRadius: '8px',
+                      border: newPerkForm.role === 'survivor' ? '2px solid #3B82F6' : '1px solid var(--shell-border)',
+                      background: newPerkForm.role === 'survivor' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                      color: newPerkForm.role === 'survivor' ? '#3B82F6' : 'var(--text-secondary)',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🏃 ผู้รอดชีวิต (Survivor)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewPerkForm(p => ({ ...p, role: 'killer' }))}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      borderRadius: '8px',
+                      border: newPerkForm.role === 'killer' ? '2px solid #EF4444' : '1px solid var(--shell-border)',
+                      background: newPerkForm.role === 'killer' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                      color: newPerkForm.role === 'killer' ? '#EF4444' : 'var(--text-secondary)',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🔪 ฆาตกร (Killer)
+                  </button>
+                </div>
+              </div>
+
+              {/* Perk Name */}
+              <div style={{ marginBottom: '1.15rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                  ชื่อเปิร์ค (Perk Name) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="เช่น Sprint Burst หรือ Dead Hard"
+                  value={newPerkForm.name}
+                  onChange={e => setNewPerkForm(p => ({ ...p, name: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid var(--shell-border)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    fontSize: '0.9rem'
+                  }}
+                />
+              </div>
+
+              {/* Character Name */}
+              <div style={{ marginBottom: '1.15rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                  ตัวละครเจ้าของเปิร์ค (Character)
+                </label>
+                <input
+                  type="text"
+                  placeholder="เช่น Meg Thomas, The Trapper, หรือ General (เปิร์คทั่วไป)"
+                  value={newPerkForm.character}
+                  onChange={e => setNewPerkForm(p => ({ ...p, character: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid var(--shell-border)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    fontSize: '0.9rem'
+                  }}
+                />
+              </div>
+
+              {/* Icon URL with Preview */}
+              <div style={{ marginBottom: '1.15rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                  ลิงก์รูปไอคอนเปิร์ค (Icon URL)
+                </label>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder="https://... หรือปล่อยว่างเพื่อใช้ไอคอนเริ่มต้น"
+                    value={newPerkForm.icon}
+                    onChange={e => setNewPerkForm(p => ({ ...p, icon: e.target.value }))}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid var(--shell-border)',
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                      fontSize: '0.9rem'
+                    }}
+                  />
+                  <div style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '8px',
+                    background: 'rgba(0, 0, 0, 0.5)',
+                    border: '1px solid var(--shell-border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    padding: '2px'
+                  }}>
+                    <img
+                      src={newPerkForm.icon || 'https://deadbydaylight.wiki.gg/images/thumb/IconPerks_unknown.png/96px-IconPerks_unknown.png'}
+                      alt="Preview"
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      onError={e => { e.target.src = 'https://deadbydaylight.wiki.gg/images/thumb/IconPerks_unknown.png/96px-IconPerks_unknown.png'; }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                  คำอธิบายหรือความสามารถเปิร์ค (Description)
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="รายละเอียดเอฟเฟกต์ของเปิร์ค..."
+                  value={newPerkForm.description}
+                  onChange={e => setNewPerkForm(p => ({ ...p, description: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid var(--shell-border)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    fontSize: '0.85rem',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              {/* Modal Buttons */}
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddPerkModal(false)}
+                  className="btn-island"
+                  style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)' }}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingPerk}
+                  className="btn-island accent"
+                  style={{ padding: '0.65rem 1.25rem' }}
+                >
+                  {isSubmittingPerk ? 'กำลังบันทึก...' : 'บันทึกเปิร์คใหม่'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Perk Confirm Modal */}
+      {deleteConfirmPerk && (
+        <div className="modal-overlay" onClick={() => setDeleteConfirmPerk(null)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <h3 style={{ color: '#EF4444', marginBottom: '0.75rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={20} /> ยืนยันการลบเปิร์ค
+            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.85rem', borderRadius: '10px', marginBottom: '1.25rem' }}>
+              <img
+                src={deleteConfirmPerk.icon || 'https://deadbydaylight.wiki.gg/images/thumb/IconPerks_unknown.png/96px-IconPerks_unknown.png'}
+                alt={deleteConfirmPerk.name}
+                style={{ width: '40px', height: '40px', objectFit: 'contain' }}
+              />
+              <div>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>{deleteConfirmPerk.name}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>บทบาท: {deleteConfirmPerk.role} | {deleteConfirmPerk.character || 'General'}</div>
+              </div>
+            </div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+              คุณแน่ใจหรือไม่ว่าต้องการลบเปิร์ค <strong>{deleteConfirmPerk.name}</strong> ออกจากระบบ?
+              เมื่อลบแล้ว เปิร์คนี้จะไม่สามารถสุ่มได้ใน OBS จนกว่าจะเพิ่มใหม่หรือซิงค์จาก Wiki
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmPerk(null)}
+                className="btn-island"
+                style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)' }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingPerk}
+                onClick={handleConfirmDeletePerk}
+                className="btn-danger"
+                style={{ padding: '0.65rem 1.25rem' }}
+              >
+                {isDeletingPerk ? 'กำลังลบ...' : 'ยืนยันการลบ'}
+              </button>
+            </div>
           </div>
         </div>
       )}

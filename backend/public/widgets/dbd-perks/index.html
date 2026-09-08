@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dead by Daylight Perks</title>
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: transparent;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Frameless Floating Container */
+    #dbd-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transform: translateY(18px) scale(0.96);
+      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+      padding: 16px;
+    }
+
+    #dbd-container.active {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    /* Minimal Floating User & Role Tag */
+    .dbd-user-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+      padding: 4px 14px 4px 6px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+    }
+
+    .dbd-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #111;
+      border: 1.5px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .dbd-username {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    }
+
+    .dbd-role-tag {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 6px;
+      letter-spacing: 0.04em;
+    }
+
+    .dbd-role-tag.survivor {
+      background: rgba(14, 165, 233, 0.25);
+      color: #38BDF8;
+      border: 1px solid rgba(14, 165, 233, 0.4);
+    }
+
+    .dbd-role-tag.killer {
+      background: rgba(239, 68, 68, 0.25);
+      color: #F87171;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+
+    :root {
+      --icon-size: 94px;
+      --diamond-size: 68px;
+    }
+
+    /* Clean Horizontal Perks Row */
+    .perks-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 28px;
+      flex-wrap: nowrap;
+    }
+
+    .perk-slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: calc(var(--icon-size) + 36px);
+      text-align: center;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .perk-icon-wrapper {
+      width: var(--icon-size);
+      height: var(--icon-size);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    /* Iconic DBD Diamond Perk Frame */
+    .perk-diamond-bg {
+      position: absolute;
+      width: var(--diamond-size);
+      height: var(--diamond-size);
+      background: #231038;
+      border: 2px solid #9333EA;
+      transform: rotate(45deg);
+      border-radius: 6px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.75);
+      transition: all 0.25s ease;
+    }
+
+    .perk-slot.spinning .perk-diamond-bg {
+      animation: spinPulse 0.4s infinite alternate;
+    }
+
+    .perk-slot.spinning .perk-icon-img {
+      animation: spinPulse 0.4s infinite alternate;
+    }
+
+    @keyframes spinPulse {
+      0% { transform: scale(0.94); opacity: 0.85; }
+      100% { transform: scale(1.06); opacity: 1; }
+    }
+
+    .perk-slot.locked .perk-diamond-bg {
+      box-shadow: 0 0 16px rgba(147, 51, 234, 0.5), 0 6px 16px rgba(0, 0, 0, 0.75);
+      animation: lockPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .perk-slot.locked .perk-icon-img {
+      animation: lockPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes lockPop {
+      0% { transform: scale(0.85); }
+      60% { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+
+    .perk-icon-img {
+      position: relative;
+      z-index: 2;
+      width: 76px;
+      height: 76px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.8));
+      transition: transform 0.25s ease;
+    }
+
+    .perk-name {
+      margin-top: 12px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      line-height: 1.25;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95), 0 0 2px #000;
+      word-break: break-word;
+    }
+
+    .perk-char {
+      margin-top: 3px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #CBD5E1;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 0 2px #000;
+      opacity: 0.9;
+    }
+  </style>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/adapter.js"></script>
+</head>
+<body>
+  <div id="dbd-container">
+    <!-- Minimal User & Role Header -->
+    <div class="dbd-user-pill" id="dbd-user-pill">
+      <img id="user-avatar" class="dbd-avatar" src="https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7ba-40d2-965a-52834b6f79e8-profile_image-300x300.png" alt="User" />
+      <span class="dbd-username" id="user-name">Streamer</span>
+      <span class="dbd-role-tag survivor" id="role-tag">Survivor</span>
+    </div>
+
+    <!-- 4 Perks Row (Clean & Frameless) -->
+    <div class="perks-row" id="perks-row">
+      <!-- Populated dynamically by JavaScript -->
+    </div>
+  </div>
+
+  <script>
+    let config = {
+      role: 'survivor',
+      perkCount: 4,
+      rewardName: 'สุ่มเปิร์ค DBD',
+      enableChat: true,
+      chatTemplate: '[DBD] {username} สุ่มเปิร์ค ({role}): {perks}',
+      displayDuration: 10,
+      soundVolume: 60,
+      excludedPerks: []
+    };
+
+    let allPerksData = { survivor: [], killer: [] };
+    let isShowing = false;
+    let hideTimeout = null;
+
+    // Web Audio Synthesizer for soft, crisp ticks and lock-in sound
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playTickSound() {
+      if (!config.soundVolume || config.soundVolume <= 0) return;
+      try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const vol = (config.soundVolume / 100) * 0.12;
+        
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(450, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.04);
+
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.04);
+      } catch (e) {}
+    }
+
+    function playLockSound() {
+      if (!config.soundVolume || config.soundVolume <= 0) return;
+      try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const vol = (config.soundVolume / 100) * 0.22;
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(580, audioCtx.currentTime + 0.14);
+
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.16);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.16);
+      } catch (e) {}
+    }
+
+    // Load Perk Database
+    async function loadPerkDatabase() {
+      try {
+        const res = await fetch('/api/widgets/dbd-perks/perks');
+        if (res.ok) {
+          allPerksData = await res.json();
+          console.log(`[DBD Perks] Loaded perks database: ${allPerksData.survivor?.length} Survivor, ${allPerksData.killer?.length} Killer`);
+        }
+      } catch (e) {
+        console.warn('[DBD Perks] Error loading perks from server:', e);
+      }
+    }
+
+    function applySettings(data) {
+      if (!data) return;
+      config = { ...config, ...data };
+
+      const roleTag = document.getElementById('role-tag');
+      if (roleTag) {
+        const isKiller = config.role === 'killer';
+        roleTag.textContent = isKiller ? 'Killer' : 'Survivor';
+        roleTag.className = `dbd-role-tag ${isKiller ? 'killer' : 'survivor'}`;
+      }
+
+      const userPill = document.getElementById('dbd-user-pill');
+      if (userPill) {
+        userPill.style.display = config.showUserPill === false ? 'none' : 'inline-flex';
+      }
+
+      if (config.iconScale) {
+        const sz = parseInt(config.iconScale, 10) || 94;
+        document.documentElement.style.setProperty('--icon-size', `${sz}px`);
+        document.documentElement.style.setProperty('--diamond-size', `${Math.round(sz * 0.72)}px`);
+      }
+    }
+
+    window.addEventListener('onWidgetLoad', (e) => {
+      const fieldData = e.detail?.fieldData || e.detail;
+      applySettings(fieldData);
+      loadPerkDatabase();
+    });
+
+    window.addEventListener('onFieldsUpdate', (e) => {
+      const fieldData = e.detail?.fieldData || e.detail;
+      applySettings(fieldData);
+    });
+
+    // Handle Events (Redemption, Chat, Test)
+    window.addEventListener('onEventReceived', (e) => {
+      const obj = e.detail;
+      if (!obj) return;
+
+      let shouldTrigger = false;
+      let user = 'Streamer';
+      let avatar = '';
+      let forcedRole = null;
+
+      // 1. Channel Points Redemption
+      if (obj.listener === 'redemption-latest' || obj.event?.type === 'redemption' || obj.type === 'redemption') {
+        const ev = obj.event || obj;
+        const rewardTitle = (ev.data?.rewardTitle || ev.reward?.title || '').trim().toLowerCase();
+        const configuredReward = (config.rewardName || 'สุ่มเปิร์ค DBD').trim().toLowerCase();
+
+        if (rewardTitle === configuredReward || rewardTitle.includes('dbd') || rewardTitle.includes('perk') || rewardTitle.includes('เปิร์ค')) {
+          shouldTrigger = true;
+          user = ev.data?.displayName || ev.data?.userName || ev.data?.name || 'Viewer';
+          avatar = ev.data?.avatar || ev.data?.profileImage || '';
+        }
+      }
+      // 2. Chat Command (!perk, !dbd, !survperk, !killerperk)
+      else if (obj.listener === 'message' || obj.event?.type === 'message') {
+        const text = (obj.event?.text || obj.event?.data?.text || obj.data?.text || '').trim();
+        const parts = text.split(/\s+/);
+        const cmd = parts[0]?.toLowerCase() || '';
+
+        if (cmd === '!perk' || cmd === '!dbd' || cmd === '!dbdperk' || cmd === '!survperk' || cmd === '!killerperk') {
+          shouldTrigger = true;
+          user = obj.event?.data?.displayName || obj.event?.displayName || obj.data?.displayName || 'Viewer';
+          avatar = '';
+
+          if (cmd === '!killerperk') forcedRole = 'killer';
+          if (cmd === '!survperk') forcedRole = 'survivor';
+        }
+      }
+      // 3. Direct Test / Simulation
+      else if (obj.type === 'dbd_perk_roll' || obj.listener === 'dbd_perk_roll' || obj.event?.type === 'dbd_perk_roll') {
+        shouldTrigger = true;
+        const ev = obj.event || obj;
+        user = ev.username || 'Streamer';
+        avatar = ev.avatar || '';
+        if (ev.role) forcedRole = ev.role;
+      }
+
+      if (shouldTrigger) {
+        triggerPerkRoll({ user, avatar, forcedRole });
+      }
+    });
+
+    async function triggerPerkRoll({ user, avatar, forcedRole }) {
+      if (isShowing) {
+        console.log('[DBD Perks] Roll in progress, ignored overlapping request');
+        return;
+      }
+
+      const activeRole = forcedRole || config.role || 'survivor';
+      const count = parseInt(config.perkCount || 4, 10) || 4;
+
+      // Ensure database is loaded
+      if (!allPerksData[activeRole] || allPerksData[activeRole].length === 0) {
+        await loadPerkDatabase();
+      }
+
+      const pool = allPerksData[activeRole] || [];
+      if (pool.length === 0) {
+        console.warn('[DBD Perks] Perks pool is empty!');
+        return;
+      }
+
+      // Filter out excluded perks
+      const excluded = Array.isArray(config.excludedPerks) ? config.excludedPerks : [];
+      const eligiblePerks = pool.filter(p => !excluded.includes(p.id) && !excluded.includes(p.name));
+      const sourceList = eligiblePerks.length >= count ? eligiblePerks : pool;
+
+      // Pick unique random perks
+      const shuffled = [...sourceList].sort(() => 0.5 - Math.random());
+      const selectedPerks = shuffled.slice(0, count);
+
+      console.log(`[DBD Perks] 🎲 Rolling ${count} perks for ${user} (${activeRole}):`, selectedPerks.map(p => p.name));
+
+      isShowing = true;
+
+      // Update UI Header
+      const userNameEl = document.getElementById('user-name');
+      if (userNameEl) userNameEl.textContent = user;
+
+      const userAvatarEl = document.getElementById('user-avatar');
+      if (userAvatarEl && avatar) {
+        userAvatarEl.src = avatar;
+      }
+
+      const roleTag = document.getElementById('role-tag');
+      if (roleTag) {
+        const isKiller = activeRole === 'killer';
+        roleTag.textContent = isKiller ? 'Killer' : 'Survivor';
+        roleTag.className = `dbd-role-tag ${isKiller ? 'killer' : 'survivor'}`;
+      }
+
+      // Render Empty Slots
+      const row = document.getElementById('perks-row');
+      row.innerHTML = '';
+
+      const slotElements = [];
+      const showName = config.showPerkName !== false;
+      const showChar = config.showCharacterName !== false;
+
+      for (let i = 0; i < count; i++) {
+        const slot = document.createElement('div');
+        slot.className = 'perk-slot spinning';
+        slot.innerHTML = `
+          <div class="perk-icon-wrapper">
+            <div class="perk-diamond-bg"></div>
+            <img class="perk-icon-img" src="${sourceList[i % sourceList.length].icon}" alt="Slot ${i + 1}" />
+          </div>
+          <div class="perk-name" style="${showName ? '' : 'display:none;'}">...</div>
+          <div class="perk-char" style="${showChar ? '' : 'display:none;'}">Spinning</div>
+        `;
+        row.appendChild(slot);
+        slotElements.push(slot);
+      }
+
+      const container = document.getElementById('dbd-container');
+      container.classList.add('active');
+
+      const durationSec = parseInt(config.displayDuration || 10, 10) || 10;
+
+      // Roulette spinning animation for each slot
+      const spinIntervals = [];
+      for (let i = 0; i < count; i++) {
+        const imgEl = slotElements[i].querySelector('.perk-icon-img');
+        const interval = setInterval(() => {
+          const randPerk = sourceList[Math.floor(Math.random() * sourceList.length)];
+          if (imgEl && randPerk) {
+            imgEl.src = randPerk.icon;
+            playTickSound();
+          }
+        }, 80 + i * 20);
+        spinIntervals.push(interval);
+      }
+
+      // Sequential lock-in
+      for (let i = 0; i < count; i++) {
+        await new Promise(r => setTimeout(r, 600 + i * 380));
+        clearInterval(spinIntervals[i]);
+
+        const targetPerk = selectedPerks[i];
+        const slot = slotElements[i];
+        if (slot && targetPerk) {
+          slot.classList.remove('spinning');
+          slot.classList.add('locked');
+
+          const img = slot.querySelector('.perk-icon-img');
+          const nameEl = slot.querySelector('.perk-name');
+          const charEl = slot.querySelector('.perk-char');
+
+          if (img) img.src = targetPerk.icon;
+          if (nameEl) {
+            nameEl.textContent = targetPerk.name;
+            nameEl.style.display = showName ? 'block' : 'none';
+          }
+          if (charEl) {
+            charEl.textContent = targetPerk.character || 'General';
+            charEl.style.display = showChar ? 'block' : 'none';
+          }
+
+          playLockSound();
+        }
+      }
+
+      // Send to Twitch Chat
+      if (config.enableChat && window.sendTwitchChat) {
+        const perkNames = selectedPerks.map(p => p.name).join(' | ');
+        const roleName = activeRole === 'killer' ? 'ฆาตกร' : 'ผู้รอดชีวิต';
+        const msg = (config.chatTemplate || '[DBD] {username} สุ่มเปิร์ค ({role}): {perks}')
+          .replace('{username}', user)
+          .replace('{role}', roleName)
+          .replace('{perks}', perkNames);
+        window.sendTwitchChat(msg);
+      }
+
+      // Record Roll History in Backend
+      const historyItem = {
+        username: user,
+        role: activeRole,
+        perks: selectedPerks,
+        result: selectedPerks.map(p => p.name).join(' | '),
+        avatar: avatar || `/api/twitch/avatar/${encodeURIComponent(user)}`,
+        timestamp: Date.now()
+      };
+      try {
+        if (typeof window.recordRollHistory === 'function') {
+          window.recordRollHistory(historyItem);
+        } else {
+          fetch('/api/widgets/dbd-perks/history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user: window.SolocastTargetUser || '',
+              item: historyItem
+            })
+          }).catch(() => {});
+        }
+      } catch (e) {}
+
+      // Auto Hide after duration
+      clearTimeout(hideTimeout);
+      hideTimeout = setTimeout(() => {
+        container.classList.remove('active');
+        setTimeout(() => {
+          isShowing = false;
+        }, 500);
+      }, durationSec * 1000);
+    }
+  </script>
+</body>
+</html>

@@ -24,7 +24,10 @@ let config = {
 // Queue system for consecutive shoutouts
 const shoutoutQueue = [];
 let isShowing = false;
+let currentShowingChannel = '';
 let hideTimeout = null;
+const recentShoutouts = new Map(); // channelName -> timestamp
+const DEDUPE_WINDOW_MS = 12000; // 12 seconds cooldown per channel
 
 // Apply settings to DOM and CSS
 function applySettings(data) {
@@ -86,8 +89,25 @@ window.addEventListener('onEventReceived', (e) => {
 
 // Queue a channel for shoutout
 function queueShoutout(channel) {
-  console.log('[Shoutout] 📥 Queued shoutout for channel:', channel);
-  shoutoutQueue.push(channel);
+  if (!channel) return;
+  const cleanName = channel.trim().toLowerCase().replace('@', '');
+  if (!cleanName) return;
+
+  const now = Date.now();
+  const lastTrigger = recentShoutouts.get(cleanName) || 0;
+  if (now - lastTrigger < DEDUPE_WINDOW_MS) {
+    console.log(`[Shoutout] ⏭️ Ignored duplicate shoutout for "${cleanName}" (${Math.round((DEDUPE_WINDOW_MS - (now - lastTrigger)) / 1000)}s cooldown remaining)`);
+    return;
+  }
+
+  if (currentShowingChannel === cleanName || shoutoutQueue.includes(cleanName)) {
+    console.log(`[Shoutout] ⏭️ Ignored duplicate: "${cleanName}" is already showing or queued`);
+    return;
+  }
+
+  recentShoutouts.set(cleanName, now);
+  console.log('[Shoutout] 📥 Queued shoutout for channel:', cleanName);
+  shoutoutQueue.push(cleanName);
   processQueue();
 }
 
@@ -97,6 +117,7 @@ async function processQueue() {
 
   isShowing = true;
   const channel = shoutoutQueue.shift();
+  currentShowingChannel = channel;
   await displayShoutout(channel);
 }
 
@@ -205,9 +226,42 @@ async function displayShoutout(channelName) {
   if (config.playClip && clipData && (clipData.clip_url || clipData.id)) {
     const streamVideoUrl = clipData.clip_url || `${API_BASE}/getclipurl.php?id=${clipData.id}&url=true`;
     if (videoEl) {
+      const targetVol = Math.max(0, Math.min(1, (config.clipVolume || 35) / 100));
+      videoEl.volume = targetVol;
+      videoEl.muted = false;
       videoEl.src = streamVideoUrl;
-      videoEl.volume = Math.max(0, Math.min(1, (config.clipVolume || 35) / 100));
-      videoEl.play().catch(e => console.log('[Shoutout] Autoplay blocked or failed:', e));
+      videoEl.load();
+
+      // Reliable play with muted autoplay fallback for cold start / OBS / browser policies
+      const attemptPlay = () => {
+        const playPromise = videoEl.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            console.warn('[Shoutout] Unmuted autoplay blocked by browser policy, attempting muted play fallback:', err);
+            videoEl.muted = true;
+            videoEl.play().then(() => {
+              console.log('[Shoutout] Video playback started (muted fallback)');
+              // Attempt unmuting once playback is underway
+              setTimeout(() => {
+                try {
+                  videoEl.muted = false;
+                  videoEl.volume = targetVol;
+                } catch (e) {}
+              }, 400);
+            }).catch((e) => {
+              console.error('[Shoutout] Video playback completely failed:', e);
+            });
+          });
+        }
+      };
+
+      attemptPlay();
+      videoEl.onloadedmetadata = () => {
+        if (videoEl.paused) attemptPlay();
+      };
+      videoEl.oncanplay = () => {
+        if (videoEl.paused) attemptPlay();
+      };
     }
     if (clipTitleEl) {
       clipTitleEl.textContent = clipData.title || 'Featured Clip';
@@ -218,7 +272,8 @@ async function displayShoutout(channelName) {
     if (clipWrapper) clipWrapper.style.display = 'none';
     if (videoEl) {
       videoEl.pause();
-      videoEl.src = '';
+      videoEl.removeAttribute('src');
+      videoEl.load();
     }
   }
 
@@ -261,12 +316,14 @@ function hideShoutout() {
 
   if (videoEl) {
     videoEl.pause();
-    videoEl.src = '';
+    videoEl.removeAttribute('src');
+    videoEl.load();
   }
 
   // Wait for transition before processing next in queue
   setTimeout(() => {
     isShowing = false;
+    currentShowingChannel = '';
     processQueue();
   }, 600);
 }

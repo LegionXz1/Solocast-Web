@@ -10,6 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import { syncDbdPerks } from './scripts/scrape_dbd_perks.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -85,6 +86,10 @@ function checkAdminAuth(req, res, next) {
   const session = getSessionFromReq(req);
   if (session && session.isAdmin) {
     req.user = session;
+    return next();
+  }
+  const adminKey = req.headers['x-admin-key'];
+  if (adminKey && process.env.ADMIN_KEY && adminKey === process.env.ADMIN_KEY) {
     return next();
   }
   return res.status(403).json({
@@ -563,7 +568,14 @@ app.get('/api/widgets/:id/checkin-summary', (req, res) => {
 app.post('/api/widgets/:id/history', (req, res) => {
   try {
     const widgetId = req.params.id;
-    const { user, item } = req.body;
+    let { user, item } = req.body;
+    if (!item) {
+      const { user: u, userId, ...rest } = req.body;
+      if (Object.keys(rest).length > 0) {
+        item = rest;
+        if (!user) user = u || userId;
+      }
+    }
     if (!item) return res.status(400).json({ error: 'Item data is required' });
 
     // หากผู้ส่งแต้มเป็น GamerGod88 ให้ไม่เก็บประวัติ
@@ -720,6 +732,170 @@ app.post('/api/widgets/twitch-shoutout/simulate', (req, res) => {
     }
     console.log(`[Shoutout API] 📢 Emitted test shoutout for: ${targetChannel}`);
     res.json({ success: true, channel: targetChannel });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ดึงรายชื่อ Killers Dead by Daylight ทั้งหมดสำหรับ Random Killer Widget
+app.get('/api/widgets/random-killer/killers', (req, res) => {
+  try {
+    const killersFile = path.join(__dirname, 'data', 'dbd_killers.json');
+    if (fs.existsSync(killersFile)) {
+      const data = JSON.parse(fs.readFileSync(killersFile, 'utf8'));
+      return res.json(data);
+    }
+    res.json([]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ดึงฐานข้อมูลเปิร์ค Dead by Daylight ทั้งหมด
+app.get('/api/widgets/dbd-perks/perks', (req, res) => {
+  try {
+    const perksFile = path.join(__dirname, 'data', 'dbd_perks.json');
+    if (fs.existsSync(perksFile)) {
+      const data = JSON.parse(fs.readFileSync(perksFile, 'utf8'));
+      return res.json(data);
+    }
+    res.json({ survivor: [], killer: [], total: 0 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ซิงค์อัปเดตฐานข้อมูลเปิร์ค DBD สดๆ จาก deadbydaylight.wiki.gg (รองรับทั้ง /api/widgets/... และ /api/admin/...)
+const handleDbdSync = async (req, res) => {
+  try {
+    console.log('[DBD Perks API] 🔄 Live syncing perks from Wiki...');
+    const data = await syncDbdPerks();
+    io.emit('dbd_perks_updated', data);
+    res.json({ success: true, data });
+  } catch (e) {
+    console.error('[DBD Perks API] Sync error:', e);
+    res.status(500).json({ error: e.message });
+  }
+};
+app.post('/api/widgets/dbd-perks/sync', handleDbdSync);
+app.post('/api/admin/dbd-perks/sync', checkAdminAuth, handleDbdSync);
+
+// Admin: เพิ่มเปิร์คใหม่แบบกำหนดเอง (Add Perk)
+app.post('/api/admin/dbd-perks', checkAdminAuth, (req, res) => {
+  try {
+    const { name, role, character, icon, description } = req.body || {};
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'กรุณากรอกชื่อเปิร์ค' });
+    }
+
+    const cleanRole = (role || 'survivor').toLowerCase().trim() === 'killer' ? 'killer' : 'survivor';
+    const cleanName = name.trim();
+    const slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `perk-${Date.now()}`;
+    const defaultIcon = 'https://deadbydaylight.wiki.gg/images/thumb/IconPerks_unknown.png/96px-IconPerks_unknown.png';
+
+    const perksFile = path.join(__dirname, 'data', 'dbd_perks.json');
+    let data = { updatedAt: new Date().toISOString(), total: 0, survivorCount: 0, killerCount: 0, survivor: [], killer: [] };
+    if (fs.existsSync(perksFile)) {
+      try {
+        data = JSON.parse(fs.readFileSync(perksFile, 'utf8'));
+      } catch (e) { }
+    }
+    if (!Array.isArray(data[cleanRole])) data[cleanRole] = [];
+
+    const newPerk = {
+      id: slug,
+      name: cleanName,
+      role: cleanRole,
+      character: (character || 'General').trim(),
+      icon: (icon && icon.trim()) ? icon.trim() : defaultIcon,
+      description: (description || '').trim()
+    };
+
+    // ตรวจสอบว่ามีเปิร์คนี้อยู่แล้วหรือไม่ (ตาม id หรือ name)
+    const existingIndex = data[cleanRole].findIndex(p => p.id === slug || p.name.toLowerCase() === cleanName.toLowerCase());
+    if (existingIndex >= 0) {
+      data[cleanRole][existingIndex] = { ...data[cleanRole][existingIndex], ...newPerk };
+    } else {
+      data[cleanRole].unshift(newPerk);
+    }
+
+    data.survivorCount = (data.survivor || []).length;
+    data.killerCount = (data.killer || []).length;
+    data.total = data.survivorCount + data.killerCount;
+    data.updatedAt = new Date().toISOString();
+
+    const dir = path.dirname(perksFile);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(perksFile, JSON.stringify(data, null, 2), 'utf8');
+
+    io.emit('dbd_perks_updated', data);
+    console.log(`[DBD Perks Admin] ➕ Added/Updated perk: "${newPerk.name}" (${cleanRole}) by admin`);
+
+    res.json({ success: true, perk: newPerk, total: data.total, data });
+  } catch (e) {
+    console.error('[DBD Perks Admin] Error adding perk:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: ลบเปิร์คออกจากระบบ (Delete Perk)
+app.delete('/api/admin/dbd-perks/:role/:id', checkAdminAuth, (req, res) => {
+  try {
+    const { role, id } = req.params;
+    const cleanRole = (role || '').toLowerCase().trim() === 'killer' ? 'killer' : 'survivor';
+    const targetId = decodeURIComponent(id || '').trim();
+
+    const perksFile = path.join(__dirname, 'data', 'dbd_perks.json');
+    if (!fs.existsSync(perksFile)) {
+      return res.status(404).json({ error: 'ไม่พบฐานข้อมูลเปิร์ค' });
+    }
+
+    let data = JSON.parse(fs.readFileSync(perksFile, 'utf8'));
+    if (!Array.isArray(data[cleanRole])) data[cleanRole] = [];
+
+    const initialLen = data[cleanRole].length;
+    const removedPerk = data[cleanRole].find(p => p.id === targetId || p.name.toLowerCase() === targetId.toLowerCase());
+    data[cleanRole] = data[cleanRole].filter(p => p.id !== targetId && p.name.toLowerCase() !== targetId.toLowerCase());
+
+    if (data[cleanRole].length === initialLen) {
+      return res.status(404).json({ error: `ไม่พบเปิร์ค "${targetId}" ในบทบาท ${cleanRole}` });
+    }
+
+    data.survivorCount = (data.survivor || []).length;
+    data.killerCount = (data.killer || []).length;
+    data.total = data.survivorCount + data.killerCount;
+    data.updatedAt = new Date().toISOString();
+
+    fs.writeFileSync(perksFile, JSON.stringify(data, null, 2), 'utf8');
+
+    io.emit('dbd_perks_updated', data);
+    console.log(`[DBD Perks Admin] 🗑️ Deleted perk: "${removedPerk?.name || targetId}" (${cleanRole}) by admin`);
+
+    res.json({ success: true, deletedPerk: removedPerk, total: data.total, data });
+  } catch (e) {
+    console.error('[DBD Perks Admin] Error deleting perk:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// จำลองการสุ่มเปิร์ค DBD สำหรับทดสอบ Widget
+app.post('/api/widgets/dbd-perks/simulate', (req, res) => {
+  try {
+    const { user, role, username } = req.body || {};
+    const ev = {
+      type: 'dbd_perk_roll',
+      role: role || 'survivor',
+      username: username || 'Streamer',
+      avatar: `/api/twitch/avatar/${encodeURIComponent(username || 'Streamer')}`,
+      timestamp: Date.now()
+    };
+    if (user) {
+      io.to('user_' + user).emit('onEventReceived', ev);
+    } else {
+      io.emit('onEventReceived', ev);
+    }
+    console.log(`[DBD Perks API] 🎲 Emitted test roll for: ${ev.username} (${ev.role})`);
+    res.json({ success: true, event: ev });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1004,7 +1180,6 @@ function startEventSub(userId) {
       }
     };
     io.to('user_' + userId).emit('onEventReceived', ev);
-    io.emit('onEventReceived', ev);
   });
 
   try {
@@ -1023,7 +1198,6 @@ function startEventSub(userId) {
         }
       };
       io.to('user_' + userId).emit('onEventReceived', ev);
-      io.emit('onEventReceived', ev);
     });
   } catch (err) {
     console.warn(`[EventSub] Shoutout listener setup warning for ${userId}:`, err?.message || err);
@@ -1035,22 +1209,11 @@ function startEventSub(userId) {
       const text = (e.messageText || '').trim();
       console.log(`[Twitch Chat] 💬 <${e.chatterName}> in channel ${userId}: "${text}"`);
 
-      // ส่งข้อความเข้าห้อง Socket เผื่อ Widget อื่นใช้งาน
-      const chatEv = {
-        type: 'message',
-        userId,
-        data: {
-          text: text,
-          user: e.chatterName,
-          displayName: e.chatterDisplayName
-        }
-      };
-      io.to('user_' + userId).emit('onEventReceived', chatEv);
-      io.emit('onEventReceived', chatEv);
-
-      // ตรวจสอบคำสั่ง !so <channel> หรือ !shoutout <channel>
       const parts = text.split(/\s+/);
-      if (parts.length >= 2 && (parts[0].toLowerCase() === '!so' || parts[0].toLowerCase() === '!shoutout')) {
+      const isSoCmd = parts.length >= 2 && (parts[0].toLowerCase() === '!so' || parts[0].toLowerCase() === '!shoutout');
+
+      if (isSoCmd) {
+        // ตรวจสอบคำสั่ง !so <channel> หรือ !shoutout <channel>
         const targetChannel = parts[1].replace('@', '').toLowerCase();
         console.log(`[Twitch Chat Command] 📢 Detected ${parts[0]} for "${targetChannel}" from ${e.chatterName}`);
         const soEv = {
@@ -1066,7 +1229,18 @@ function startEventSub(userId) {
           }
         };
         io.to('user_' + userId).emit('onEventReceived', soEv);
-        io.emit('onEventReceived', soEv);
+      } else {
+        // ส่งข้อความแชททั่วไปเข้าห้อง Socket เผื่อ Widget อื่นใช้งาน
+        const chatEv = {
+          type: 'message',
+          userId,
+          data: {
+            text: text,
+            user: e.chatterName,
+            displayName: e.chatterDisplayName
+          }
+        };
+        io.to('user_' + userId).emit('onEventReceived', chatEv);
       }
     });
     console.log(`✅ [EventSub] Subscribed to chat messages for user ID: ${userId}`);
@@ -1119,6 +1293,23 @@ io.on('connection', (socket) => {
       io.emit('onEventReceived', ev);
     }
     console.log(`[Shoutout Socket] 📢 Simulated shoutout for: ${targetChannel}`);
+  });
+
+  socket.on('simulate_dbd_perk', (payload) => {
+    const { userId, role, username } = payload || {};
+    const ev = {
+      type: 'dbd_perk_roll',
+      role: role || 'survivor',
+      username: username || 'Streamer',
+      avatar: `/api/twitch/avatar/${encodeURIComponent(username || 'Streamer')}`,
+      timestamp: Date.now()
+    };
+    if (userId) {
+      io.to('user_' + userId).emit('onEventReceived', ev);
+    } else {
+      io.emit('onEventReceived', ev);
+    }
+    console.log(`[DBD Perks Socket] 🎲 Simulated perk roll for: ${ev.username} (${ev.role})`);
   });
 
   socket.on('send_twitch_chat', async (payload) => {

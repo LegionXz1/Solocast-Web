@@ -34,7 +34,9 @@ import {
   X,
   ShieldCheck,
   Star,
-  LogOut
+  LogOut,
+  Search,
+  Ban
 } from 'lucide-react';
 
 const socket = io('http://localhost:3000');
@@ -66,6 +68,16 @@ function Dashboard() {
   const [bgMode, setBgMode] = useState('checker'); // 'checker' | 'dark-solid' | 'green-screen'
   const [shoutoutChannel, setShoutoutChannel] = useState('legionxiz');
   const hasRollHistory = selectedWidget && selectedWidget !== 'twitch-shoutout';
+
+  // DBD Perks State & Search
+  const [dbdPerksList, setDbdPerksList] = useState({ survivor: [], killer: [] });
+  const [dbdSearchQuery, setDbdSearchQuery] = useState('');
+  const [isSyncingPerks, setIsSyncingPerks] = useState(false);
+  const [syncPerksSuccess, setSyncPerksSuccess] = useState('');
+
+  // Random Killer State & Search
+  const [killersList, setKillersList] = useState([]);
+  const [killerSearchQuery, setKillerSearchQuery] = useState('');
 
   // สรุปยอดนับการเช็คอินของผู้ใช้แต่ละคน (สำหรับ Loyalty Card)
   const loyaltyUserSummary = useMemo(() => {
@@ -172,6 +184,34 @@ function Dashboard() {
       });
   }, [selectedWidget, status.userId]);
 
+  // 4.1 โหลดข้อมูลเปิร์ค DBD เมื่อเปิด Widget dbd-perks
+  useEffect(() => {
+    if (selectedWidget === 'dbd-perks' && (!dbdPerksList.survivor || dbdPerksList.survivor.length === 0)) {
+      fetch('http://localhost:3000/api/widgets/dbd-perks/perks')
+        .then(res => res.ok ? res.json() : { survivor: [], killer: [] })
+        .then(data => {
+          if (data && (data.survivor || data.killer)) {
+            setDbdPerksList(data);
+          }
+        })
+        .catch(err => console.error('Error fetching DBD perks:', err));
+    }
+  }, [selectedWidget, dbdPerksList]);
+
+  // 4.2 โหลดข้อมูล Killers เมื่อเลือก Random Killer Widget
+  useEffect(() => {
+    if (selectedWidget === 'random-killer' && killersList.length === 0) {
+      fetch('http://localhost:3000/api/widgets/random-killer/killers')
+        .then(res => res.ok ? res.json() : [])
+        .then(data => {
+          if (Array.isArray(data) && data.length > 0) {
+            setKillersList(data);
+          }
+        })
+        .catch(err => console.error('Error fetching DBD killers:', err));
+    }
+  }, [selectedWidget, killersList]);
+
   // 5. โหลดประวัติการสุ่ม (Roll History) ของ Widget นี้
   useEffect(() => {
     if (!selectedWidget || selectedWidget === 'twitch-shoutout') {
@@ -206,14 +246,20 @@ function Dashboard() {
       }
     };
 
+    const handleDbdPerksUpdated = (newData) => {
+      if (newData) setDbdPerksList(newData);
+    };
+
     socket.on('onEventReceived', handleEvent);
     socket.on('widget_roll_history_item', handleNewRoll);
     socket.on('widget_roll_history_cleared', handleClearedHistory);
+    socket.on('dbd_perks_updated', handleDbdPerksUpdated);
 
     return () => {
       socket.off('onEventReceived', handleEvent);
       socket.off('widget_roll_history_item', handleNewRoll);
       socket.off('widget_roll_history_cleared', handleClearedHistory);
+      socket.off('dbd_perks_updated', handleDbdPerksUpdated);
     };
   }, [selectedWidget]);
 
@@ -316,8 +362,37 @@ function Dashboard() {
         type: 'shoutout',
         data: { username: ch, channel: ch }
       }, ...prev].slice(0, 5));
+    } else if (selectedWidget === 'dbd-perks') {
+      const curRole = fieldData.role || 'survivor';
+      const testUser = status.username || 'Streamer';
+      socket.emit('simulate_dbd_perk', {
+        userId: status.userId,
+        role: curRole,
+        username: testUser
+      });
     } else {
       handleSimulateRedemption();
+    }
+  };
+
+  const handleSyncDbdPerks = async () => {
+    setIsSyncingPerks(true);
+    setSyncPerksSuccess('');
+    try {
+      const res = await fetch('http://localhost:3000/api/widgets/dbd-perks/sync', { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setDbdPerksList(data.data);
+        setSyncPerksSuccess(`อัปเดตเปิร์คเรียบร้อย! (ทั้งหมด ${data.data.total} เปิร์ค)`);
+        setTimeout(() => setSyncPerksSuccess(''), 4000);
+      } else {
+        alert('ไม่สามารถอัปเดตเปิร์คได้: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error('Error syncing DBD perks:', err);
+      alert('เกิดข้อผิดพลาดในการดึงข้อมูลเปิร์คจาก Wiki: ' + err.message);
+    } finally {
+      setIsSyncingPerks(false);
     }
   };
 
@@ -372,15 +447,19 @@ function Dashboard() {
       groups[g].push({ key, ...field });
     }
 
-    return Object.keys(groups).map(groupName => (
-      <div key={groupName} style={{ marginBottom: '1.75rem', padding: '1.25rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '1.15rem', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.15rem' }}>
-          <span style={{ width: '4px', height: '14px', background: 'var(--accent-color)', borderRadius: '2px', display: 'inline-block' }}></span>
-          <h4 style={{ margin: 0, fontSize: '0.85rem', letterSpacing: '0.08em', color: '#C084FC' }}>{groupName}</h4>
-        </div>
-        {groups[groupName].map(field => (
-          <div key={field.key} className="input-group">
-            <label title={field.key}>{field.label}</label>
+    return Object.keys(groups).map(groupName => {
+      const visibleFields = groups[groupName].filter(f => f.type !== 'custom');
+      if (visibleFields.length === 0) return null;
+
+      return (
+        <div key={groupName} style={{ marginBottom: '1.75rem', padding: '1.25rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '1.15rem', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.15rem' }}>
+            <span style={{ width: '4px', height: '14px', background: 'var(--accent-color)', borderRadius: '2px', display: 'inline-block' }}></span>
+            <h4 style={{ margin: 0, fontSize: '0.85rem', letterSpacing: '0.08em', color: '#C084FC' }}>{groupName}</h4>
+          </div>
+          {visibleFields.map(field => (
+            <div key={field.key} className="input-group">
+              <label title={field.key}>{field.label}</label>
             {(field.type === 'text' || field.type === 'number') && (
               <input
                 type={field.type === 'number' ? 'number' : 'text'}
@@ -508,8 +587,9 @@ function Dashboard() {
             )}
           </div>
         ))}
-      </div>
-    ));
+        </div>
+      );
+    });
   };
 
   return (
@@ -558,55 +638,13 @@ function Dashboard() {
               </div>
             </div>
 
-            {!status.connected ? (
+            {!status.connected && (
               <a href="http://localhost:3000/auth/twitch" className="btn-island accent">
                 <span>เข้าสู่ระบบด้วย Twitch</span>
                 <div className="btn-icon-wrapper">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
                 </div>
               </a>
-            ) : (
-              <div style={{ marginTop: '2rem' }}>
-                <span className="eyebrow">ระบบจำลอง</span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
-                  <button onClick={handleSimulate} className="btn-island" style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)' }}>
-                    <span>จำลองคนกดติดตาม (Follow)</span>
-                  </button>
-                  <button onClick={handleSimulateRedemption} className="btn-island accent">
-                    <span>จำลองการแลกแต้ม (Redemption)</span>
-                    <div className="btn-icon-wrapper">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-                    </div>
-                  </button>
-                </div>
-
-                <div style={{ marginTop: '2rem' }}>
-                  <span className="eyebrow">ประวัติล่าสุด (Live Logs)</span>
-                  <div className="event-log">
-                    {events.map((ev, idx) => (
-                      <div key={idx} className="event-card" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                        {ev.type === 'follower' ? (
-                          <>
-                            <UserCheck size={14} style={{ color: '#10B981', flexShrink: 0 }} />
-                            <span><strong>{ev.data.name}</strong> กดติดตาม!</span>
-                          </>
-                        ) : ev.type === 'redemption' ? (
-                          <>
-                            <Gift size={14} style={{ color: '#8e90f6', flexShrink: 0 }} />
-                            <span><strong>{ev.data.name}</strong> แลกรางวัล: {ev.data.rewardTitle}</span>
-                          </>
-                        ) : (
-                          <>
-                            <Star size={14} style={{ color: '#F59E0B', flexShrink: 0 }} />
-                            <span><strong>{ev.data.name}</strong> กดซับสไครบ์!</span>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                    {events.length === 0 && <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>รอรับข้อมูล...</span>}
-                  </div>
-                </div>
-              </div>
             )}
           </div>
         </div>
@@ -735,6 +773,17 @@ function Dashboard() {
                                   </span>
                                 </button>
                               </div>
+                            ) : selectedWidget === 'dbd-perks' ? (
+                              <button
+                                type="button"
+                                onClick={handleTriggerPreview}
+                                className="btn-preview-action accent"
+                                title="ทดสอบสุ่มเปิร์ค DBD ทันที"
+                              >
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                  <Dices size={14} /> สุ่มเปิร์ค DBD (Test Roll)
+                                </span>
+                              </button>
                             ) : (
                               <button
                                 type="button"
@@ -799,6 +848,416 @@ function Dashboard() {
                       {/* Schema Settings Form */}
                       <div className="schema-container">
                         {renderSchemaForm()}
+
+                        {/* DBD Perks Searchable Blacklist / Exclude Section */}
+                        {selectedWidget === 'dbd-perks' && (() => {
+                          const currentRole = fieldData.role || 'survivor';
+                          const rolePerks = dbdPerksList[currentRole] || [];
+                          const excludedList = Array.isArray(fieldData.excludedPerks) ? fieldData.excludedPerks : [];
+                          const query = (dbdSearchQuery || '').trim().toLowerCase();
+
+                          const filteredPerks = rolePerks.filter(p => {
+                            if (!query) return true;
+                            return (p.name && p.name.toLowerCase().includes(query)) ||
+                                   (p.character && p.character.toLowerCase().includes(query));
+                          });
+
+                          const excludedCount = rolePerks.filter(p => excludedList.includes(p.id) || excludedList.includes(p.name)).length;
+                          const activeCount = rolePerks.length - excludedCount;
+
+                          const handleTogglePerk = (pId) => {
+                            let next;
+                            if (excludedList.includes(pId)) {
+                              next = excludedList.filter(id => id !== pId);
+                            } else {
+                              next = [...excludedList, pId];
+                            }
+                            handleFieldChange('excludedPerks', next);
+                          };
+
+                          const handleExcludeAllSearch = () => {
+                            const toAdd = filteredPerks.map(p => p.id).filter(id => !excludedList.includes(id));
+                            if (toAdd.length > 0) {
+                              handleFieldChange('excludedPerks', [...excludedList, ...toAdd]);
+                            }
+                          };
+
+                          const handleResetRoleExclusions = () => {
+                            const roleIds = new Set(rolePerks.map(p => p.id));
+                            const next = excludedList.filter(id => !roleIds.has(id));
+                            handleFieldChange('excludedPerks', next);
+                          };
+
+                          return (
+                            <div className="dbd-blacklist-box">
+                              <div className="dbd-blacklist-header">
+                                <div>
+                                  <div className="dbd-blacklist-title">
+                                    <Ban size={18} style={{ color: '#EF4444' }} />
+                                    <span>เลือกเปิร์คที่ไม่ต้องการ / ยังไม่มี (Blacklist & Exclude)</span>
+                                  </div>
+                                  <div className="dbd-blacklist-desc">
+                                    ค้นหาเปิร์คหรือตัวละคร แล้วคลิกเพื่อติ๊ก <strong>"ตัดออก"</strong> จากการสุ่ม ระบบจะบันทึกและซิงค์ไปยัง OBS ทันที
+                                  </div>
+                                </div>
+
+                                {/* Role Switcher & Sync Button Row */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                                  {/* Role Switcher Pills */}
+                                  <div style={{ display: 'inline-flex', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '10px', padding: '3px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleFieldChange('role', 'survivor')}
+                                      style={{
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        padding: '6px 14px',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        background: currentRole === 'survivor' ? '#8B5CF6' : 'transparent',
+                                        color: currentRole === 'survivor' ? '#fff' : 'var(--text-secondary)',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                    >
+                                      ผู้รอดชีวิต ({dbdPerksList.survivor?.length || 179})
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleFieldChange('role', 'killer')}
+                                      style={{
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        padding: '6px 14px',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        background: currentRole === 'killer' ? '#EF4444' : 'transparent',
+                                        color: currentRole === 'killer' ? '#fff' : 'var(--text-secondary)',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                    >
+                                      ฆาตกร ({dbdPerksList.killer?.length || 151})
+                                    </button>
+                                  </div>
+
+                                  {/* Admin Management Shortcut */}
+                                  {status.isAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={() => navigate('/admin?tab=dbd_perks')}
+                                      className="btn-preview-action"
+                                      style={{
+                                        padding: '6px 12px',
+                                        fontSize: '0.8rem',
+                                        borderColor: 'rgba(139, 92, 246, 0.4)',
+                                        color: '#C084FC'
+                                      }}
+                                      title="ไปที่หน้า Admin เพื่อเพิ่ม, ลบ หรือซิงค์เปิร์ค DBD"
+                                    >
+                                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                        <ShieldCheck size={13} /> จัดการเปิร์ค (Admin)
+                                      </span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Search Bar */}
+                              <div className="dbd-search-bar">
+                                <Search size={16} style={{ color: '#94A3B8', flexShrink: 0 }} />
+                                <input
+                                  type="text"
+                                  className="dbd-search-input"
+                                  placeholder={`ค้นหาชื่อเปิร์ค หรือชื่อตัวละคร (เช่น Sprint Burst, Meg Thomas)...`}
+                                  value={dbdSearchQuery}
+                                  onChange={(e) => setDbdSearchQuery(e.target.value)}
+                                />
+                                {dbdSearchQuery && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDbdSearchQuery('')}
+                                    style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '2px', display: 'flex' }}
+                                  >
+                                    <X size={15} />
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Status & Quick Actions */}
+                              <div className="dbd-stats-row">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                  <span className="dbd-stat-badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                                    <Check size={12} /> สุ่มได้: <strong>{activeCount}</strong> เปิร์ค
+                                  </span>
+                                  {excludedCount > 0 && (
+                                    <span className="dbd-stat-badge" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
+                                      <Ban size={12} /> ตัดออก: <strong>{excludedCount}</strong> เปิร์ค
+                                    </span>
+                                  )}
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                    (แสดง {filteredPerks.length} จาก {rolePerks.length} เปิร์ค)
+                                  </span>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  {dbdSearchQuery && filteredPerks.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={handleExcludeAllSearch}
+                                      className="btn-preview-action"
+                                      style={{ fontSize: '0.75rem', color: '#EF4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                                      title="ตัดเปิร์คทั้งหมดในผลการค้นหานี้ออกจากการสุ่ม"
+                                    >
+                                      <Ban size={12} /> ตัดออกทั้งหมดในคำค้นหานี้ ({filteredPerks.length})
+                                    </button>
+                                  )}
+                                  {excludedCount > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={handleResetRoleExclusions}
+                                      className="btn-preview-action"
+                                      style={{ fontSize: '0.75rem' }}
+                                      title="รีเซ็ตให้สุ่มได้ทุกเปิร์คของบทบาทนี้"
+                                    >
+                                      <RotateCw size={12} /> รีเซ็ต (เปิดสุ่มทุกเปิร์ค)
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Perks Scrollable Grid */}
+                              {filteredPerks.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-secondary)' }}>
+                                  <Search size={32} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+                                  <p style={{ margin: 0, fontSize: '0.85rem' }}>ไม่พบเปิร์คที่ตรงกับ "{dbdSearchQuery}"</p>
+                                </div>
+                              ) : (
+                                <div className="dbd-perk-grid">
+                                  {filteredPerks.map((perk) => {
+                                    const isExcluded = excludedList.includes(perk.id) || excludedList.includes(perk.name);
+                                    return (
+                                      <div
+                                        key={perk.id}
+                                        className={`dbd-perk-card ${isExcluded ? 'excluded' : ''}`}
+                                        onClick={() => handleTogglePerk(perk.id)}
+                                        title={perk.description ? `${perk.name}\n${perk.description}` : perk.name}
+                                      >
+                                        <div className="dbd-check-indicator">
+                                          {isExcluded ? <Ban size={12} /> : null}
+                                        </div>
+
+                                        <div className="dbd-perk-icon-wrapper">
+                                          <div className="dbd-perk-diamond-bg" />
+                                          <img
+                                            src={perk.icon}
+                                            alt={perk.name}
+                                            className="dbd-perk-img"
+                                            loading="lazy"
+                                            onError={(e) => { e.target.style.opacity = '0.3'; }}
+                                          />
+                                        </div>
+
+                                        <div className="dbd-perk-info">
+                                          <div className="dbd-perk-name">{perk.name}</div>
+                                          <div className="dbd-perk-char">
+                                            {perk.character || 'เปิร์คทั่วไป (General)'}
+                                          </div>
+                                        </div>
+
+                                        {isExcluded && (
+                                          <span style={{
+                                            fontSize: '0.68rem',
+                                            color: '#EF4444',
+                                            fontWeight: 700,
+                                            background: 'rgba(239, 68, 68, 0.12)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            whiteSpace: 'nowrap'
+                                          }}>
+                                            ตัดออก
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        {/* Random Killer Searchable Blacklist / Exclude Section */}
+                        {selectedWidget === 'random-killer' && (() => {
+                          const excludedList = Array.isArray(fieldData.excludedKillers) ? fieldData.excludedKillers : [];
+                          const query = (killerSearchQuery || '').trim().toLowerCase();
+
+                          const filteredKillers = killersList.filter(k => {
+                            if (!query) return true;
+                            return (k.name && k.name.toLowerCase().includes(query)) ||
+                                   (k.id && k.id.toLowerCase().includes(query));
+                          });
+
+                          const excludedCount = killersList.filter(k => excludedList.includes(k.id) || excludedList.includes(k.name)).length;
+                          const activeCount = Math.max(0, killersList.length - excludedCount);
+
+                          const handleToggleKiller = (killer) => {
+                            let next;
+                            if (excludedList.includes(killer.name) || excludedList.includes(killer.id)) {
+                              next = excludedList.filter(id => id !== killer.name && id !== killer.id);
+                            } else {
+                              next = [...excludedList, killer.name];
+                            }
+                            handleFieldChange('excludedKillers', next);
+                          };
+
+                          const handleExcludeAllSearch = () => {
+                            const toAdd = filteredKillers
+                              .map(k => k.name)
+                              .filter(name => !excludedList.includes(name));
+                            if (toAdd.length > 0) {
+                              handleFieldChange('excludedKillers', [...excludedList, ...toAdd]);
+                            }
+                          };
+
+                          const handleResetExclusions = () => {
+                            handleFieldChange('excludedKillers', []);
+                          };
+
+                          return (
+                            <div className="dbd-blacklist-box" style={{ borderColor: 'rgba(201, 168, 76, 0.3)' }}>
+                              <div className="dbd-blacklist-header">
+                                <div>
+                                  <div className="dbd-blacklist-title" style={{ color: '#F5D07A' }}>
+                                    <Ban size={18} style={{ color: '#EF4444' }} />
+                                    <span>เลือกคิลเลอร์ที่ไม่ต้องการให้สุ่ม (Blacklist & Exclude)</span>
+                                  </div>
+                                  <div className="dbd-blacklist-desc">
+                                    ค้นหาชื่อคิลเลอร์ แล้วคลิกเพื่อติ๊ก <strong>"ตัดออก"</strong> จากการสุ่ม ระบบจะบันทึกและซิงค์ไปยัง OBS ทันที (คิลเลอร์ที่ถูกตัดออกจะไม่ถูกสุ่มได้)
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Search Bar */}
+                              <div className="dbd-search-bar">
+                                <Search size={16} style={{ color: '#94A3B8', flexShrink: 0 }} />
+                                <input
+                                  type="text"
+                                  className="dbd-search-input"
+                                  placeholder="ค้นหาชื่อคิลเลอร์ (เช่น The Nurse, The Trapper, Blight, Chucky)..."
+                                  value={killerSearchQuery}
+                                  onChange={(e) => setKillerSearchQuery(e.target.value)}
+                                />
+                                {killerSearchQuery && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setKillerSearchQuery('')}
+                                    style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '2px', display: 'flex' }}
+                                  >
+                                    <X size={15} />
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Status & Quick Actions */}
+                              <div className="dbd-stats-row">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                  <span className="dbd-stat-badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                                    <Check size={12} /> สุ่มได้: <strong>{activeCount}</strong> คิลเลอร์
+                                  </span>
+                                  {excludedCount > 0 && (
+                                    <span className="dbd-stat-badge" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
+                                      <Ban size={12} /> ตัดออก: <strong>{excludedCount}</strong> คิลเลอร์
+                                    </span>
+                                  )}
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                    (แสดง {filteredKillers.length} จาก {killersList.length} คิลเลอร์)
+                                  </span>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  {killerSearchQuery && filteredKillers.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={handleExcludeAllSearch}
+                                      className="btn-preview-action"
+                                      style={{ fontSize: '0.75rem', color: '#EF4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                                      title="ตัดคิลเลอร์ทั้งหมดในผลการค้นหานี้ออกจากการสุ่ม"
+                                    >
+                                      <Ban size={12} /> ตัดออกทั้งหมดในคำค้นหานี้ ({filteredKillers.length})
+                                    </button>
+                                  )}
+                                  {excludedCount > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={handleResetExclusions}
+                                      className="btn-preview-action"
+                                      style={{ fontSize: '0.75rem' }}
+                                      title="รีเซ็ตให้สุ่มได้ทุกคิลเลอร์"
+                                    >
+                                      <RotateCw size={12} /> รีเซ็ต (เปิดสุ่มทุกตัว)
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Killers Scrollable Grid */}
+                              {filteredKillers.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-secondary)' }}>
+                                  <Search size={32} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+                                  <p style={{ margin: 0, fontSize: '0.85rem' }}>ไม่พบคิลเลอร์ที่ตรงกับ "{killerSearchQuery}"</p>
+                                </div>
+                              ) : (
+                                <div className="killer-blacklist-grid">
+                                  {filteredKillers.map((killer) => {
+                                    const isExcluded = excludedList.includes(killer.name) || excludedList.includes(killer.id);
+                                    return (
+                                      <div
+                                        key={killer.id || killer.name}
+                                        className={`killer-card ${isExcluded ? 'excluded' : ''}`}
+                                        onClick={() => handleToggleKiller(killer)}
+                                        title={killer.name}
+                                      >
+                                        <div className="dbd-check-indicator">
+                                          {isExcluded ? <Ban size={12} /> : null}
+                                        </div>
+
+                                        <div className="killer-portrait-wrapper">
+                                          <img
+                                            src={killer.img}
+                                            alt={killer.name}
+                                            className="killer-portrait-img"
+                                            loading="lazy"
+                                            onError={(e) => { e.target.style.opacity = '0.3'; }}
+                                          />
+                                        </div>
+
+                                        <div className="killer-card-info">
+                                          <div className="killer-card-name">{killer.name}</div>
+                                          <div className="killer-card-sub">Dead by Daylight Killer</div>
+                                        </div>
+
+                                        {isExcluded && (
+                                          <span style={{
+                                            fontSize: '0.68rem',
+                                            color: '#EF4444',
+                                            fontWeight: 700,
+                                            background: 'rgba(239, 68, 68, 0.12)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            whiteSpace: 'nowrap'
+                                          }}>
+                                            ตัดออก
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* OBS URL Box (Static & Auto-Syncing) */}
@@ -1029,6 +1488,66 @@ function Dashboard() {
                         <div className="roll-history-list">
                           {rollHistory.map((item) => {
                             const isLoyalty = selectedWidget === 'loyalty-card' || item.count !== undefined;
+                            const isDbd = selectedWidget === 'dbd-perks' || Array.isArray(item.perks);
+
+                            if (isDbd && Array.isArray(item.perks) && item.perks.length > 0) {
+                              return (
+                                <div key={item.id} className="roll-history-card" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.75rem' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                                      <img 
+                                        src={item.avatar || `/api/twitch/avatar/${encodeURIComponent(item.username || '')}`} 
+                                        alt={item.username || 'User'} 
+                                        style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(142, 144, 246, 0.4)' }}
+                                        onError={(e) => { 
+                                          e.target.src = 'https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7ba-40d2-965a-52834b6f79e8-profile_image-300x300.png';
+                                        }}
+                                      />
+                                      <div>
+                                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                          @{item.username || 'Streamer'}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '2px' }}>
+                                          <span style={{
+                                            fontSize: '0.7rem',
+                                            fontWeight: 700,
+                                            padding: '2px 7px',
+                                            borderRadius: '6px',
+                                            background: item.role === 'killer' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(14, 165, 233, 0.15)',
+                                            color: item.role === 'killer' ? '#EF4444' : '#38BDF8',
+                                            border: item.role === 'killer' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(14, 165, 233, 0.3)'
+                                          }}>
+                                            {item.role === 'killer' ? 'ฆาตกร (Killer)' : 'ผู้รอดชีวิต (Survivor)'}
+                                          </span>
+                                          {item.rewardTitle && (
+                                            <span className="roll-info-reward" style={{ fontSize: '0.72rem' }}>
+                                              <Gift size={11} /> {item.rewardTitle}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="roll-time" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                      <Clock size={13} style={{ color: 'var(--text-secondary)' }} /> {formatTime(item.timestamp)}
+                                    </div>
+                                  </div>
+
+                                  <div className="roll-dbd-perks" style={{ width: '100%' }}>
+                                    {item.perks.map((p, idx) => (
+                                      <div key={idx} className="roll-dbd-perk-item" title={p.description || p.name}>
+                                        <img src={p.icon} alt={p.name} className="roll-dbd-perk-thumb" />
+                                        <span style={{ fontWeight: 600 }}>{p.name}</span>
+                                        {p.character && (
+                                          <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', opacity: 0.85 }}>({p.character})</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            }
+
                             return (
                               <div key={item.id} className="roll-history-card">
                                 <div className="roll-card-left">

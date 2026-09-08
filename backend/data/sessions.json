@@ -3,7 +3,7 @@
     "userId": "1536233139",
     "username": "legionxiz0",
     "displayName": "legionxiz0",
-    "isAdmin": true,
+    "isAdmin": false,
     "createdAt": 1788814003689
   },
   "e60bb3b4-c7f3-4ded-b643-ad309579b88c": {
@@ -19,5 +19,12 @@
     "displayName": "LegionXIZ",
     "isAdmin": true,
     "createdAt": 1788830583930
+  },
+  "df4d19bd-e1c3-488e-87db-18bcd0cb8ac9": {
+    "userId": "1536233139",
+    "username": "legionxiz0",
+    "displayName": "legionxiz0",
+    "isAdmin": false,
+    "createdAt": 1788870165258
   }
 }
