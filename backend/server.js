@@ -10,6 +10,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { syncDbdPerks } from './scripts/scrape_dbd_perks.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -22,6 +24,36 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 
 app.use(cors());
+
+// 🛡️ Security Headers via Helmet (tuned for OBS Studio widgets & iframe embedding)
+app.use(helmet({
+  contentSecurityPolicy: false, // Allow widgets to load fonts, wiki images, Twitch CDN, sounds
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow OBS and web frontend to load widget assets
+  frameguard: false // Allow widgets to be previewed in Dashboard iframes
+}));
+
+// 🛡️ Rate Limiting: General API Limiter (prevents DDoS & spam)
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1500, // 1500 requests per 15 mins
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests from this IP, please try again after 15 minutes.' }
+});
+app.use('/api/', apiLimiter);
+
+// 🛡️ Rate Limiting: Stricter Limiter for Auth & Admin endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100, // 100 attempts per 15 mins
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many authentication attempts, please try again after 15 minutes.' }
+});
+app.use('/api/auth/', authLimiter);
+app.use('/api/admin/', authLimiter);
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static('public'));
