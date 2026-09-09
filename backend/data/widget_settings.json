@@ -96,7 +96,7 @@
   },
   "dbd-perks": {
     "148596257": {
-      "role": "survivor",
+      "role": "killer",
       "perkCount": 4,
       "rewardName": "GG",
       "enableChat": true,

@@ -54,6 +54,15 @@
   "loyalty-card": {
     "148596257": [
       {
+        "id": "roll_1788912415196_9lmd3",
+        "timestamp": 1788912415193,
+        "username": "LegionXIZ",
+        "count": 12,
+        "avatar": "/api/twitch/avatar/LegionXIZ",
+        "rewardTitle": "จุ่มๆๆๆ",
+        "result": "เช็คอินครั้งที่ 12"
+      },
+      {
         "id": "roll_1788865196922_zh28u",
         "timestamp": 1788865196916,
         "username": "LegionXIZ",
@@ -75,6 +84,90 @@
   },
   "dbd-perks": {
     "148596257": [
+      {
+        "id": "roll_1788912400332_54x6t",
+        "timestamp": 1788912400328,
+        "username": "LegionXIZ",
+        "role": "killer",
+        "perks": [
+          {
+            "id": "remember-me",
+            "name": "Remember Me",
+            "role": "killer",
+            "character": "Nightmare",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_rememberMe.png/96px-IconPerks_rememberMe.png?4b8c1b",
+            "description": "Whenever the Obsession loses a Health State by any means, Remember Me gains +1 Token , up to a maximum of 3 / 4 / 5 Tokens : Increases the Opening time of both Exit Gates by a stack-able 6 seconds per Token, up to a maximum additional Opening time of 18 / 24 / 30 seconds . This results in a maximum possible Opening time of 38 / 44 / 50 seconds for both Exit Gates . Remember Me does not apply its penalty to the Obsession , allowing them to open both Exit Gates in the default time of 20 seconds . You can only be obsessed with one Survivor at a time. \"You don't remember? You must. You're my number one, and you'll never wake up again.\" — Freddy Krueger"
+          },
+          {
+            "id": "celestial-witness",
+            "name": "Celestial Witness",
+            "role": "killer",
+            "character": "Judgment",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/T_UI_iconsPerks_CelestialWitness.png/96px-T_UI_iconsPerks_CelestialWitness.png?d93f72",
+            "description": "Every 30 seconds , if the Obsession is 40 metres away from you, you see their aura for 2 / 2.5 / 3 seconds . Otherwise, the farthest Survivor becomes the Obsession . \"And so the heretics huddled, cowardly, in the night; but upon Judgment’s arrival, It saw them all, and punished them.\" — (Witness to Koenrad, ch. 32)"
+          },
+          {
+            "id": "forever-entwined",
+            "name": "Forever Entwined",
+            "role": "killer",
+            "character": "Ghoul",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/T_UI_iconPerks_ForeverEntwined.png/96px-T_UI_iconPerks_ForeverEntwined.png?8070ec",
+            "description": "\"The greater the struggle, the more difficult the escape.\" Whenever a Survivors takes damage, Forever Entwined gains +1 Token , up to a maximum of 6 / 7 / 8 Tokens : Increases the Action speeds for Dropping, Hooking, and Picking up a Survivor by a stack-able +4&#160;% per Token, up to a maximum of 24 / 28 / 32 &#37; . \"You tried to devour me so you have no room to complain if I eat you, do you?\" — Ken Kaneki"
+          },
+          {
+            "id": "alien-instinct",
+            "name": "Alien Instinct",
+            "role": "killer",
+            "character": "Xenomorph",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_alienInstinct.png/96px-IconPerks_alienInstinct.png?5e7374",
+            "description": "\"You are so stealthy, sometimes it seems like you appear out of nowhere.\" Whenever you hook a Survivor, Alien Instinct activates: The Aura of the farthest Survivor from your current location who is in the Injured State is revealed to you for 8 seconds . Causes that Survivor to suffer from the Oblivious Status Effect for 40 / 50 / 60 seconds . \"Yellow light's for my eyes only.\" — Dallas"
+          }
+        ],
+        "result": "Remember Me | Celestial Witness | Forever Entwined | Alien Instinct",
+        "avatar": "/api/twitch/avatar/LegionXIZ"
+      },
+      {
+        "id": "roll_1788912386785_1y83m",
+        "timestamp": 1788912386777,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "invocation-treacherous-crows",
+            "name": "Invocation: Treacherous Crows",
+            "role": "survivor",
+            "character": "Taurie",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_invocationTreacherousCrows.png/96px-IconPerks_invocationTreacherousCrows.png?1e1ba8",
+            "description": "\"One with arcane knowledge has no reason to fear those watchful birds.\" When in the Basement near the circle, press the Active Ability button to begin the Invocation , which takes 60 seconds to complete. During an Invocation , your Aura is revealed to all other Survivors and they can join in, accelerating the process by +100&#160;% , if they too have an Invocation Perk equipped, or by +50&#160;% , if they have not. Once the Invocation is completed, the following effects apply: Whenever the Killer scares a Crow while a Survivor is inside their Terror Radius , their Aura is revealed to all Survivors for 1 / 1.5 / 2 seconds . You automatically enter the Injured State from any previous Health State, and suffer from the Broken Status Effect for the remainder of the Trial. \"Remember your training. They taught you all about the crows.\" — Taurie Cain"
+          },
+          {
+            "id": "scene-partner",
+            "name": "Scene Partner",
+            "role": "survivor",
+            "character": "Nicolas",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_scenePartner.png/96px-IconPerks_scenePartner.png?8a80ad",
+            "description": "\"You lock in with your co-star, engaging with and reacting to each other on a higher level.\" Whenever you are inside the Terror Radius , Scene Partner activates: Looking at the Killer causes you to scream, which reveals their Aura for 4 / 5 / 6 seconds . There is a chance of 50&#160;% that you will scream again, extending the Aura-reveal duration by another +2 seconds . Scene Partner has a cool-down of 40 seconds . \"This is not in the script!\" — Nicolas Cage"
+          },
+          {
+            "id": "second-wind",
+            "name": "Second Wind",
+            "role": "survivor",
+            "character": "Steve",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_secondWind.png/96px-IconPerks_secondWind.png?628298",
+            "description": "\"You have learnt to avoid awkward situations with parents. Part of you still thinks your best option is to run away and hope things will take care of themselves.\" When you heal another Survivor for the equivalent of 1 Health State , Second Wind activates: The next time you are unhooked or unhook yourself, you suffer from the Broken Status Effect until Second Wind deactivates. You are automatically healed 1 Health State after 28 / 24 / 20 seconds . While Second Wind is active, the following conditions will deactivate it: Successfully being healed by Second Wind . Being put into the Dying State before the timer elapses. Second Wind does not activate if you already suffer from the Broken Status Effect . \"Yeah, that's a no.\" — Steve Harrington"
+          },
+          {
+            "id": "teamwork-throw-down",
+            "name": "Teamwork: Throw Down",
+            "role": "survivor",
+            "character": "Michonne",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_teamworkThrowDown.png/96px-IconPerks_teamworkThrowDown.png?69a5fd",
+            "description": "\"You know the best way to even the odds is to empower those around you.\" Whenever you blind the Killer by any means or stun them using a Pallet , Teamwork: Throw Down triggers its effect: Grants the Endurance Status Effect to all other injured Survivors within 24 metres of your location for 6 / 8 / 10 seconds . \"Facing evil brings good people together.\" — Michonne Grimes"
+          }
+        ],
+        "result": "Invocation: Treacherous Crows | Scene Partner | Second Wind | Teamwork: Throw Down",
+        "avatar": "/api/twitch/avatar/LegionXIZ"
+      },
       {
         "id": "roll_1788866229816_ycfgs",
         "timestamp": 1788866229814,

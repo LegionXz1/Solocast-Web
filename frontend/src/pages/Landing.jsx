@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, Palette, Sparkles } from 'lucide-react';
+import ThemeToggle from '../components/ThemeToggle';
 
 function Landing() {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ function Landing() {
         <div className="doppel-shell feature-card">
           <div className="doppel-core">
             <h3 className="feature-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Zap size={20} color="#F59E0B" /> ไร้ความหน่วง (Zero Latency)
+              <Zap size={20} color="var(--text-primary)" /> ไร้ความหน่วง (Zero Latency)
             </h3>
             <p className="feature-text">ประมวลผล Event ทุกอย่างบนเครื่องของคุณเองผ่าน Twitch EventSub WebSockets โดยตรง ไม่มีดีเลย์จากเซิร์ฟเวอร์คนกลาง</p>
           </div>
@@ -33,7 +34,7 @@ function Landing() {
         <div className="doppel-shell feature-card">
           <div className="doppel-core">
             <h3 className="feature-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Palette size={20} color="#3B82F6" /> ปรับแต่งง่ายดาย (Easy Customization)
+              <Palette size={20} color="var(--text-primary)" /> ปรับแต่งง่ายดาย (Easy Customization)
             </h3>
             <p className="feature-text">เลือก Widget ที่ต้องการแล้วระบบจะเตรียมหน้าจอการตั้งค่าให้ทันที ปรับแต่งสีและข้อความได้อย่างอิสระ</p>
           </div>
@@ -41,7 +42,7 @@ function Landing() {
         <div className="doppel-shell feature-card full-width">
           <div className="doppel-core">
             <h3 className="feature-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sparkles size={20} color="#A855F7" /> เอ็กซ์คลูซีฟดีไซน์โดยทีมงาน (Exclusive Designs)
+              <Sparkles size={20} color="var(--text-primary)" /> เอ็กซ์คลูซีฟดีไซน์โดยทีมงาน (Exclusive Designs)
             </h3>
             <p className="feature-text">Widget ทุกชิ้นถูกออกแบบและพัฒนาขึ้นมาเป็นพิเศษโดยทีมงานของเรา เพื่อรับประกันความสวยงามและเสถียรภาพสูงสุดในการใช้งาน</p>
           </div>

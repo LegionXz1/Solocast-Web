@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   CheckCircle2, AlertTriangle, X, ExternalLink, Plus, Trash2, 
-  RotateCw, Loader2, Search, Skull, UserCheck, Layers, Ban, Check 
+  RotateCw, Loader2, Search, Skull, UserCheck, Layers, Ban, Check, Key, Lock 
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:3000';
@@ -34,7 +34,7 @@ const SAMPLE_TEMPLATE = {
   color: white;
   padding: 1.5rem 2.5rem;
   border-radius: 1rem;
-  border: 2px solid #8B5CF6;
+  border: 2px solid #FFFFFF;
   text-align: center;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
   animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -45,7 +45,7 @@ const SAMPLE_TEMPLATE = {
   100% { transform: scale(1); opacity: 1; }
 }
 
-h2 { margin: 0 0 0.5rem 0; font-size: 1.5rem; color: #C084FC; }
+h2 { margin: 0 0 0.5rem 0; font-size: 1.5rem; color: #FFFFFF; }
 p { margin: 0; font-size: 1.1rem; }`,
   js: `// รับอีเวนต์เมื่อมีคน Follow หรือ ซับสไครบ์ หรือ แลกแต้ม
 window.addEventListener('onEventReceived', function (obj) {
@@ -76,7 +76,7 @@ window.addEventListener('onEventReceived', function (obj) {
     accentColor: {
       type: "colorpicker",
       label: "สีธีมหลัก",
-      value: "#8B5CF6",
+      value: "#FFFFFF",
       group: "รูปแบบการแสดงผล"
     }
   }, null, 2)
@@ -144,9 +144,45 @@ function Admin() {
     setTimeout(() => setToast(null), 3500);
   };
 
+  const [adminKeyInput, setAdminKeyInput] = useState('');
+  const [keyError, setKeyError] = useState('');
+
   const getAuthHeader = () => {
     const token = localStorage.getItem('solocast_user_token');
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
+    const adminKey = localStorage.getItem('solocast_admin_key');
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (adminKey) headers['x-admin-key'] = adminKey;
+    return headers;
+  };
+
+  const handleKeyLogin = async (e) => {
+    if (e) e.preventDefault();
+    if (!adminKeyInput.trim()) return;
+    setKeyError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/verify`, {
+        headers: { 'x-admin-key': adminKeyInput.trim() }
+      });
+      const data = await res.json();
+      if (data.authorized) {
+        localStorage.setItem('solocast_admin_key', adminKeyInput.trim());
+        setIsAuthorized(true);
+        setAuthStatus({
+          checked: true,
+          isTwitchConnected: true,
+          connectedUsername: 'Admin Key',
+          isBroadcaster: true
+        });
+        fetchWidgets();
+        fetchDbdPerks();
+        showToast('เข้าสู่ระบบแอดมินด้วย Admin Key สำเร็จ!', 'success');
+      } else {
+        setKeyError('รหัสผ่าน Admin Key ไม่ถูกต้อง (ค่าเริ่มต้น: solocast_admin_2026)');
+      }
+    } catch (err) {
+      setKeyError('เกิดข้อผิดพลาดในการตรวจสอบรหัส');
+    }
   };
 
   // Fetch DBD Perks
@@ -449,7 +485,7 @@ function Admin() {
       <div className="dashboard-container" style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="doppel-shell animate-fade-up" style={{ maxWidth: 480, width: '100%' }}>
           <div className="doppel-core" style={{ textAlign: 'center' }}>
-            <span className="eyebrow" style={{ color: authStatus.isTwitchConnected && !authStatus.isBroadcaster ? '#EF4444' : 'var(--text-secondary)' }}>
+            <span className="eyebrow" style={{ color: 'var(--text-secondary)' }}>
               {authStatus.isTwitchConnected && !authStatus.isBroadcaster ? '403 FORBIDDEN' : 'ระบบรักษาความปลอดภัย'}
             </span>
 
@@ -472,8 +508,8 @@ function Admin() {
               </>
             ) : !authStatus.isBroadcaster ? (
               <>
-                <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '1rem', padding: '1rem', marginBottom: '1.5rem', textAlign: 'left' }}>
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#DC2626', lineHeight: 1.5 }}>
+                <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '1rem', marginBottom: '1.5rem', textAlign: 'left' }}>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#FFFFFF', lineHeight: 1.5 }}>
                     คุณกำลังเข้าสู่ระบบด้วยบัญชี <strong>@{authStatus.connectedUsername}</strong> ซึ่งไม่ตรงกับบัญชี Broadcaster หรือ Whitelist ที่ได้รับอนุญาต
                   </p>
                 </div>
@@ -483,7 +519,7 @@ function Admin() {
                 </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <a href={`${API_BASE}/auth/twitch`} className="btn-island" style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)', justifyContent: 'center' }}>
+                  <a href={`${API_BASE}/auth/twitch`} className="btn-island" style={{ background: 'var(--surface-1)', color: 'var(--text-primary)', border: '1px solid var(--border-secondary)', justifyContent: 'center' }}>
                     <span>สลับบัญชี Twitch อื่น</span>
                   </a>
                   <button onClick={() => navigate('/dashboard')} className="btn-island accent" style={{ justifyContent: 'center' }}>
@@ -493,7 +529,33 @@ function Admin() {
               </>
             ) : null}
 
-            <div style={{ marginTop: '2rem', borderTop: '1px solid var(--shell-border)', paddingTop: '1.25rem' }}>
+            
+            {/* Admin Key Login Section */}
+            <div style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-primary)', textAlign: 'left' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.65rem' }}>
+                หรือ เข้าใช้งานด้วย Admin Secret Key (Developer / Backup)
+              </span>
+              <form onSubmit={handleKeyLogin} style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  type="password"
+                  placeholder="กรอก Admin Key (เช่น solocast_admin_2026)"
+                  value={adminKeyInput}
+                  onChange={(e) => setAdminKeyInput(e.target.value)}
+                  style={{ fontSize: '0.85rem' }}
+                />
+                <button type="submit" className="btn-island accent" style={{ flexShrink: 0, padding: '0.55rem 1rem' }}>
+                  <Key size={14} />
+                  <span>ปลดล็อค</span>
+                </button>
+              </form>
+              {keyError && (
+                <p style={{ color: 'var(--apple-red)', fontSize: '0.8rem', marginTop: '0.5rem', margin: '0.5rem 0 0 0' }}>
+                  {keyError}
+                </p>
+              )}
+            </div>
+
+            <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-primary)', paddingTop: '1.25rem' }}>
               <button onClick={() => navigate('/dashboard')} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 600 }}>
                 ← กลับสู่หน้าแดชบอร์ด
               </button>
@@ -516,14 +578,16 @@ function Admin() {
         </div>
       )}
 
-      {/* Header Bar */}
-      <div className="admin-header-nav animate-fade-up">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
-          <div className="floating-nav" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>SoloCast Powered by LegionX</span>
-            <span style={{ fontSize: '0.75rem', background: 'var(--accent-color)', color: '#fff', padding: '0.2rem 0.6rem', borderRadius: '9999px' }}>Admin</span>
-          </div>
+      {/* Admin Title & Section Switcher */}
+      <div className="admin-title-bar animate-fade-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+        <div>
+          <span className="eyebrow" style={{ marginBottom: '0.35rem' }}>SYSTEM ADMINISTRATION</span>
+          <h1 style={{ margin: 0, fontSize: '1.65rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+            แผงควบคุมผู้ดูแลระบบ
+          </h1>
+        </div>
 
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           {/* Section Switcher Tabs */}
           <div className="admin-section-nav">
             <button
@@ -549,26 +613,21 @@ function Admin() {
               <span>จัดการเปิร์ค DBD</span>
               <span style={{
                 fontSize: '0.7rem',
-                background: adminSection === 'dbd_perks' ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)',
+                background: adminSection === 'dbd_perks' ? 'var(--accent-contrast)' : 'var(--surface-3)',
+                color: adminSection === 'dbd_perks' ? 'var(--accent-color)' : 'var(--text-primary)',
                 padding: '1px 6px',
-                borderRadius: '10px',
-                marginLeft: '2px'
+                marginLeft: '2px',
+                borderRadius: 'var(--radius-xs)'
               }}>
                 {dbdData.total || 0}
               </span>
             </button>
           </div>
-        </div>
 
-        <div className="admin-nav-actions">
-          <button onClick={() => navigate('/dashboard')} className="btn-island" style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)' }}>
-            <span>แดชบอร์ดผู้ใช้</span>
-          </button>
-
-          {adminSection === 'widgets' ? (
+          {adminSection === 'widgets' && (
             <>
               {selectedId && !isCreatingNew && (
-                <button onClick={() => setShowPreviewModal(true)} className="btn-island" style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)' }}>
+                <button onClick={() => setShowPreviewModal(true)} className="btn-island">
                   <span>ดูตัวอย่าง Widget</span>
                 </button>
               )}
@@ -579,42 +638,21 @@ function Admin() {
                 </div>
               </button>
             </>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={handleSyncDbd}
-                disabled={isSyncingDbd}
-                className="btn-island"
-                style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)' }}
-                title="ดึงเปิร์คอัปเดตใหม่ทั้งหมดจาก deadbydaylight.wiki.gg"
-              >
-                {isSyncingDbd ? <Loader2 size={15} className="animate-spin" /> : <RotateCw size={15} />}
-                <span>{isSyncingDbd ? 'กำลังซิงค์...' : 'อัปเดตเปิร์คจาก Wiki'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setNewPerkForm({
-                    name: '',
-                    role: dbdRole === 'killer' ? 'killer' : 'survivor',
-                    character: '',
-                    icon: '',
-                    description: ''
-                  });
-                  setShowAddPerkModal(true);
-                }}
-                className="btn-island accent"
-              >
-                <Plus size={15} />
-                <span>เพิ่มเปิร์คใหม่</span>
-              </button>
-            </>
+          )}
+
+          {adminSection === 'dbd_perks' && (
+            <button
+              onClick={() => setShowAddPerkModal(true)}
+              className="btn-island accent"
+            >
+              <Plus size={15} />
+              <span>เพิ่มเปิร์คใหม่</span>
+            </button>
           )}
         </div>
       </div>
 
-      {/* Main Grid: Widgets View */}
+      {/* Main Content: Widgets View */}
       {adminSection === 'widgets' && (
         <div className="admin-grid">
         {/* Left Column: Widgets List */}
@@ -817,7 +855,7 @@ function Admin() {
             {!isCreatingNew && selectedId && (
               <div className="admin-danger-zone">
                 <div>
-                  <h4 style={{ color: '#EF4444', margin: 0, fontSize: '0.95rem' }}>ลบ Widget นี้</h4>
+                  <h4 style={{ color: '#FFFFFF', margin: 0, fontSize: '0.95rem' }}>ลบ Widget นี้</h4>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: '0.25rem 0 0 0' }}>
                     การลบจะลบโฟลเดอร์ <code>public/widgets/{selectedId}</code> ออกจากเซิร์ฟเวอร์ทันที
                   </p>
@@ -850,31 +888,31 @@ function Admin() {
             </div>
 
             <div className="admin-stat-card">
-              <div className="admin-stat-card-icon" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3B82F6' }}>
+              <div className="admin-stat-card-icon">
                 <UserCheck size={22} />
               </div>
               <div>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ผู้รอดชีวิต (Survivor)</span>
-                <h3 style={{ margin: '0.15rem 0 0 0', fontSize: '1.4rem', fontWeight: 700, color: '#3B82F6' }}>
+                <h3 style={{ margin: '0.15rem 0 0 0', fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                   {dbdData.survivor?.length || 0} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>เปิร์ค</span>
                 </h3>
               </div>
             </div>
 
             <div className="admin-stat-card">
-              <div className="admin-stat-card-icon" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444' }}>
+              <div className="admin-stat-card-icon">
                 <Skull size={22} />
               </div>
               <div>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ฆาตกร (Killer)</span>
-                <h3 style={{ margin: '0.15rem 0 0 0', fontSize: '1.4rem', fontWeight: 700, color: '#EF4444' }}>
+                <h3 style={{ margin: '0.15rem 0 0 0', fontSize: '1.4rem', fontWeight: 700, color: '#FFFFFF' }}>
                   {dbdData.killer?.length || 0} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>เปิร์ค</span>
                 </h3>
               </div>
             </div>
 
             <div className="admin-stat-card">
-              <div className="admin-stat-card-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981' }}>
+              <div className="admin-stat-card-icon">
                 <RotateCw size={22} />
               </div>
               <div>
@@ -890,19 +928,18 @@ function Admin() {
           <div className="admin-perks-toolbar">
             <div className="admin-perks-filter-group">
               {/* Role Switcher */}
-              <div style={{ display: 'inline-flex', background: 'rgba(255,255,255,0.05)', padding: '3px', borderRadius: '8px', border: '1px solid var(--shell-border)' }}>
+              <div style={{ display: 'inline-flex', background: 'rgba(255,255,255,0.05)', padding: '3px', border: '1px solid var(--shell-border)' }}>
                 <button
                   type="button"
                   onClick={() => setDbdRole('all')}
                   style={{
                     border: 'none',
-                    borderRadius: '6px',
                     padding: '5px 12px',
                     fontSize: '0.8rem',
                     fontWeight: 600,
                     cursor: 'pointer',
                     background: dbdRole === 'all' ? 'var(--accent-color)' : 'transparent',
-                    color: dbdRole === 'all' ? '#fff' : 'var(--text-secondary)',
+                    color: dbdRole === 'all' ? 'var(--text-primary)' : 'var(--text-secondary)',
                     transition: 'all 0.15s ease'
                   }}
                 >
@@ -913,13 +950,12 @@ function Admin() {
                   onClick={() => setDbdRole('survivor')}
                   style={{
                     border: 'none',
-                    borderRadius: '6px',
                     padding: '5px 12px',
                     fontSize: '0.8rem',
                     fontWeight: 600,
                     cursor: 'pointer',
-                    background: dbdRole === 'survivor' ? '#3B82F6' : 'transparent',
-                    color: dbdRole === 'survivor' ? '#fff' : 'var(--text-secondary)',
+                    background: dbdRole === 'survivor' ? 'var(--accent-color)' : 'transparent',
+                    color: dbdRole === 'survivor' ? 'var(--accent-contrast)' : 'var(--text-secondary)',
                     transition: 'all 0.15s ease'
                   }}
                 >
@@ -930,13 +966,12 @@ function Admin() {
                   onClick={() => setDbdRole('killer')}
                   style={{
                     border: 'none',
-                    borderRadius: '6px',
                     padding: '5px 12px',
                     fontSize: '0.8rem',
                     fontWeight: 600,
                     cursor: 'pointer',
-                    background: dbdRole === 'killer' ? '#EF4444' : 'transparent',
-                    color: dbdRole === 'killer' ? '#fff' : 'var(--text-secondary)',
+                    background: dbdRole === 'killer' ? '#FF453A' : 'transparent',
+                    color: dbdRole === 'killer' ? '#FFFFFF' : 'var(--text-secondary)',
                     transition: 'all 0.15s ease'
                   }}
                 >
@@ -956,7 +991,6 @@ function Admin() {
                     width: '100%',
                     padding: '6px 10px 6px 32px',
                     fontSize: '0.8rem',
-                    borderRadius: '8px',
                     background: 'rgba(255, 255, 255, 0.05)',
                     border: '1px solid var(--shell-border)',
                     color: 'var(--text-primary)',
@@ -1039,10 +1073,9 @@ function Admin() {
                         <span style={{
                           fontSize: '0.65rem',
                           padding: '2px 6px',
-                          borderRadius: '4px',
                           fontWeight: 700,
                           background: perk.role === 'killer' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                          color: perk.role === 'killer' ? '#EF4444' : '#3B82F6',
+                          color: '#FFFFFF',
                           border: `1px solid ${perk.role === 'killer' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`
                         }}>
                           {perk.role === 'killer' ? 'Killer' : 'Survivor'}
@@ -1077,7 +1110,7 @@ function Admin() {
       {showDeleteModal && (
         <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
           <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <h3 style={{ color: '#EF4444', marginBottom: '0.75rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.75rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <AlertTriangle size={20} /> ยืนยันการลบ Widget
             </h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
@@ -1176,11 +1209,10 @@ function Admin() {
                     style={{
                       flex: 1,
                       padding: '8px',
-                      borderRadius: '8px',
-                      border: newPerkForm.role === 'survivor' ? '2px solid #3B82F6' : '1px solid var(--shell-border)',
-                      background: newPerkForm.role === 'survivor' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                      color: newPerkForm.role === 'survivor' ? '#3B82F6' : 'var(--text-secondary)',
-                      fontWeight: 600,
+                      border: newPerkForm.role === 'survivor' ? '1px solid var(--accent-color)' : '1px solid var(--border-primary)',
+                      background: newPerkForm.role === 'survivor' ? 'var(--accent-color)' : 'transparent',
+                      color: newPerkForm.role === 'survivor' ? 'var(--accent-contrast)' : 'var(--text-secondary)',
+                      fontWeight: 700,
                       fontSize: '0.85rem',
                       cursor: 'pointer'
                     }}
@@ -1193,11 +1225,10 @@ function Admin() {
                     style={{
                       flex: 1,
                       padding: '8px',
-                      borderRadius: '8px',
-                      border: newPerkForm.role === 'killer' ? '2px solid #EF4444' : '1px solid var(--shell-border)',
-                      background: newPerkForm.role === 'killer' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                      color: newPerkForm.role === 'killer' ? '#EF4444' : 'var(--text-secondary)',
-                      fontWeight: 600,
+                      border: newPerkForm.role === 'killer' ? '1px solid #FF453A' : '1px solid var(--border-primary)',
+                      background: newPerkForm.role === 'killer' ? '#FF453A' : 'transparent',
+                      color: newPerkForm.role === 'killer' ? '#FFFFFF' : 'var(--text-secondary)',
+                      fontWeight: 700,
                       fontSize: '0.85rem',
                       cursor: 'pointer'
                     }}
@@ -1221,7 +1252,6 @@ function Admin() {
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    borderRadius: '8px',
                     background: 'rgba(255, 255, 255, 0.05)',
                     border: '1px solid var(--shell-border)',
                     color: 'var(--text-primary)',
@@ -1244,7 +1274,6 @@ function Admin() {
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    borderRadius: '8px',
                     background: 'rgba(255, 255, 255, 0.05)',
                     border: '1px solid var(--shell-border)',
                     color: 'var(--text-primary)',
@@ -1268,7 +1297,6 @@ function Admin() {
                     style={{
                       flex: 1,
                       padding: '8px 12px',
-                      borderRadius: '8px',
                       background: 'rgba(255, 255, 255, 0.05)',
                       border: '1px solid var(--shell-border)',
                       color: 'var(--text-primary)',
@@ -1279,7 +1307,6 @@ function Admin() {
                   <div style={{
                     width: '42px',
                     height: '42px',
-                    borderRadius: '8px',
                     background: 'rgba(0, 0, 0, 0.5)',
                     border: '1px solid var(--shell-border)',
                     display: 'flex',
@@ -1311,7 +1338,6 @@ function Admin() {
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    borderRadius: '8px',
                     background: 'rgba(255, 255, 255, 0.05)',
                     border: '1px solid var(--shell-border)',
                     color: 'var(--text-primary)',
@@ -1350,10 +1376,10 @@ function Admin() {
       {deleteConfirmPerk && (
         <div className="modal-overlay" onClick={() => setDeleteConfirmPerk(null)}>
           <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
-            <h3 style={{ color: '#EF4444', marginBottom: '0.75rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h3 style={{ color: '#FFFFFF', marginBottom: '0.75rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <AlertTriangle size={20} /> ยืนยันการลบเปิร์ค
             </h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.85rem', borderRadius: '10px', marginBottom: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.85rem', marginBottom: '1.25rem' }}>
               <img
                 src={deleteConfirmPerk.icon || 'https://deadbydaylight.wiki.gg/images/thumb/IconPerks_unknown.png/96px-IconPerks_unknown.png'}
                 alt={deleteConfirmPerk.name}

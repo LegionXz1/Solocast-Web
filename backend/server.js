@@ -120,8 +120,9 @@ function checkAdminAuth(req, res, next) {
     req.user = session;
     return next();
   }
-  const adminKey = req.headers['x-admin-key'];
+  const adminKey = req.headers['x-admin-key'] || req.query.admin_key;
   if (adminKey && process.env.ADMIN_KEY && adminKey === process.env.ADMIN_KEY) {
+    req.user = { username: 'Admin', isAdmin: true };
     return next();
   }
   return res.status(403).json({
@@ -160,14 +161,17 @@ app.post('/api/auth/logout', (req, res) => {
 // Verify Admin Status สำหรับ Admin Page
 app.get('/api/admin/verify', (req, res) => {
   const session = getSessionFromReq(req);
-  const isAdmin = Boolean(session && session.isAdmin);
+  const adminKey = req.headers['x-admin-key'] || req.query.admin_key;
+  const isKeyValid = Boolean(adminKey && process.env.ADMIN_KEY && adminKey === process.env.ADMIN_KEY);
+  const isAdmin = Boolean((session && session.isAdmin) || isKeyValid);
 
   res.json({
     success: true,
     authorized: isAdmin,
     isTwitchConnected: Boolean(session),
-    connectedUsername: session ? session.username : null,
-    isBroadcaster: isAdmin
+    connectedUsername: session ? session.username : (isKeyValid ? 'Admin (Key)' : null),
+    isBroadcaster: isAdmin,
+    authMethod: isKeyValid ? 'admin_key' : 'twitch'
   });
 });
 
@@ -1365,7 +1369,42 @@ io.on('connection', (socket) => {
   });
 });
 
+// Support Ticket / Issue Reporting Endpoint
+const SUPPORT_FILE = path.join(__dirname, 'data', 'support_reports.json');
+app.post('/api/support/report', (req, res) => {
+  try {
+    const { category, subject, description, username, contact, screenshotUrl } = req.body || {};
+    if (!subject || !description) {
+      return res.status(400).json({ error: 'กรุณากรอกหัวข้อและรายละเอียดปัญหา' });
+    }
+    let reports = [];
+    if (fs.existsSync(SUPPORT_FILE)) {
+      try { reports = JSON.parse(fs.readFileSync(SUPPORT_FILE, 'utf8')); } catch (e) { reports = []; }
+    }
+    const ticketId = 'SOLO-' + Math.floor(100000 + Math.random() * 900000);
+    const newReport = {
+      ticketId,
+      category: category || 'general',
+      subject,
+      description,
+      username: username || 'Guest',
+      contact: contact || '',
+      screenshotUrl: screenshotUrl || '',
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    reports.unshift(newReport);
+    fs.writeFileSync(SUPPORT_FILE, JSON.stringify(reports, null, 2), 'utf8');
+    console.log(`[Support] 📩 New ticket created: ${ticketId} - ${subject}`);
+    res.json({ success: true, ticketId, report: newReport });
+  } catch (err) {
+    console.error('[Support] Error saving report:', err);
+    res.status(500).json({ error: 'เกิดข้อผิดพลาดในการส่งข้อมูล' });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });
+
