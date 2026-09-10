@@ -13,6 +13,7 @@ import crypto from 'crypto';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { syncDbdPerks } from './scripts/scrape_dbd_perks.js';
+import { initDatabase, syncStore, saveAllItems, syncTickets, saveAllTickets, deleteTicketFromMongo } from './database.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,7 +57,12 @@ app.use('/api/admin/', authLimiter);
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
+
+const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+}
 
 // File-based Session Database (บันทึกข้อมูล Session ลงฮาร์ดดิสก์)
 const SESSIONS_FILE = path.join(__dirname, 'data', 'sessions.json');
@@ -76,6 +82,7 @@ function saveSessions(sessionsData) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessionsData, null, 2), 'utf8');
   } catch (e) { }
+  saveAllItems('sessions', sessionsData);
 }
 
 const sessions = loadSessions();
@@ -393,6 +400,7 @@ function saveWidgetSettings(data) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(WIDGET_SETTINGS_FILE, JSON.stringify(data, null, 2), 'utf8');
   } catch (e) { }
+  saveAllItems('widget_settings', data);
 }
 
 const widgetSettingsStore = loadWidgetSettings();
@@ -529,6 +537,7 @@ function saveRollHistory(data) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(ROLL_HISTORY_FILE, JSON.stringify(data, null, 2), 'utf8');
   } catch (e) { }
+  saveAllItems('roll_history', data);
 }
 
 const rollHistoryStore = loadRollHistory();
@@ -689,6 +698,7 @@ function saveWidgetStore(data) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(WIDGET_STORE_FILE, JSON.stringify(data, null, 2), 'utf8');
   } catch (e) { }
+  saveAllItems('widget_store', data);
 }
 
 const widgetStore = loadWidgetStore();
@@ -939,7 +949,7 @@ app.post('/api/widgets/dbd-perks/simulate', (req, res) => {
 
 const clientId = process.env.TWITCH_CLIENT_ID;
 const clientSecret = process.env.TWITCH_CLIENT_SECRET;
-const redirectUri = 'http://localhost:3000/auth/twitch/callback';
+const redirectUri = process.env.TWITCH_REDIRECT_URI || 'http://localhost:3000/auth/twitch/callback';
 
 // File-based Token Storage (บันทึก Twitch OAuth Token ลงฮาร์ดดิสก์เพื่อให้ใช้งานได้ต่อเนื่อง)
 const TOKENS_FILE = path.join(__dirname, 'data', 'tokens.json');
@@ -959,6 +969,7 @@ function saveTokens(tokensData) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(TOKENS_FILE, JSON.stringify(tokensData, null, 2), 'utf8');
   } catch (e) { }
+  saveAllItems('tokens', tokensData);
 }
 
 const userTokens = loadTokens();
@@ -1060,7 +1071,8 @@ app.get('/auth/twitch/callback', async (req, res) => {
     startEventSub(userId);
 
     // Redirect กลับไปหน้า Dashboard พร้อม Session Token
-    res.redirect(`http://localhost:5173/dashboard?auth_token=${sessionToken}`);
+    const frontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173');
+    res.redirect(`${frontendUrl}/dashboard?auth_token=${sessionToken}`);
   } catch (error) {
     console.error("Auth Error:", error);
     res.send("Authentication failed. Please check console.");
@@ -1389,6 +1401,7 @@ function saveSupportTickets(tickets) {
     fs.mkdirSync(dir, { recursive: true });
   }
   fs.writeFileSync(SUPPORT_FILE, JSON.stringify(tickets, null, 2), 'utf8');
+  saveAllTickets(tickets);
 }
 
 // 1. Submit a new support report
@@ -1521,7 +1534,7 @@ app.put('/api/support/tickets/:ticketId', checkAdminAuth, (req, res) => {
     if (adminReply !== undefined) {
       ticket.adminReply = adminReply;
       ticket.adminRepliedAt = adminReply ? now : null;
-      ticket.adminUser = adminReply ? (adminUser || req.user?.displayName || req.user?.username || 'HyperCast Admin') : null;
+      ticket.adminUser = adminReply ? (adminUser || req.user?.displayName || req.user?.username || 'FastChick Admin') : null;
     }
     ticket.updatedAt = now;
 
@@ -1549,6 +1562,7 @@ app.delete('/api/support/tickets/:ticketId', checkAdminAuth, (req, res) => {
     }
 
     saveSupportTickets(tickets);
+    deleteTicketFromMongo(ticketId);
     console.log(`[Support] 🗑️ Ticket ${ticketId} deleted by admin`);
     res.json({ success: true, message: `ลบเรื่อง #${ticketId} เรียบร้อยแล้ว` });
   } catch (err) {
@@ -1557,8 +1571,50 @@ app.delete('/api/support/tickets/:ticketId', checkAdminAuth, (req, res) => {
   }
 });
 
+// Function to hydrate all in-memory stores from MongoDB on startup
+async function hydrateFromMongo() {
+  try {
+    const mongoSessions = await syncStore('sessions', sessions);
+    Object.assign(sessions, mongoSessions);
+
+    const mongoSettings = await syncStore('widget_settings', widgetSettingsStore);
+    Object.assign(widgetSettingsStore, mongoSettings);
+
+    const mongoRolls = await syncStore('roll_history', rollHistoryStore);
+    Object.assign(rollHistoryStore, mongoRolls);
+
+    const mongoStore = await syncStore('widget_store', widgetStore);
+    Object.assign(widgetStore, mongoStore);
+
+    const mongoTokens = await syncStore('tokens', userTokens);
+    Object.assign(userTokens, mongoTokens);
+
+    const mongoTickets = await syncTickets(loadSupportTickets());
+    if (Array.isArray(mongoTickets) && mongoTickets.length > 0) {
+      const dir = path.dirname(SUPPORT_FILE);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(SUPPORT_FILE, JSON.stringify(mongoTickets, null, 2), 'utf8');
+    }
+    console.log('✨ [Database] In-memory stores successfully synchronized with MongoDB Atlas!');
+  } catch (err) {
+    console.error('❌ [Database] Failed to hydrate stores from MongoDB:', err.message);
+  }
+}
+
+// SPA Fallback: Serve React Frontend for non-API routes in production
+if (fs.existsSync(frontendDist)) {
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/auth') && !req.path.startsWith('/widgets') && !req.path.startsWith('/socket.io')) {
+      return res.sendFile(path.join(frontendDist, 'index.html'));
+    }
+    next();
+  });
+}
+
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
+  await initDatabase();
+  await hydrateFromMongo();
 });
 

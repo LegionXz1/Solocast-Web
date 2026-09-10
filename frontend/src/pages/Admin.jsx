@@ -6,7 +6,7 @@ import {
   LifeBuoy, MessageSquare, Clock, ShieldCheck, MessageCircle, Send, Edit3, Filter
 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:3000';
+import { API_BASE } from '../config';
 
 const SAMPLE_TEMPLATE = {
   html: `<div id="widget-container">
@@ -71,7 +71,7 @@ window.addEventListener('onEventReceived', function (obj) {
     headerText: {
       type: "text",
       label: "ข้อความหัวข้อเริ่มต้น",
-      value: "HyperCast Widget",
+      value: "FastChick Widget",
       group: "ตั้งค่าทั่วไป"
     },
     accentColor: {

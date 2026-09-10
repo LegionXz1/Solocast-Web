@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE } from '../config';
 
 export default function Navbar() {
   const location = useLocation();
@@ -35,7 +36,7 @@ export default function Navbar() {
   };
 
   const handleLogin = () => {
-    window.location.href = 'http://localhost:3000/auth/twitch';
+    window.location.href = `${API_BASE}/auth/twitch`;
   };
 
   const handleLogout = async () => {
@@ -50,7 +51,7 @@ export default function Navbar() {
         {/* Brand */}
         <div className="navbar-brand-group">
           <Link to="/" className="navbar-logo" onClick={() => setIsMobileMenuOpen(false)}>
-            <span className="navbar-logo-text">HyperCast</span>
+            <span className="navbar-logo-text">FastChick</span>
             <span className="navbar-logo-badge">by LegionX</span>
           </Link>
 
@@ -92,7 +93,7 @@ export default function Navbar() {
 
               <div className="navbar-user-badge" title={`เข้าสู่ระบบด้วย @${user.username}`}>
                 <img
-                  src={`http://localhost:3000/api/twitch/avatar/${encodeURIComponent(user.username)}`}
+                  src={`${API_BASE}/api/twitch/avatar/${encodeURIComponent(user.username)}`}
                   alt={user.displayName || user.username}
                   className="navbar-avatar-img"
                   onError={(e) => {
@@ -172,7 +173,7 @@ export default function Navbar() {
               <div className="navbar-mobile-user-row">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                   <img
-                    src={`http://localhost:3000/api/twitch/avatar/${encodeURIComponent(user.username)}`}
+                    src={`${API_BASE}/api/twitch/avatar/${encodeURIComponent(user.username)}`}
                     alt={user.username}
                     className="navbar-avatar-img"
                     onError={(e) => { e.currentTarget.style.display = 'none'; }}

@@ -30,8 +30,8 @@ const FAQ_ITEMS = [
   {
     id: 1,
     category: 'general',
-    question: 'HyperCast Powered by LegionX คืออะไร?',
-    answer: 'HyperCast เป็นแพลตฟอร์ม Interactive Widgets สำหรับสตรีมเมอร์ Twitch ที่ต้องการยกระดับความสนุกในการไลฟ์สด เช่น การสุ่มเปิร์ก Dead by Daylight, วงล้อสุ่ม Killer, และระบบบัตรสะสมแต้ม'
+    question: 'FastChick Powered by LegionX คืออะไร?',
+    answer: 'FastChick เป็นแพลตฟอร์ม Interactive Widgets สำหรับสตรีมเมอร์ Twitch ที่ต้องการยกระดับความสนุกในการไลฟ์สด เช่น การสุ่มเปิร์ก Dead by Daylight, วงล้อสุ่ม Killer, และระบบบัตรสะสมแต้ม'
   },
   {
     id: 2,
@@ -88,7 +88,7 @@ export default function FAQ() {
         </span>
         <h1 className="hero-title">คำถามที่พบบ่อย (FAQ)</h1>
         <p className="hero-desc">
-          รวบรวมคำตอบและวิธีแก้ไขปัญหาเบื้องต้นเกี่ยวกับการใช้งาน HyperCast, การติดตั้งลงในสตรีมมิ่งโปรแกรม และการเชื่อมต่อ Twitch
+          รวบรวมคำตอบและวิธีแก้ไขปัญหาเบื้องต้นเกี่ยวกับการใช้งาน FastChick, การติดตั้งลงในสตรีมมิ่งโปรแกรม และการเชื่อมต่อ Twitch
         </p>
       </div>
 

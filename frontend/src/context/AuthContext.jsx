@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { API_BASE } from '../config';
 
 const AuthContext = createContext({
   token: '',
@@ -42,7 +43,7 @@ export function AuthProvider({ children }) {
       return;
     }
     try {
-      const res = await fetch('http://localhost:3000/api/auth/me', {
+      const res = await fetch(`${API_BASE}/api/auth/me`, {
         headers: { 'Authorization': `Bearer ${activeToken}` }
       });
       const data = await res.json();
@@ -67,7 +68,7 @@ export function AuthProvider({ children }) {
     try {
       const activeToken = token || localStorage.getItem('solocast_user_token');
       if (activeToken) {
-        await fetch('http://localhost:3000/api/auth/logout', {
+        await fetch(`${API_BASE}/api/auth/logout`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${activeToken}` }
         });

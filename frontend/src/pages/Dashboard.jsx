@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import ThemeToggle from '../components/ThemeToggle';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
+import { API_BASE, WS_BASE } from '../config';
 import {
   Sliders,
   History,
@@ -40,7 +41,30 @@ import {
   Ban
 } from 'lucide-react';
 
-const socket = io('http://localhost:3000');
+const socket = io(WS_BASE);
+
+const WIDGET_META = {
+  'dbd-perks': {
+    icon: <Dices size={20} />,
+    desc: 'สุ่มเปิร์คผู้รอดชีวิตและฆาตกร',
+    gradient: 'linear-gradient(135deg, #2B70F7, #06B6D4)'
+  },
+  'random-killer': {
+    icon: <Skull size={20} />,
+    desc: 'สุ่มฆาตกร',
+    gradient: 'linear-gradient(135deg, #EF4444, #B91C1C)'
+  },
+  'loyalty-card': {
+    icon: <Ticket size={20} />,
+    desc: 'ระบบการ์ดสะสมแต้มแชทและเช็คอิน',
+    gradient: 'linear-gradient(135deg, #10B981, #047857)'
+  },
+  'twitch-shoutout': {
+    icon: <Megaphone size={20} />,
+    desc: 'ป็อปอัปแนะนำ & โปรโมทช่องสตรีม',
+    gradient: 'linear-gradient(135deg, #9146FF, #6D28D9)'
+  }
+};
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -124,7 +148,7 @@ function Dashboard() {
       return;
     }
 
-    fetch('http://localhost:3000/api/auth/me', {
+    fetch(`${API_BASE}/api/auth/me`, {
       headers: { 'Authorization': `Bearer ${activeToken}` }
     })
       .then(res => res.json())
@@ -150,7 +174,7 @@ function Dashboard() {
 
   // 3. โหลด Widgets รายการทั้งหมด
   useEffect(() => {
-    fetch('http://localhost:3000/api/widgets')
+    fetch(`${API_BASE}/api/widgets`)
       .then(res => res.json())
       .then(data => {
         setWidgets(data);
@@ -164,8 +188,8 @@ function Dashboard() {
     if (!selectedWidget) return;
 
     Promise.all([
-      fetch(`http://localhost:3000/api/widgets/${selectedWidget}/schema`).then(res => res.ok ? res.json() : null),
-      fetch(`http://localhost:3000/api/widgets/${selectedWidget}/settings?user=${status.userId || ''}`).then(res => res.ok ? res.json() : null)
+      fetch(`${API_BASE}/api/widgets/${selectedWidget}/schema`).then(res => res.ok ? res.json() : null),
+      fetch(`${API_BASE}/api/widgets/${selectedWidget}/settings?user=${status.userId || ''}`).then(res => res.ok ? res.json() : null)
     ])
       .then(([schemaData, savedSettings]) => {
         setSchema(schemaData);
@@ -188,7 +212,7 @@ function Dashboard() {
   // 4.1 โหลดข้อมูลเปิร์ค DBD เมื่อเปิด Widget dbd-perks
   useEffect(() => {
     if (selectedWidget === 'dbd-perks' && (!dbdPerksList.survivor || dbdPerksList.survivor.length === 0)) {
-      fetch('http://localhost:3000/api/widgets/dbd-perks/perks')
+      fetch(`${API_BASE}/api/widgets/dbd-perks/perks`)
         .then(res => res.ok ? res.json() : { survivor: [], killer: [] })
         .then(data => {
           if (data && (data.survivor || data.killer)) {
@@ -202,7 +226,7 @@ function Dashboard() {
   // 4.2 โหลดข้อมูล Killers เมื่อเลือก Random Killer Widget
   useEffect(() => {
     if (selectedWidget === 'random-killer' && killersList.length === 0) {
-      fetch('http://localhost:3000/api/widgets/random-killer/killers')
+      fetch(`${API_BASE}/api/widgets/random-killer/killers`)
         .then(res => res.ok ? res.json() : [])
         .then(data => {
           if (Array.isArray(data) && data.length > 0) {
@@ -219,7 +243,7 @@ function Dashboard() {
       setRollHistory([]);
       return;
     }
-    fetch(`http://localhost:3000/api/widgets/${selectedWidget}/history?user=${encodeURIComponent(status.userId || '')}`)
+    fetch(`${API_BASE}/api/widgets/${selectedWidget}/history?user=${encodeURIComponent(status.userId || '')}`)
       .then(res => res.ok ? res.json() : [])
       .then(data => {
         setRollHistory(Array.isArray(data) ? data : []);
@@ -269,7 +293,7 @@ function Dashboard() {
     if (!selectedWidget) return;
     setIsSaving(true);
     try {
-      const res = await fetch(`http://localhost:3000/api/widgets/${selectedWidget}/settings`, {
+      const res = await fetch(`${API_BASE}/api/widgets/${selectedWidget}/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -303,7 +327,7 @@ function Dashboard() {
     const activeToken = token || localStorage.getItem('solocast_user_token');
     if (activeToken) {
       try {
-        await fetch('http://localhost:3000/api/auth/logout', {
+        await fetch(`${API_BASE}/api/auth/logout`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${activeToken}` }
         });
@@ -380,7 +404,7 @@ function Dashboard() {
     setIsSyncingPerks(true);
     setSyncPerksSuccess('');
     try {
-      const res = await fetch('http://localhost:3000/api/widgets/dbd-perks/sync', { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/widgets/dbd-perks/sync`, { method: 'POST' });
       const data = await res.json();
       if (data.success && data.data) {
         setDbdPerksList(data.data);
@@ -400,7 +424,7 @@ function Dashboard() {
   const handleClearHistory = async () => {
     if (!window.confirm('คุณต้องการล้างประวัติการสุ่มทั้งหมดใช่หรือไม่?')) return;
     try {
-      await fetch(`http://localhost:3000/api/widgets/${selectedWidget}/history?user=${encodeURIComponent(status.userId || '')}`, {
+      await fetch(`${API_BASE}/api/widgets/${selectedWidget}/history?user=${encodeURIComponent(status.userId || '')}`, {
         method: 'DELETE'
       });
       setRollHistory([]);
@@ -426,8 +450,8 @@ function Dashboard() {
     if (status.username) params.append('channel', status.username);
     // ลิงก์ Browser Source ของ OBS จะคงที่ถาวร ไม่ต้องมี Query parameters ของการตั้งค่า
     // เพราะระบบจะซิงค์การตั้งค่าล่าสุดผ่าน Database & WebSocket แบบเรียลไทม์อัตโนมัติ
-    widgetUrl = `http://localhost:3000/widgets/${selectedWidget}/index.html?${params.toString()}`;
-    previewUrl = `http://localhost:3000/widgets/${selectedWidget}/index.html?user=${encodeURIComponent(status.userId || '')}&preview=1&_k=${previewKey}`;
+    widgetUrl = `${API_BASE}/widgets/${selectedWidget}/index.html?${params.toString()}`;
+    previewUrl = `${API_BASE}/widgets/${selectedWidget}/index.html?user=${encodeURIComponent(status.userId || '')}&preview=1&_k=${previewKey}`;
   }
 
   const handleCopyUrl = () => {
@@ -639,32 +663,55 @@ function Dashboard() {
                 </div>
 
                 {/* Section 1: Widget Selector */}
-                <div style={{ marginBottom: '1.25rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
-                    <span className="eyebrow" style={{ margin: 0 }}>เลือก WIDGET</span>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{widgets.length} รายการ</span>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className="eyebrow" style={{ margin: 0, fontSize: '0.78rem', fontWeight: 800 }}>เลือก WIDGET สตรีม</span>
+                      <span style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        background: 'var(--surface-3)',
+                        color: 'var(--text-secondary)',
+                        padding: '1px 8px',
+                        borderRadius: '999px',
+                        border: '1px solid var(--border-primary)'
+                      }}>
+                        {widgets.length}
+                      </span>
+                    </div>
                   </div>
-                  <div className="sidebar-widget-grid">
-                    {widgets.map(w => (
-                      <div
-                        key={w.id}
-                        className={`sidebar-widget-item ${selectedWidget === w.id ? 'active' : ''}`}
-                        onClick={() => {
-                          setSelectedWidget(w.id);
-                        }}
-                      >
-                        <div className="widget-item-icon">
-                          {w.id === 'dbd-perks' && <Dices size={16} />}
-                          {w.id === 'random-killer' && <Skull size={16} />}
-                          {w.id === 'loyalty-card' && <Ticket size={16} />}
-                          {w.id === 'twitch-shoutout' && <Megaphone size={16} />}
+
+                  <div className="sidebar-widget-list">
+                    {widgets.map(w => {
+                      const isSelected = selectedWidget === w.id;
+                      const meta = WIDGET_META[w.id] || {
+                        icon: <Zap size={20} />,
+                        desc: w.id,
+                        gradient: 'linear-gradient(135deg, var(--accent-color), #7C3AED)'
+                      };
+                      return (
+                        <div
+                          key={w.id}
+                          className={`sidebar-widget-card ${isSelected ? 'active' : ''}`}
+                          onClick={() => setSelectedWidget(w.id)}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <div className="card-content">
+                            <div className="card-title-row">
+                              <span className="card-title">{w.name}</span>
+                              {isSelected && (
+                                <span className="card-active-pill">
+                                  <Check size={11} strokeWidth={3} />
+                                  <span>กำลังเลือก</span>
+                                </span>
+                              )}
+                            </div>
+                            <div className="card-desc">{meta.desc}</div>
+                          </div>
                         </div>
-                        <div className="widget-item-info">
-                          <div className="widget-item-title">{w.name}</div>
-                          <div className="widget-item-id">{w.id}</div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -688,7 +735,7 @@ function Dashboard() {
                       >
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                           {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-                          {isSaving ? 'กำลังบันทึก...' : 'บันทึกค่า'}
+                          {isSaving ? 'กำลังบันทึก...' : 'บันทึก'}
                         </span>
                       </button>
                     </div>
@@ -720,18 +767,17 @@ function Dashboard() {
               </>
             ) : (
               <>
-                <span className="eyebrow">การเชื่อมต่อ</span>
-                <h2>สถานะ Twitch</h2>
-                <div className="status-badge">
-                  <div className="status-dot"></div>
-                  <div className="status-text">ไม่ได้เชื่อมต่อ</div>
-                </div>
-                <a href="http://localhost:3000/auth/twitch" className="btn-island accent">
-                  <span>เข้าสู่ระบบด้วย Twitch</span>
-                  <div className="btn-icon-wrapper">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+                {/* Compact not-connected status — no button here */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', padding: '0.75rem', background: 'var(--surface-3)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--text-muted)', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>สถานะ</div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ยังไม่ได้เข้าสู่ระบบ</div>
                   </div>
-                </a>
+                </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '1rem', lineHeight: 1.6 }}>
+                  เข้าสู่ระบบด้วย Twitch เพื่อเริ่มใช้งาน widget และ customization ได้เต็มรูปแบบ
+                </p>
               </>
             )}
           </div>
@@ -1025,7 +1071,7 @@ function Dashboard() {
                               <div>
                                 <div className="dbd-blacklist-title">
                                   <Ban size={18} style={{ color: '#FF453A' }} />
-                                  <span>เลือกเปิร์คที่ไม่ต้องการ / ยังไม่มี (Blacklist & Exclude)</span>
+                                  <span>เลือกเปิร์คที่ไม่ต้องการ / ยังไม่มี (Blacklist)</span>
                                 </div>
                                 <div className="dbd-blacklist-desc">
                                   ค้นหาเปิร์คหรือตัวละคร แล้วคลิกเพื่อติ๊ก <strong>"ตัดออก"</strong> จากการสุ่ม ระบบจะบันทึกและซิงค์ไปยัง OBS ทันที
@@ -1744,63 +1790,89 @@ function Dashboard() {
           </div>
         ) : (
           <div className="doppel-shell animate-fade-up" style={{ animationDelay: '150ms' }}>
-            <div className="doppel-core" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '4rem 2rem' }}>
+            <div className="doppel-core" style={{ padding: 0, overflow: 'hidden', position: 'relative', minHeight: '560px', display: 'flex', alignItems: 'stretch' }}>
+              {/* Gradient BG Layer */}
               <div style={{
-                width: '64px',
-                height: '64px',
-                background: 'var(--surface-3)',
-                border: '1px solid var(--border-secondary)'
-              }}>
-                <Zap size={32} color="var(--text-primary)" />
-              </div>
-              <h2 style={{
-                fontSize: '1.85rem',
-                fontWeight: 800,
-                marginBottom: '0.75rem',
-                color: 'var(--text-primary)',
-                letterSpacing: '-0.03em'
-              }}>
-                HyperCast Overlay Studio
-              </h2>
-              <p style={{ color: 'var(--text-secondary)', maxWidth: '480px', lineHeight: 1.6, marginBottom: '2rem', fontSize: '0.95rem' }}>
-                เชื่อมต่อบัญชี Twitch ของคุณเพื่อเริ่มปรับแต่ง Widget แบบเรียลไทม์ ซิงค์การตั้งค่าเข้ากับ OBS ทันทีโดยไม่ต้องคอยเปลี่ยน URL
-              </p>
-              <a href="http://localhost:3000/auth/twitch" className="btn-island accent" style={{ padding: '0.85rem 1.75rem', fontSize: '1rem' }}>
-                <span>เชื่อมต่อบัญชี Twitch ตอนนี้</span>
-                <div className="btn-icon-wrapper">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-                </div>
-              </a>
+                position: 'absolute', inset: 0,
+                background: 'linear-gradient(135deg, rgba(43,112,247,0.12) 0%, transparent 50%, rgba(139,92,246,0.08) 100%)',
+                pointerEvents: 'none'
+              }} />
+              {/* Grid pattern overlay */}
+              <div style={{
+                position: 'absolute', inset: 0,
+                backgroundImage: 'radial-gradient(circle, rgba(43,112,247,0.06) 1px, transparent 1px)',
+                backgroundSize: '32px 32px',
+                pointerEvents: 'none'
+              }} />
 
-              {/* Feature Highlights Bento Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', width: '100%', maxWidth: '700px', marginTop: '3.5rem', textAlign: 'left' }}>
-                <div style={{ padding: '1.25rem', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', borderRadius: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <Zap size={16} color="var(--text-primary)" />
-                    <h5 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Real-Time OBS Sync</h5>
-                  </div>
-                  <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.8rem', lineHeight: 1.5 }}>
-                    เปลี่ยนสี ข้อความ รูปแบบในแดชบอร์ด อัปเดตสดใน OBS Browser Source ทันที
-                  </p>
+              <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '4rem 2.5rem', width: '100%', gap: '0' }}>
+
+                {/* Icon badge */}
+                <div style={{
+                  width: '72px', height: '72px',
+                  borderRadius: '20px',
+                  background: 'linear-gradient(135deg, var(--accent-color), #7C3AED)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: '1.75rem',
+                  boxShadow: '0 8px 32px rgba(43,112,247,0.35), 0 0 0 1px rgba(43,112,247,0.2)'
+                }}>
+                  <Zap size={34} color="#FFFFFF" />
                 </div>
-                <div style={{ padding: '1.25rem', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', borderRadius: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <Sliders size={16} color="var(--text-primary)" />
-                    <h5 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Exclusive Widgets</h5>
-                  </div>
-                  <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.8rem', lineHeight: 1.5 }}>
-                    Loyalty Card สมุดเช็กอิน, สุ่ม Killer Roulette, และระบบ Twitch Shoutout
-                  </p>
+
+                {/* Headline */}
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', color: 'var(--accent-color)', textTransform: 'uppercase', marginBottom: '0.85rem', opacity: 0.9 }}>
+                  FastChick Overlay Studio
                 </div>
-                <div style={{ padding: '1.25rem', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', borderRadius: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <Users size={16} color="var(--text-primary)" />
-                    <h5 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Twitch EventSub</h5>
-                  </div>
-                  <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.8rem', lineHeight: 1.5 }}>
-                    ดักจับ Follow, Subscribe, Channel Points แลกของรางวัลโดยตรง ไม่มีดีเลย์
-                  </p>
+                <h2 style={{ fontSize: '2.1rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1.2, marginBottom: '1rem', maxWidth: '500px' }}>
+                  เริ่มต้นสตรีมที่
+                  {' '}<span style={{ background: 'linear-gradient(135deg, #2B70F7, #7C3AED)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>ระดับโปร</span>
+                </h2>
+                <p style={{ color: 'var(--text-secondary)', maxWidth: '420px', lineHeight: 1.7, marginBottom: '2.25rem', fontSize: '0.95rem' }}>
+                  เชื่อมต่อบัญชี Twitch เพื่อปลดล็อก widget แบบเรียลไทม์ ควบคุม OBS ผ่านเบราว์เซอร์ และติดตาม channel events ทันที
+                </p>
+
+                {/* Single CTA Button */}
+                <a
+                  href={`${API_BASE}/auth/twitch`}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '0.75rem',
+                    background: 'linear-gradient(135deg, #9146FF, #6441A5)',
+                    color: '#FFFFFF', fontWeight: 700, fontSize: '1rem',
+                    padding: '0.9rem 2rem', borderRadius: 'var(--radius-sm)',
+                    textDecoration: 'none', border: 'none',
+                    boxShadow: '0 4px 20px rgba(145,70,255,0.4)',
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                    cursor: 'pointer'
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(145,70,255,0.5)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(145,70,255,0.4)'; }}
+                >
+                  {/* Twitch logo SVG */}
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" />
+                  </svg>
+                  <span>เข้าสู่ระบบด้วย Twitch</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+                </a>
+
+                {/* Feature pills */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.65rem', marginTop: '2.5rem', justifyContent: 'center' }}>
+                  {[
+                    { icon: <Zap size={13} />, label: 'Real-Time OBS Sync' },
+                    { icon: <Sliders size={13} />, label: 'Widget Customization' },
+                    { icon: <Users size={13} />, label: 'Twitch EventSub' },
+                  ].map(({ icon, label }) => (
+                    <div key={label} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                      padding: '0.35rem 0.85rem', borderRadius: '999px',
+                      background: 'var(--accent-surface)', border: '1px solid rgba(43,112,247,0.2)',
+                      fontSize: '0.78rem', fontWeight: 600, color: 'var(--accent-color)'
+                    }}>
+                      {icon} {label}
+                    </div>
+                  ))}
                 </div>
+
               </div>
             </div>
           </div>

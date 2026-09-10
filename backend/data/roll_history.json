@@ -2,6 +2,14 @@
   "random-killer": {
     "148596257": [
       {
+        "id": "roll_1789036456378_vpfdl",
+        "timestamp": 1789036456371,
+        "username": "LegionXIZ",
+        "killer": "The Cannibal",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K09_TheCannibal_Portrait.png?2b9b38",
+        "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
+      },
+      {
         "id": "roll_1789008516256_3510y",
         "timestamp": 1789008516253,
         "username": "LegionXIZ",
@@ -70,67 +78,13 @@
   "loyalty-card": {
     "148596257": [
       {
-        "id": "roll_1789017101033_mnoh4",
-        "timestamp": 1789017101030,
+        "id": "roll_1789036366184_ra1nd",
+        "timestamp": 1789036366179,
         "username": "LegionXIZ",
-        "count": 15,
-        "avatar": "/api/twitch/avatar/LegionXIZ",
-        "rewardTitle": "จุ่มๆๆๆ",
-        "result": "เช็คอินครั้งที่ 15"
-      },
-      {
-        "id": "roll_1789017098045_o068z",
-        "timestamp": 1789017098040,
-        "username": "LegionXIZ",
-        "count": 14,
-        "avatar": "/api/twitch/avatar/LegionXIZ",
-        "rewardTitle": "จุ่มๆๆๆ",
-        "result": "เช็คอินครั้งที่ 14"
-      },
-      {
-        "id": "roll_1789008051614_xvb3o",
-        "timestamp": 1789008051609,
-        "username": "LegionXIZ",
-        "count": 13,
-        "avatar": "/api/twitch/avatar/LegionXIZ",
-        "rewardTitle": "จุ่มๆๆๆ",
-        "result": "เช็คอินครั้งที่ 13"
-      },
-      {
-        "id": "roll_1789008051478_fcnhl",
-        "timestamp": 1789008051474,
-        "username": "LegionXIZ",
-        "count": 13,
-        "avatar": "/api/twitch/avatar/LegionXIZ",
-        "rewardTitle": "จุ่มๆๆๆ",
-        "result": "เช็คอินครั้งที่ 13"
-      },
-      {
-        "id": "roll_1788912415196_9lmd3",
-        "timestamp": 1788912415193,
-        "username": "LegionXIZ",
-        "count": 12,
-        "avatar": "/api/twitch/avatar/LegionXIZ",
-        "rewardTitle": "จุ่มๆๆๆ",
-        "result": "เช็คอินครั้งที่ 12"
-      },
-      {
-        "id": "roll_1788865196922_zh28u",
-        "timestamp": 1788865196916,
-        "username": "LegionXIZ",
-        "count": 11,
-        "avatar": "/api/twitch/avatar/LegionXIZ",
-        "rewardTitle": "จุ่มๆๆๆ",
-        "result": "เช็คอินครั้งที่ 11"
-      },
-      {
-        "id": "roll_1788830622900_8m9js",
-        "timestamp": 1788830622898,
-        "username": "LegionXIZ",
-        "count": 10,
+        "count": 16,
         "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png",
         "rewardTitle": "จุ่มๆๆๆ",
-        "result": "เช็คอินครั้งที่ 10"
+        "result": "เช็คอินครั้งที่ 16"
       }
     ]
   },

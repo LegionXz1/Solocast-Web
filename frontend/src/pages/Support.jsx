@@ -26,12 +26,13 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE } from '../config';
 
 const ISSUE_CATEGORIES = [
   { id: 'bug', label: 'บั๊ก / ข้อผิดพลาดของระบบ', icon: Bug, desc: 'ระบบทำงานไม่ถูกต้อง หรือแสดงผลผิดพลาด' },
   { id: 'perks', label: 'เปิร์ก DBD หรือ Killer ขาดหาย', icon: AlertCircle, desc: 'รายชื่อเปิร์กไม่ครบ หรือชื่อ/รูปภาพไม่ตรงกับในเกม' },
   { id: 'obs', label: 'ปัญหาการเชื่อมต่อ OBS Studio', icon: Tv, desc: 'Browser Source ไม่แสดงผล หรือไม่ตอบสนอง' },
-  { id: 'feature', label: 'ข้อเสนอแนะฟีเจอร์ใหม่', icon: Lightbulb, desc: 'ไอเดียหรือฟังก์ชันที่คุณอยากให้เพิ่มเข้ามาใน HyperCast' },
+  { id: 'feature', label: 'ข้อเสนอแนะฟีเจอร์ใหม่', icon: Lightbulb, desc: 'ไอเดียหรือฟังก์ชันที่คุณอยากให้เพิ่มเข้ามาใน FastChick' },
   { id: 'other', label: 'คำถามหรือเรื่องอื่นๆ', icon: HelpCircle, desc: 'สอบถามเรื่องการใช้งานทั่วไป หรือประสานงาน' }
 ];
 
@@ -79,12 +80,12 @@ export default function Support() {
   // Helper to save ticket to localStorage
   const saveTicketToLocal = (id) => {
     try {
-      const saved = JSON.parse(localStorage.getItem('hypercast_saved_tickets') || '[]');
+      const saved = JSON.parse(localStorage.getItem('fastchick_saved_tickets') || localStorage.getItem('hypercast_saved_tickets') || '[]');
       if (!saved.includes(id)) {
         saved.unshift(id);
-        localStorage.setItem('hypercast_saved_tickets', JSON.stringify(saved));
+        localStorage.setItem('fastchick_saved_tickets', JSON.stringify(saved));
       }
-    } catch (e) {}
+    } catch (e) { }
   };
 
   // Load user tickets for tracking
@@ -92,7 +93,7 @@ export default function Support() {
     setLoadingTickets(true);
     setSearchError('');
     try {
-      const localIds = JSON.parse(localStorage.getItem('hypercast_saved_tickets') || '[]');
+      const localIds = JSON.parse(localStorage.getItem('fastchick_saved_tickets') || localStorage.getItem('hypercast_saved_tickets') || '[]');
       const params = new URLSearchParams();
       if (user?.username) {
         params.set('username', user.username);
@@ -108,7 +109,7 @@ export default function Support() {
         return;
       }
 
-      const res = await fetch(`http://localhost:3000/api/support/tickets?${params.toString()}`);
+      const res = await fetch(`${API_BASE}/api/support/tickets?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
@@ -141,7 +142,7 @@ export default function Support() {
     setLoadingTickets(true);
     setSearchError('');
     try {
-      const res = await fetch(`http://localhost:3000/api/support/tickets?ticketId=${encodeURIComponent(query)}`);
+      const res = await fetch(`${API_BASE}/api/support/tickets?ticketId=${encodeURIComponent(query)}`);
       const data = await res.json();
       if (res.ok && data.success && data.ticket) {
         // Save to local storage for quick access
@@ -174,7 +175,7 @@ export default function Support() {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('http://localhost:3000/api/support/report', {
+      const res = await fetch(`${API_BASE}/api/support/report`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -221,7 +222,7 @@ export default function Support() {
       {/* Header */}
       <div className="hero-section" style={{ marginBottom: '1.25rem' }}>
         <span className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-          <AlertCircle size={13} /> ศูนย์รับแจ้งปัญหา & บริการผู้ใช้ HyperCast
+          <AlertCircle size={13} /> ศูนย์รับแจ้งปัญหา & บริการผู้ใช้ FastChick
         </span>
         <h1 className="hero-title">ศูนย์แจ้งปัญหาและช่วยเหลือ</h1>
         <p className="hero-desc">
@@ -229,32 +230,11 @@ export default function Support() {
         </p>
 
         {/* Tab Switcher */}
-        <div style={{
-          display: 'inline-flex',
-          background: 'var(--surface-1)',
-          border: '1px solid var(--border-primary)',
-          borderRadius: '999px',
-          padding: '4px',
-          marginTop: '1.25rem',
-          gap: '4px'
-        }}>
+        <div className="support-tab-group">
           <button
             type="button"
             onClick={() => handleTabSwitch('new')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '0.55rem 1.25rem',
-              borderRadius: '999px',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              background: activeTab === 'new' ? 'var(--text-primary)' : 'transparent',
-              color: activeTab === 'new' ? 'var(--bg-primary)' : 'var(--text-secondary)',
-              transition: 'all 0.2s ease'
-            }}
+            className={`support-tab-btn ${activeTab === 'new' ? 'active' : ''}`}
           >
             <Send size={14} />
             <span>แจ้งปัญหาใหม่</span>
@@ -263,26 +243,13 @@ export default function Support() {
           <button
             type="button"
             onClick={() => handleTabSwitch('track')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '0.55rem 1.25rem',
-              borderRadius: '999px',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              background: activeTab === 'track' ? 'var(--text-primary)' : 'transparent',
-              color: activeTab === 'track' ? 'var(--bg-primary)' : 'var(--text-secondary)',
-              transition: 'all 0.2s ease'
-            }}
+            className={`support-tab-btn ${activeTab === 'track' ? 'active' : ''}`}
           >
             <Clock size={14} />
             <span>ติดตามสถานะ & การตอบกลับ</span>
             {trackedTickets.filter(t => t.adminReply && t.status !== 'closed').length > 0 && (
               <span style={{
-                background: '#10B981',
+                background: activeTab === 'track' ? 'rgba(255, 255, 255, 0.25)' : '#10B981',
                 color: '#FFFFFF',
                 fontSize: '0.68rem',
                 padding: '1px 6px',
@@ -419,14 +386,7 @@ export default function Support() {
                       <div
                         key={cat.id}
                         onClick={() => setCategory(cat.id)}
-                        style={{
-                          padding: '0.85rem 1rem',
-                          background: isSelected ? 'var(--surface-3)' : 'var(--surface-1)',
-                          border: isSelected ? '1px solid var(--border-focus)' : '1px solid var(--border-primary)',
-                          cursor: 'pointer',
-                          borderRadius: '8px',
-                          transition: 'var(--transition-fast)'
-                        }}
+                        className={`support-category-card ${isSelected ? 'selected' : ''}`}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.25rem' }}>
                           <Icon size={14} style={{ color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }} />
@@ -586,15 +546,11 @@ export default function Support() {
             <button
               type="button"
               onClick={() => setStatusFilter('all')}
+              className="status-filter-btn"
               style={{
-                padding: '0.4rem 0.85rem',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                borderRadius: '6px',
                 border: statusFilter === 'all' ? '1px solid var(--text-primary)' : '1px solid var(--border-primary)',
                 background: statusFilter === 'all' ? 'var(--surface-3)' : 'var(--surface-1)',
-                color: 'var(--text-primary)',
-                cursor: 'pointer'
+                color: 'var(--text-primary)'
               }}
             >
               ทั้งหมด ({trackedTickets.length})
@@ -607,15 +563,11 @@ export default function Support() {
                   key={stKey}
                   type="button"
                   onClick={() => setStatusFilter(stKey)}
+                  className="status-filter-btn"
                   style={{
-                    padding: '0.4rem 0.85rem',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    borderRadius: '6px',
                     border: isSelected ? `1px solid ${stInfo.color}` : '1px solid var(--border-primary)',
                     background: isSelected ? stInfo.bg : 'var(--surface-1)',
-                    color: isSelected ? stInfo.color : 'var(--text-secondary)',
-                    cursor: 'pointer'
+                    color: isSelected ? stInfo.color : 'var(--text-secondary)'
                   }}
                 >
                   {stInfo.label} ({count})
@@ -815,7 +767,7 @@ export default function Support() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <ShieldCheck size={16} color="#10B981" />
                               <strong style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>
-                                การตอบกลับจากทีมงาน HyperCast ({ticket.adminUser || 'Admin'})
+                                การตอบกลับจากทีมงาน FastChick ({ticket.adminUser || 'Admin'})
                               </strong>
                             </div>
                             {ticket.adminRepliedAt && (
@@ -884,33 +836,7 @@ export default function Support() {
         </div>
       )}
 
-      {/* Direct Contact Channels Box */}
-      <div className="features-bento" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        <div className="doppel-shell">
-          <div className="doppel-core">
-            <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.45rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <MessageSquare size={16} /> คอมมูนิตี้ & การช่วยเหลือสด
-            </h4>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 1rem 0' }}>
-              ติดต่อสอบถามหรือแลกเปลี่ยนความคิดเห็นกับเพื่อนๆ สตรีมเมอร์ได้ที่คอมมูนิตี้
-            </p>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', color: 'var(--apple-green)' }}>
-              ● สถานะระบบ: เปิดให้บริการปกติ (Operational)
-            </span>
-          </div>
-        </div>
 
-        <div className="doppel-shell">
-          <div className="doppel-core">
-            <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.45rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Clock size={16} /> เวลาการตอบกลับ
-            </h4>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
-              ทีมงานตรวจสอบรายงานปัญหาอย่างต่อเนื่อง โดยปัญหาเร่งด่วนเกี่ยวกับ Twitch Event หรือ DBD Sync จะได้รับการตรวจสอบภายใน 24 ชั่วโมง
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

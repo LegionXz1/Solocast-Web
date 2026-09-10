@@ -4,9 +4,10 @@ import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
 import FAQ from './pages/FAQ';
+import { API_BASE } from './config';
 function DirectLoginRedirect() {
   React.useEffect(() => {
-    window.location.href = 'http://localhost:3000/auth/twitch';
+    window.location.href = `${API_BASE}/auth/twitch`;
   }, []);
   return null;
 }

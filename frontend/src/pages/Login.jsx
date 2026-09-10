@@ -13,13 +13,14 @@ import {
   LayoutDashboard
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE } from '../config';
 
 export default function Login() {
   const navigate = useNavigate();
   const { user, loading, logout } = useAuth();
 
   const handleTwitchLogin = () => {
-    window.location.href = 'http://localhost:3000/auth/twitch';
+    window.location.href = `${API_BASE}/auth/twitch`;
   };
 
   return (
@@ -29,7 +30,7 @@ export default function Login() {
         <span className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
           <Lock size={12} /> ระบบความปลอดภัย TWITCH OAUTH
         </span>
-        <h1 className="hero-title" style={{ fontSize: '2.4rem' }}>เข้าสู่ระบบ HyperCast</h1>
+        <h1 className="hero-title" style={{ fontSize: '2.4rem' }}>เข้าสู่ระบบ FastChick</h1>
         <p className="hero-desc" style={{ textAlign: 'center', maxWidth: 520 }}>
           เชื่อมต่อบัญชี Twitch ของคุณเพื่อเข้าถึงการตั้งค่า Widgets
         </p>
@@ -54,7 +55,7 @@ export default function Login() {
                 marginBottom: '1.75rem'
               }}>
                 <img
-                  src={`http://localhost:3000/api/twitch/avatar/${encodeURIComponent(user.username)}`}
+                  src={`${API_BASE}/api/twitch/avatar/${encodeURIComponent(user.username)}`}
                   alt={user.displayName || user.username}
                   style={{ width: 56, height: 56, objectFit: 'cover', border: '1px solid var(--border-secondary)' }}
                   onError={(e) => { e.currentTarget.style.display = 'none'; }}

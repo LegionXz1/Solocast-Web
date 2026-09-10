@@ -29,7 +29,7 @@ export default function ChickenMascot() {
         <div className="chicken-character-wrapper">
           <img
             src="/electric-chicken.png"
-            alt="HyperCast Electric Chicken Mascot"
+            alt="FastChick Electric Chicken Mascot"
             className="electric-chicken-img"
             draggable={false}
           />

@@ -152,10 +152,10 @@ export default function Landing() {
         <div className="hero-content">
           <div className="hero-badge-pill">
             <span className="pill-dot" />
-            <span>HyperCast STREAMER WIDGETS</span>
+            <span>FastChick STREAMER WIDGETS</span>
           </div>
           <h1 className="hero-title">
-            ยกระดับไลฟ์สตรีมด้วย <span className="gradient-text">HyperCast </span>
+            ยกระดับไลฟ์สตรีมด้วย <span className="gradient-text">FastChick </span>
           </h1>
           <p className="hero-desc">
             แพลตฟอร์มรวมวิดเจ็ตและระบบสร้างสรรค์ความสนุกสำหรับสตรีมเมอร์ Twitch เชื่อมต่อง่าย ทำงานแบบเรียลไทม์ ไร้ดีเลย์ และสวยงามบนหน้าจอสตรีมมิ่ง

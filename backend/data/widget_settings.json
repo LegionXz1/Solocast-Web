@@ -2,10 +2,10 @@
   "random-killer": {
     "148596257": {
       "rewardName": "ติดโฆษณาอยู่กั้บๆๆๆๆ",
-      "headerText": "Random Killer",
-      "dividerText": "The Entity Chooses",
-      "spinSubtitle": "analyzing biological threat",
-      "chosenSubtitle": "SUBJECT IDENTIFIED",
+      "headerText": "",
+      "dividerText": "",
+      "spinSubtitle": "",
+      "chosenSubtitle": "",
       "jwtToken": "",
       "chatTemplate": "☠ {username} rolled → {killer} ☠",
       "headerFontSize": 34,
@@ -32,10 +32,7 @@
       "spinDuration": 5,
       "hideAfter": 8,
       "enableChat": true,
-      "excludedKillers": [
-        "The Nurse",
-        "The Blight"
-      ]
+      "excludedKillers": []
     }
   },
   "twitch-shoutout": {
@@ -58,7 +55,7 @@
   },
   "loyalty-card": {
     "148596257": {
-      "triggerChannelPoints": "yes",
+      "triggerChannelPoints": "no",
       "rewardName": "จุ่มๆๆๆ",
       "cardTitle": "Loyalty Card",
       "fontFamily": "Quicksand",
@@ -96,7 +93,7 @@
   },
   "dbd-perks": {
     "148596257": {
-      "role": "survivor",
+      "role": "killer",
       "perkCount": 4,
       "rewardName": "GG",
       "enableChat": true,
