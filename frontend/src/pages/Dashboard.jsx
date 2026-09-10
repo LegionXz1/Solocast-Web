@@ -115,6 +115,10 @@ function Dashboard() {
   const [killersList, setKillersList] = useState([]);
   const [killerSearchQuery, setKillerSearchQuery] = useState('');
 
+  // Widget Status State (User toggle & Admin global lock)
+  const [widgetStatusOverview, setWidgetStatusOverview] = useState({ global: {}, user: {} });
+  const [widgetToggleLoading, setWidgetToggleLoading] = useState({});
+
   // Spotify Song Request State
   const [spotifyStatus, setSpotifyStatus] = useState({ configured: false, connected: false, displayName: null, product: null });
   const [nowPlaying, setNowPlaying] = useState(null);
@@ -207,6 +211,44 @@ function Dashboard() {
       })
       .catch(err => console.error("Error fetching widgets:", err));
   }, []);
+
+  // 3.1 โหลดสถานะเปิด/ปิด Widget (User Level & Admin Global)
+  const fetchWidgetStatusOverview = useCallback(async () => {
+    if (!status.userId) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/widgets/status-overview?user=${encodeURIComponent(status.userId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setWidgetStatusOverview(data || { global: {}, user: {} });
+      }
+    } catch (e) {
+      console.error('Error fetching widget status overview:', e);
+    }
+  }, [status.userId]);
+
+  useEffect(() => {
+    if (status.connected && status.userId) {
+      fetchWidgetStatusOverview();
+    }
+  }, [status.connected, status.userId, fetchWidgetStatusOverview]);
+
+  // ฟัง Real-time Widget Status Events
+  useEffect(() => {
+    const handleWidgetStatusUpdated = (payload) => {
+      if (!payload) return;
+      setWidgetStatusOverview(prev => {
+        const updated = { ...prev };
+        if (payload.type === 'global') {
+          updated.global = { ...updated.global, [payload.widgetId]: { enabled: payload.enabled, reason: payload.reason || '' } };
+        } else if (payload.type === 'user' && payload.userId === status.userId) {
+          updated.user = { ...updated.user, [payload.widgetId]: payload.enabled };
+        }
+        return updated;
+      });
+    };
+    socket.on('widget_status_updated', handleWidgetStatusUpdated);
+    return () => socket.off('widget_status_updated', handleWidgetStatusUpdated);
+  }, [status.userId]);
 
   // 4. โหลด Schema และ ค่าการตั้งค่าที่บันทึกไว้ (เช่น Reward Name)
   useEffect(() => {
@@ -383,6 +425,68 @@ function Dashboard() {
       handleSaveSettings(updated);
     }, 600);
   };
+
+  // Widget Toggle Handlers
+  const handleToggleUserWidget = async (widgetId, currentEnabled) => {
+    const newEnabled = !currentEnabled;
+    setWidgetToggleLoading(prev => ({ ...prev, [widgetId + '_user']: true }));
+    try {
+      const res = await fetch(`${API_BASE}/api/user/widgets/${widgetId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ enabled: newEnabled, user: status.userId })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setWidgetStatusOverview(prev => ({
+          ...prev,
+          user: { ...prev.user, [widgetId]: newEnabled }
+        }));
+      } else if (data.globallyDisabled) {
+        alert('Widget นี้ถูกปิดโดยผู้ดูแลระบบ ไม่สามารถเปิดใช้งานได้ในขณะนี้');
+      } else {
+        alert(data.error || 'ไม่สามารถเปลี่ยนสถานะ Widget ได้');
+      }
+    } catch (e) {
+      console.error('Toggle user widget error:', e);
+    } finally {
+      setWidgetToggleLoading(prev => ({ ...prev, [widgetId + '_user']: false }));
+    }
+  };
+
+  const handleToggleGlobalWidget = async (widgetId, currentEnabled) => {
+    const newEnabled = !currentEnabled;
+    const reason = newEnabled ? '' : (prompt('เหตุผลในการปิด Widget (ไม่บังคับ):') ?? '');
+    setWidgetToggleLoading(prev => ({ ...prev, [widgetId + '_global']: true }));
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/widgets/${widgetId}/global-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ enabled: newEnabled, reason })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setWidgetStatusOverview(prev => ({
+          ...prev,
+          global: { ...prev.global, [widgetId]: { enabled: newEnabled, reason: data.status?.reason || '' } }
+        }));
+      } else {
+        alert(data.error || 'ไม่สามารถเปลี่ยนสถานะ Widget ได้');
+      }
+    } catch (e) {
+      console.error('Toggle global widget error:', e);
+    } finally {
+      setWidgetToggleLoading(prev => ({ ...prev, [widgetId + '_global']: false }));
+    }
+  };
+
+  // Helper: คำนวณสถานะ Widget จาก overview
+  const getWidgetStatus = useCallback((widgetId) => {
+    const globalInfo = widgetStatusOverview.global[widgetId];
+    const globalEnabled = globalInfo ? globalInfo.enabled !== false : true;
+    const userEnabled = widgetStatusOverview.user[widgetId] !== false;
+    return { globalEnabled, userEnabled, active: globalEnabled && userEnabled, reason: globalInfo?.reason || '' };
+  }, [widgetStatusOverview]);
 
   const handleLogout = async () => {
     const activeToken = token || localStorage.getItem('solocast_user_token');
@@ -897,25 +1001,71 @@ function Dashboard() {
                         desc: w.id,
                         gradient: 'linear-gradient(135deg, var(--accent-color), #7C3AED)'
                       };
+                      const wStatus = getWidgetStatus(w.id);
+                      const isUserToggleLoading = widgetToggleLoading[w.id + '_user'];
                       return (
                         <div
                           key={w.id}
-                          className={`sidebar-widget-card ${isSelected ? 'active' : ''}`}
+                          className={`sidebar-widget-card ${isSelected ? 'active' : ''} ${!wStatus.active ? 'widget-disabled' : ''}`}
                           onClick={() => setSelectedWidget(w.id)}
                           role="button"
                           tabIndex={0}
                         >
                           <div className="card-content">
                             <div className="card-title-row">
-                              <span className="card-title">{w.name}</span>
-                              {isSelected && (
-                                <span className="card-active-pill">
-                                  <Check size={11} strokeWidth={3} />
-                                  <span>กำลังเลือก</span>
-                                </span>
-                              )}
+                              <span className="card-title" style={{ opacity: !wStatus.active ? 0.5 : 1 }}>{w.name}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                {isSelected && (
+                                  <span className="card-active-pill">
+                                    <Check size={11} strokeWidth={3} />
+                                    <span>กำลังเลือก</span>
+                                  </span>
+                                )}
+                                {!wStatus.globalEnabled && (
+                                  <span title={wStatus.reason || 'ปิดปรับปรุงโดยแอดมิน'} style={{
+                                    fontSize: '0.6rem', fontWeight: 700, padding: '1px 6px',
+                                    background: 'rgba(239,68,68,0.15)', color: '#f87171',
+                                    border: '1px solid rgba(239,68,68,0.3)', borderRadius: '4px'
+                                  }}>🔒 แอดมินล็อก</span>
+                                )}
+                              </div>
                             </div>
-                            <div className="card-desc">{meta.desc}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.35rem' }}>
+                              <div className="card-desc" style={{ opacity: !wStatus.active ? 0.45 : 1 }}>{meta.desc}</div>
+                              {/* User Toggle Switch */}
+                              <button
+                                type="button"
+                                title={!wStatus.globalEnabled ? 'ถูกล็อกโดยแอดมิน' : (wStatus.userEnabled ? 'คลิกเพื่อปิด Widget นี้' : 'คลิกเพื่อเปิด Widget นี้')}
+                                disabled={isUserToggleLoading || !wStatus.globalEnabled}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!wStatus.globalEnabled) return;
+                                  handleToggleUserWidget(w.id, wStatus.userEnabled);
+                                }}
+                                style={{
+                                  flexShrink: 0,
+                                  width: '34px', height: '18px',
+                                  borderRadius: '9px',
+                                  background: !wStatus.globalEnabled ? 'rgba(239,68,68,0.2)' : (wStatus.userEnabled ? '#10b981' : 'rgba(255,255,255,0.1)'),
+                                  border: `1px solid ${!wStatus.globalEnabled ? 'rgba(239,68,68,0.4)' : (wStatus.userEnabled ? '#059669' : 'rgba(255,255,255,0.15)')}`,
+                                  cursor: !wStatus.globalEnabled ? 'not-allowed' : (isUserToggleLoading ? 'wait' : 'pointer'),
+                                  position: 'relative',
+                                  transition: 'all 200ms ease',
+                                  padding: 0,
+                                  outline: 'none'
+                                }}
+                              >
+                                <div style={{
+                                  width: '12px', height: '12px',
+                                  borderRadius: '50%',
+                                  background: !wStatus.globalEnabled ? '#f87171' : (wStatus.userEnabled ? '#fff' : 'rgba(255,255,255,0.4)'),
+                                  position: 'absolute',
+                                  top: '2px',
+                                  left: (wStatus.userEnabled && wStatus.globalEnabled) ? '18px' : '2px',
+                                  transition: 'all 200ms ease'
+                                }} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -965,6 +1115,57 @@ function Dashboard() {
                         <Check size={13} /> {saveSuccess}
                       </div>
                     )}
+
+                    {/* Admin Global Widget Lock Toggle */}
+                    {status.isAdmin && (() => {
+                      const ws = getWidgetStatus(selectedWidget);
+                      const isGlobalLoading = widgetToggleLoading[selectedWidget + '_global'];
+                      return (
+                        <div style={{
+                          marginBottom: '1rem',
+                          padding: '0.65rem 0.85rem',
+                          background: ws.globalEnabled ? 'rgba(255,255,255,0.03)' : 'rgba(239,68,68,0.07)',
+                          border: `1px solid ${ws.globalEnabled ? 'rgba(255,255,255,0.07)' : 'rgba(239,68,68,0.25)'}`,
+                          borderRadius: 'var(--radius-xs)'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+                            <div>
+                              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>
+                                🛡️ Admin — ควบคุมระบบทั้งหมด
+                              </div>
+                              <div style={{ fontSize: '0.78rem', color: ws.globalEnabled ? '#10b981' : '#f87171', fontWeight: 600 }}>
+                                {ws.globalEnabled ? 'เปิดใช้งานสำหรับทุกคน' : `ปิดปรับปรุง${ws.reason ? ` — ${ws.reason}` : ''}`}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={isGlobalLoading}
+                              onClick={() => handleToggleGlobalWidget(selectedWidget, ws.globalEnabled)}
+                              style={{
+                                flexShrink: 0,
+                                width: '42px', height: '22px',
+                                borderRadius: '11px',
+                                background: ws.globalEnabled ? '#10b981' : 'rgba(239,68,68,0.3)',
+                                border: `1px solid ${ws.globalEnabled ? '#059669' : 'rgba(239,68,68,0.5)'}`,
+                                cursor: isGlobalLoading ? 'wait' : 'pointer',
+                                position: 'relative',
+                                padding: 0, outline: 'none',
+                                transition: 'all 200ms ease'
+                              }}
+                            >
+                              <div style={{
+                                width: '16px', height: '16px',
+                                borderRadius: '50%',
+                                background: ws.globalEnabled ? '#fff' : '#f87171',
+                                position: 'absolute', top: '2px',
+                                left: ws.globalEnabled ? '22px' : '2px',
+                                transition: 'all 200ms ease'
+                              }} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Schema Customization Form Fields */}
                     <div className="schema-container">

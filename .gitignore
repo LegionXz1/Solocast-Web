@@ -15,6 +15,8 @@ backend/data/tokens.json
 backend/data/sessions.json
 backend/data/spotify_tokens.json
 backend/data/spotify_queue.json
+backend/data/global_widget_status.json
+backend/data/user_widget_status.json
 
 # Build outputs
 frontend/dist/

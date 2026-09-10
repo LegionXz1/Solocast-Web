@@ -208,6 +208,20 @@ app.get('/api/widgets', (req, res) => {
   }
 });
 
+// 1.5 GET /api/widgets/status-overview — สรุปสถานะเปิด/ปิดของทุก Widget (ต้องมาก่อน :id route)
+app.get('/api/widgets/status-overview', (req, res) => {
+  try {
+    const user = req.query.user || req.query.userId || '';
+    const userMap = user && userWidgetStatus[user] ? userWidgetStatus[user] : (userWidgetStatus['default'] || {});
+    res.json({
+      global: globalWidgetStatus,
+      user: userMap
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // 2. Get single widget detail (including code)
 app.get('/api/widgets/:id', (req, res) => {
   const widgetId = req.params.id;
@@ -514,6 +528,169 @@ app.post('/api/widgets/:id/settings', (req, res) => {
 
     console.log(`[Settings] Updated isolated settings for user "${userKey}" on widget "${widgetId}":`, settings);
     res.json({ success: true, settings: widgetSettingsStore[widgetId][userKey] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+// ============================================================
+// 🔒 Widget Status Management (User Toggle & Admin Global Lock)
+// ============================================================
+const GLOBAL_WIDGET_STATUS_FILE = path.join(__dirname, 'data', 'global_widget_status.json');
+const USER_WIDGET_STATUS_FILE = path.join(__dirname, 'data', 'user_widget_status.json');
+
+function loadGlobalWidgetStatus() {
+  try {
+    if (fs.existsSync(GLOBAL_WIDGET_STATUS_FILE)) {
+      return JSON.parse(fs.readFileSync(GLOBAL_WIDGET_STATUS_FILE, 'utf8'));
+    }
+  } catch (e) { }
+  return {};
+}
+
+function saveGlobalWidgetStatus(data) {
+  try {
+    const dir = path.dirname(GLOBAL_WIDGET_STATUS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(GLOBAL_WIDGET_STATUS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) { }
+  saveAllItems('global_widget_status', data);
+}
+
+function loadUserWidgetStatus() {
+  try {
+    if (fs.existsSync(USER_WIDGET_STATUS_FILE)) {
+      return JSON.parse(fs.readFileSync(USER_WIDGET_STATUS_FILE, 'utf8'));
+    }
+  } catch (e) { }
+  return {};
+}
+
+function saveUserWidgetStatus(data) {
+  try {
+    const dir = path.dirname(USER_WIDGET_STATUS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(USER_WIDGET_STATUS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) { }
+  saveAllItems('user_widget_status', data);
+}
+
+const globalWidgetStatus = loadGlobalWidgetStatus();
+const userWidgetStatus = loadUserWidgetStatus();
+
+function isWidgetGloballyEnabled(widgetId) {
+  if (!widgetId) return true;
+  if (globalWidgetStatus[widgetId] && globalWidgetStatus[widgetId].enabled === false) {
+    return false;
+  }
+  return true;
+}
+
+function isWidgetUserEnabled(userId, widgetId) {
+  if (!widgetId) return true;
+  const u = userId || 'default';
+  if (userWidgetStatus[u] && userWidgetStatus[u][widgetId] === false) {
+    return false;
+  }
+  return true;
+}
+
+function isWidgetActiveForUser(userId, widgetId) {
+  if (!isWidgetGloballyEnabled(widgetId)) return false;
+  if (!isWidgetUserEnabled(userId, widgetId)) return false;
+  return true;
+}
+
+// GET /api/widgets/:id/live-status — ตรวจสอบสถานะว่า Widget นี้ Active อยู่หรือไม่ (ใช้โดย OBS Overlay)
+app.get('/api/widgets/:id/live-status', (req, res) => {
+  const widgetId = req.params.id;
+  const user = req.query.user || req.query.channel || 'default';
+  const globalEnabled = isWidgetGloballyEnabled(widgetId);
+  const userEnabled = isWidgetUserEnabled(user, widgetId);
+  const active = globalEnabled && userEnabled;
+  const globalStatus = globalWidgetStatus[widgetId] || { enabled: true };
+
+  res.json({
+    widgetId,
+    active,
+    globalEnabled,
+    userEnabled,
+    reason: !globalEnabled ? (globalStatus.reason || 'ปิดปรับปรุงโดยผู้ดูแลระบบ') : (!userEnabled ? 'ปิดใช้งานโดยผู้ใช้' : '')
+  });
+});
+
+// POST /api/user/widgets/:id/status — ผู้ใช้เลือกเปิด/ปิด Widget ของช่องตัวเอง
+app.post('/api/user/widgets/:id/status', (req, res) => {
+  try {
+    const widgetId = req.params.id;
+    const session = getSessionFromReq(req);
+    const userId = req.body.user || req.body.userId || session?.userId || 'default';
+    const enabled = Boolean(req.body.enabled);
+
+    // หากผู้ดูแลระบบปิด Widget นี้ไว้ทั้งระบบ ไม่อนุญาตให้ผู้ใช้ทั่วไปเปิดใช้งาน
+    if (!isWidgetGloballyEnabled(widgetId) && enabled) {
+      return res.status(403).json({
+        error: 'Widget นี้ถูกปิดปรับปรุงโดยผู้ดูแลระบบ (Admin Lock) ไม่สามารถเปิดใช้งานได้ในขณะนี้',
+        globallyDisabled: true
+      });
+    }
+
+    if (!userWidgetStatus[userId]) {
+      userWidgetStatus[userId] = {};
+    }
+    userWidgetStatus[userId][widgetId] = enabled;
+    saveUserWidgetStatus(userWidgetStatus);
+
+    // ส่งสัญญาณ Real-time ไปยัง OBS Overlay และ Dashboard
+    io.to('user_' + userId).emit('user_widget_status_changed', {
+      userId,
+      widgetId,
+      enabled
+    });
+    io.emit('widget_status_updated', {
+      userId,
+      widgetId,
+      enabled,
+      type: 'user'
+    });
+
+    console.log(`[Widget Status] 👤 User ${userId} set widget "${widgetId}" to ${enabled ? 'ENABLED' : 'DISABLED'}`);
+    res.json({ success: true, widgetId, enabled });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/admin/widgets/:id/global-status — ผู้ดูแลระบบสั่งเปิด/ปิด Widget ทั้งระบบ
+app.post('/api/admin/widgets/:id/global-status', checkAdminAuth, (req, res) => {
+  try {
+    const widgetId = req.params.id;
+    const enabled = Boolean(req.body.enabled);
+    const reason = (req.body.reason || '').trim();
+    const adminUser = req.user?.username || req.user?.displayName || 'Admin';
+
+    globalWidgetStatus[widgetId] = {
+      enabled,
+      reason: enabled ? '' : (reason || 'ปิดปรับปรุงระบบชั่วคราวโดยผู้ดูแลระบบ'),
+      updatedAt: Date.now(),
+      updatedBy: adminUser
+    };
+    saveGlobalWidgetStatus(globalWidgetStatus);
+
+    // แจ้งเตือนทุก OBS Overlay และทุก Dashboard ทันที
+    io.emit('widget_global_status_changed', {
+      widgetId,
+      enabled,
+      reason: globalWidgetStatus[widgetId].reason,
+      updatedBy: adminUser
+    });
+    io.emit('widget_status_updated', {
+      widgetId,
+      enabled,
+      type: 'global',
+      reason: globalWidgetStatus[widgetId].reason
+    });
+
+    console.log(`[Widget Status] 🛡️ Admin ${adminUser} set global status for "${widgetId}" to ${enabled ? 'ENABLED' : 'DISABLED'} (${reason})`);
+    res.json({ success: true, widgetId, status: globalWidgetStatus[widgetId] });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1905,6 +2082,13 @@ async function hydrateFromMongo() {
     const mongoSpotifyQueue = await syncStore('spotify_queue', {});
     const queueList = Object.values(mongoSpotifyQueue || {}).sort((a, b) => (a.requestedAt || 0) - (b.requestedAt || 0));
     spotify.setHydratedSpotifyData(mongoSpotifyTokens, queueList);
+
+    // 🔒 Hydrate Widget Status (Global Lock & User Toggle) from MongoDB
+    const mongoGlobalStatus = await syncStore('global_widget_status', globalWidgetStatus);
+    Object.assign(globalWidgetStatus, mongoGlobalStatus);
+
+    const mongoUserStatus = await syncStore('user_widget_status', userWidgetStatus);
+    Object.assign(userWidgetStatus, mongoUserStatus);
 
     console.log('✨ [Database] In-memory stores successfully synchronized with MongoDB Atlas!');
   } catch (err) {
