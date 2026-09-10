@@ -208,6 +208,74 @@ app.get('/api/widgets', (req, res) => {
   }
 });
 
+// ============================================================
+// 🔒 Widget Status Management (User Toggle & Admin Global Lock)
+// ============================================================
+const GLOBAL_WIDGET_STATUS_FILE = path.join(__dirname, 'data', 'global_widget_status.json');
+const USER_WIDGET_STATUS_FILE = path.join(__dirname, 'data', 'user_widget_status.json');
+
+function loadGlobalWidgetStatus() {
+  try {
+    if (fs.existsSync(GLOBAL_WIDGET_STATUS_FILE)) {
+      return JSON.parse(fs.readFileSync(GLOBAL_WIDGET_STATUS_FILE, 'utf8'));
+    }
+  } catch (e) { }
+  return {};
+}
+
+function saveGlobalWidgetStatus(data) {
+  try {
+    const dir = path.dirname(GLOBAL_WIDGET_STATUS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(GLOBAL_WIDGET_STATUS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) { }
+  saveAllItems('global_widget_status', data);
+}
+
+function loadUserWidgetStatus() {
+  try {
+    if (fs.existsSync(USER_WIDGET_STATUS_FILE)) {
+      return JSON.parse(fs.readFileSync(USER_WIDGET_STATUS_FILE, 'utf8'));
+    }
+  } catch (e) { }
+  return {};
+}
+
+function saveUserWidgetStatus(data) {
+  try {
+    const dir = path.dirname(USER_WIDGET_STATUS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(USER_WIDGET_STATUS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) { }
+  saveAllItems('user_widget_status', data);
+}
+
+const globalWidgetStatus = loadGlobalWidgetStatus();
+const userWidgetStatus = loadUserWidgetStatus();
+
+function isWidgetGloballyEnabled(widgetId) {
+  if (!widgetId) return true;
+  if (globalWidgetStatus[widgetId] && globalWidgetStatus[widgetId].enabled === false) {
+    return false;
+  }
+  return true;
+}
+
+function isWidgetUserEnabled(userId, widgetId) {
+  if (!widgetId) return true;
+  const u = userId || 'default';
+  if (userWidgetStatus[u] && userWidgetStatus[u][widgetId] === false) {
+    return false;
+  }
+  return true;
+}
+
+function isWidgetActiveForUser(userId, widgetId) {
+  if (!isWidgetGloballyEnabled(widgetId)) return false;
+  if (!isWidgetUserEnabled(userId, widgetId)) return false;
+  return true;
+}
+
 // 1.5 GET /api/widgets/status-overview — สรุปสถานะเปิด/ปิดของทุก Widget (ต้องมาก่อน :id route)
 app.get('/api/widgets/status-overview', (req, res) => {
   try {
@@ -531,73 +599,7 @@ app.post('/api/widgets/:id/settings', (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
-// ============================================================
-// 🔒 Widget Status Management (User Toggle & Admin Global Lock)
-// ============================================================
-const GLOBAL_WIDGET_STATUS_FILE = path.join(__dirname, 'data', 'global_widget_status.json');
-const USER_WIDGET_STATUS_FILE = path.join(__dirname, 'data', 'user_widget_status.json');
-
-function loadGlobalWidgetStatus() {
-  try {
-    if (fs.existsSync(GLOBAL_WIDGET_STATUS_FILE)) {
-      return JSON.parse(fs.readFileSync(GLOBAL_WIDGET_STATUS_FILE, 'utf8'));
-    }
-  } catch (e) { }
-  return {};
-}
-
-function saveGlobalWidgetStatus(data) {
-  try {
-    const dir = path.dirname(GLOBAL_WIDGET_STATUS_FILE);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(GLOBAL_WIDGET_STATUS_FILE, JSON.stringify(data, null, 2), 'utf8');
-  } catch (e) { }
-  saveAllItems('global_widget_status', data);
-}
-
-function loadUserWidgetStatus() {
-  try {
-    if (fs.existsSync(USER_WIDGET_STATUS_FILE)) {
-      return JSON.parse(fs.readFileSync(USER_WIDGET_STATUS_FILE, 'utf8'));
-    }
-  } catch (e) { }
-  return {};
-}
-
-function saveUserWidgetStatus(data) {
-  try {
-    const dir = path.dirname(USER_WIDGET_STATUS_FILE);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(USER_WIDGET_STATUS_FILE, JSON.stringify(data, null, 2), 'utf8');
-  } catch (e) { }
-  saveAllItems('user_widget_status', data);
-}
-
-const globalWidgetStatus = loadGlobalWidgetStatus();
-const userWidgetStatus = loadUserWidgetStatus();
-
-function isWidgetGloballyEnabled(widgetId) {
-  if (!widgetId) return true;
-  if (globalWidgetStatus[widgetId] && globalWidgetStatus[widgetId].enabled === false) {
-    return false;
-  }
-  return true;
-}
-
-function isWidgetUserEnabled(userId, widgetId) {
-  if (!widgetId) return true;
-  const u = userId || 'default';
-  if (userWidgetStatus[u] && userWidgetStatus[u][widgetId] === false) {
-    return false;
-  }
-  return true;
-}
-
-function isWidgetActiveForUser(userId, widgetId) {
-  if (!isWidgetGloballyEnabled(widgetId)) return false;
-  if (!isWidgetUserEnabled(userId, widgetId)) return false;
-  return true;
-}
+});
 
 // GET /api/widgets/:id/live-status — ตรวจสอบสถานะว่า Widget นี้ Active อยู่หรือไม่ (ใช้โดย OBS Overlay)
 app.get('/api/widgets/:id/live-status', (req, res) => {
