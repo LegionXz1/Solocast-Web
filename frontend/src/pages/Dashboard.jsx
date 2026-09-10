@@ -59,7 +59,7 @@ function Dashboard() {
   const [copiedUrl, setCopiedUrl] = useState(false);
 
   // Tab & History State
-  const [activeTab, setActiveTab] = useState('settings'); // 'settings' | 'history'
+  const [activeTab, setActiveTab] = useState('workspace'); // 'workspace' | 'history'
   const [rollHistory, setRollHistory] = useState([]);
 
   // Live Preview State
@@ -332,13 +332,13 @@ function Dashboard() {
       userId: status.userId,
       type: 'redemption',
       isTest: true,
-      data: { 
+      data: {
         name: testUser,
         displayName: testUser,
-        rewardTitle: title, 
+        rewardTitle: title,
         avatar: `/api/twitch/avatar/${encodeURIComponent(testUser)}`,
         profileImage: `/api/twitch/avatar/${encodeURIComponent(testUser)}`,
-        isTest: true 
+        isTest: true
       }
     };
 
@@ -461,133 +461,133 @@ function Dashboard() {
           {visibleFields.map(field => (
             <div key={field.key} className="input-group">
               <label title={field.key}>{field.label}</label>
-            {(field.type === 'text' || field.type === 'number') && (
-              <input
-                type={field.type === 'number' ? 'number' : 'text'}
-                value={fieldData[field.key] !== undefined ? fieldData[field.key] : ''}
-                onChange={e => handleFieldChange(field.key, field.type === 'number' ? Number(e.target.value) : e.target.value)}
-              />
-            )}
-            {(field.type === 'dropdown' || field.type === 'select') && (
-              <select
-                value={fieldData[field.key] !== undefined ? fieldData[field.key] : (field.value || '')}
-                onChange={e => handleFieldChange(field.key, e.target.value)}
-              >
-                {field.options && (
-                  Array.isArray(field.options)
-                    ? field.options.map((opt, idx) => {
+              {(field.type === 'text' || field.type === 'number') && (
+                <input
+                  type={field.type === 'number' ? 'number' : 'text'}
+                  value={fieldData[field.key] !== undefined ? fieldData[field.key] : ''}
+                  onChange={e => handleFieldChange(field.key, field.type === 'number' ? Number(e.target.value) : e.target.value)}
+                />
+              )}
+              {(field.type === 'dropdown' || field.type === 'select') && (
+                <select
+                  value={fieldData[field.key] !== undefined ? fieldData[field.key] : (field.value || '')}
+                  onChange={e => handleFieldChange(field.key, e.target.value)}
+                >
+                  {field.options && (
+                    Array.isArray(field.options)
+                      ? field.options.map((opt, idx) => {
                         const val = typeof opt === 'object' && opt !== null ? (opt.value ?? opt.id ?? idx) : opt;
                         const lbl = typeof opt === 'object' && opt !== null ? (opt.label ?? opt.name ?? val) : opt;
                         return <option key={val} value={val}>{lbl}</option>;
                       })
-                    : Object.entries(field.options).map(([optVal, optLabel]) => (
+                      : Object.entries(field.options).map(([optVal, optLabel]) => (
                         <option key={optVal} value={optVal}>{optLabel}</option>
                       ))
-                )}
-              </select>
-            )}
-            {field.type === 'colorpicker' && (
-              <div className="color-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  )}
+                </select>
+              )}
+              {field.type === 'colorpicker' && (
+                <div className="color-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <input
+                    type="color"
+                    value={fieldData[field.key] || '#000000'}
+                    onChange={e => handleFieldChange(field.key, e.target.value)}
+                  />
+                  <span style={{ fontFamily: 'Consolas, monospace', fontSize: '0.85rem', color: '#E2E8F0', background: 'rgba(0,0,0,0.4)', padding: '0.35rem 0.75rem', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    {fieldData[field.key] || '#000000'}
+                  </span>
+                </div>
+              )}
+              {field.type === 'slider' && (
+                <div className="slider-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <input
+                    type="range"
+                    min={field.min}
+                    max={field.max}
+                    step={field.step}
+                    value={fieldData[field.key] !== undefined ? fieldData[field.key] : 0}
+                    onChange={e => handleFieldChange(field.key, Number(e.target.value))}
+                  />
+                  <span style={{ fontFamily: 'Consolas, monospace', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', minWidth: '40px', textAlign: 'right', background: 'var(--surface-3)', padding: '0.2rem 0.5rem', border: '1px solid var(--border-secondary)' }}>
+                    {fieldData[field.key] !== undefined ? fieldData[field.key] : 0}
+                  </span>
+                </div>
+              )}
+              {field.type === 'checkbox' && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', cursor: 'pointer', marginTop: '0.35rem', userSelect: 'none' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '20px',
+                    borderRadius: '10px',
+                    background: (fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? 'var(--accent-color)' : 'var(--surface-3)',
+                    border: '1px solid var(--border-secondary)',
+                    position: 'relative',
+                    transition: 'all 150ms ease'
+                  }}>
+                    <div style={{
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '50%',
+                      background: (fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? 'var(--accent-contrast)' : 'var(--text-muted)',
+                      position: 'absolute',
+                      top: '2px',
+                      left: (fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? '18px' : '2px',
+                      transition: 'all 150ms ease'
+                    }} />
+                  </div>
+                  <input
+                    type="checkbox"
+                    style={{ display: 'none' }}
+                    checked={fieldData[field.key] !== undefined ? Boolean(fieldData[field.key]) : Boolean(field.value)}
+                    onChange={e => handleFieldChange(field.key, e.target.checked)}
+                  />
+                  <span style={{ fontSize: '0.875rem', fontWeight: 600, color: (fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                    {(fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? 'เปิดใช้งาน (Enabled)' : 'ปิดใช้งาน (Disabled)'}
+                  </span>
+                </label>
+              )}
+              {field.type === 'sound-input' && (
                 <input
-                  type="color"
-                  value={fieldData[field.key] || '#000000'}
+                  type="text"
+                  placeholder="URL ของไฟล์เสียง (เว้นว่างไว้ถ้าไม่ต้องการเสียง)"
+                  value={fieldData[field.key] || ''}
                   onChange={e => handleFieldChange(field.key, e.target.value)}
                 />
-                <span style={{ fontFamily: 'Consolas, monospace', fontSize: '0.85rem', color: '#E2E8F0', background: 'rgba(0,0,0,0.4)', padding: '0.35rem 0.75rem', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  {fieldData[field.key] || '#000000'}
-                </span>
-              </div>
-            )}
-            {field.type === 'slider' && (
-              <div className="slider-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              )}
+              {(field.type === 'image-input' || field.type === 'image') && (
                 <input
-                  type="range"
-                  min={field.min}
-                  max={field.max}
-                  step={field.step}
-                  value={fieldData[field.key] !== undefined ? fieldData[field.key] : 0}
-                  onChange={e => handleFieldChange(field.key, Number(e.target.value))}
+                  type="text"
+                  placeholder="URL รูปภาพ (เช่น https://... หรือเว้นว่างไว้)"
+                  value={fieldData[field.key] !== undefined ? fieldData[field.key] : (field.value || '')}
+                  onChange={e => handleFieldChange(field.key, e.target.value)}
                 />
-                <span style={{ fontFamily: 'Consolas, monospace', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', minWidth: '40px', textAlign: 'right', background: 'var(--surface-3)', padding: '0.2rem 0.5rem', border: '1px solid var(--border-secondary)' }}>
-                  {fieldData[field.key] !== undefined ? fieldData[field.key] : 0}
-                </span>
-              </div>
-            )}
-            {field.type === 'checkbox' && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', cursor: 'pointer', marginTop: '0.35rem', userSelect: 'none' }}>
-                <div style={{
-                  width: '36px',
-                  height: '20px',
-                  borderRadius: '10px',
-                  background: (fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? 'var(--accent-color)' : 'var(--surface-3)',
-                  border: '1px solid var(--border-secondary)',
-                  position: 'relative',
-                  transition: 'all 150ms ease'
-                }}>
-                  <div style={{
-                    width: '14px',
-                    height: '14px',
-                    borderRadius: '50%',
-                    background: (fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? 'var(--accent-contrast)' : 'var(--text-muted)',
-                    position: 'absolute',
-                    top: '2px',
-                    left: (fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? '18px' : '2px',
-                    transition: 'all 150ms ease'
-                  }} />
-                </div>
-                <input
-                  type="checkbox"
-                  style={{ display: 'none' }}
-                  checked={fieldData[field.key] !== undefined ? Boolean(fieldData[field.key]) : Boolean(field.value)}
-                  onChange={e => handleFieldChange(field.key, e.target.checked)}
+              )}
+              {field.type === 'textarea' && (
+                <textarea
+                  rows={3}
+                  placeholder="กรอกข้อความ..."
+                  value={fieldData[field.key] !== undefined ? fieldData[field.key] : (field.value || '')}
+                  onChange={e => handleFieldChange(field.key, e.target.value)}
                 />
-                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: (fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                  {(fieldData[field.key] !== undefined ? fieldData[field.key] : field.value) ? 'เปิดใช้งาน (Enabled)' : 'ปิดใช้งาน (Disabled)'}
-                </span>
-              </label>
-            )}
-            {field.type === 'sound-input' && (
-              <input
-                type="text"
-                placeholder="URL ของไฟล์เสียง (เว้นว่างไว้ถ้าไม่ต้องการเสียง)"
-                value={fieldData[field.key] || ''}
-                onChange={e => handleFieldChange(field.key, e.target.value)}
-              />
-            )}
-            {(field.type === 'image-input' || field.type === 'image') && (
-              <input
-                type="text"
-                placeholder="URL รูปภาพ (เช่น https://... หรือเว้นว่างไว้)"
-                value={fieldData[field.key] !== undefined ? fieldData[field.key] : (field.value || '')}
-                onChange={e => handleFieldChange(field.key, e.target.value)}
-              />
-            )}
-            {field.type === 'textarea' && (
-              <textarea
-                rows={3}
-                placeholder="กรอกข้อความ..."
-                value={fieldData[field.key] !== undefined ? fieldData[field.key] : (field.value || '')}
-                onChange={e => handleFieldChange(field.key, e.target.value)}
-              />
-            )}
-            {field.type === 'button' && (
-              <button
-                type="button"
-                className="btn-island"
-                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', width: 'fit-content' }}
-                onClick={() => {
-                  socket.emit('test_event', {
-                    userId: status.userId,
-                    type: 'button_action',
-                    action: field.value || field.key
-                  });
-                }}
-              >
-                <span>{field.label}</span>
-              </button>
-            )}
-          </div>
-        ))}
+              )}
+              {field.type === 'button' && (
+                <button
+                  type="button"
+                  className="btn-island"
+                  style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', width: 'fit-content' }}
+                  onClick={() => {
+                    socket.emit('test_event', {
+                      userId: status.userId,
+                      type: 'button_action',
+                      action: field.value || field.key
+                    });
+                  }}
+                >
+                  <span>{field.label}</span>
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       );
     });
@@ -605,94 +605,360 @@ function Dashboard() {
       </div>
 
       <div className="bento-grid">
-        {/* Left Column: Status & Logs */}
-        <div className="doppel-shell animate-fade-up" style={{ animationDelay: '100ms' }}>
+        {/* Left Column: Twitch Status, Widget Selector & Customization Settings */}
+        <div className="doppel-shell sidebar-sticky animate-fade-up" style={{ animationDelay: '100ms' }}>
           <div className="doppel-core">
-            <span className="eyebrow">การเชื่อมต่อ</span>
-            <h2>สถานะ Twitch</h2>
-
-            <div className="status-badge">
-              <div className={`status-dot ${status.connected ? 'connected' : ''}`}></div>
-              <div className="status-text">
-                {status.connected ? `กำลังดักจับข้อมูลช่อง @${status.username}` : 'ไม่ได้เชื่อมต่อ'}
-              </div>
-            </div>
-
-            {!status.connected && (
-              <a href="http://localhost:3000/auth/twitch" className="btn-island accent">
-                <span>เข้าสู่ระบบด้วย Twitch</span>
-                <div className="btn-icon-wrapper">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+            {status.connected ? (
+              <>
+                {/* Compact Twitch Status */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.15rem', paddingBottom: '0.85rem', borderBottom: '1px solid var(--border-primary)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                    <div className="status-dot connected" style={{ width: '8px', height: '8px' }}></div>
+                    <div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>ช่อง TWITCH</div>
+                      <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'JetBrains Mono', monospace" }}>
+                        @{status.username}
+                      </div>
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: 'var(--radius-xs)',
+                    background: 'rgba(48, 209, 88, 0.12)',
+                    color: '#30D158',
+                    border: '1px solid rgba(48, 209, 88, 0.25)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#30D158' }}></span>
+                    Online
+                  </span>
                 </div>
-              </a>
+
+                {/* Section 1: Widget Selector */}
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
+                    <span className="eyebrow" style={{ margin: 0 }}>เลือก WIDGET</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{widgets.length} รายการ</span>
+                  </div>
+                  <div className="sidebar-widget-grid">
+                    {widgets.map(w => (
+                      <div
+                        key={w.id}
+                        className={`sidebar-widget-item ${selectedWidget === w.id ? 'active' : ''}`}
+                        onClick={() => {
+                          setSelectedWidget(w.id);
+                        }}
+                      >
+                        <div className="widget-item-icon">
+                          {w.id === 'dbd-perks' && <Dices size={16} />}
+                          {w.id === 'random-killer' && <Skull size={16} />}
+                          {w.id === 'loyalty-card' && <Ticket size={16} />}
+                          {w.id === 'twitch-shoutout' && <Megaphone size={16} />}
+                        </div>
+                        <div className="widget-item-info">
+                          <div className="widget-item-title">{w.name}</div>
+                          <div className="widget-item-id">{w.id}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <hr className="divider" style={{ margin: '1rem 0' }} />
+
+                {/* Section 2: Widget Settings & Customization Form */}
+                {selectedWidget && (
+                  <div className="sidebar-settings-section">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div>
+                        <span className="eyebrow" style={{ margin: '0 0 0.25rem 0' }}>ปรับแต่ง WIDGET</span>
+                        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {widgets.find(w => w.id === selectedWidget)?.name}
+                        </h3>
+                      </div>
+                      <button
+                        onClick={() => handleSaveSettings(fieldData)}
+                        className="btn-island accent"
+                        style={{ padding: '0.4rem 0.95rem', fontSize: '0.8rem' }}
+                        disabled={isSaving}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                          {isSaving ? 'กำลังบันทึก...' : 'บันทึกค่า'}
+                        </span>
+                      </button>
+                    </div>
+
+                    {saveSuccess && (
+                      <div style={{
+                        marginBottom: '0.75rem',
+                        padding: '0.4rem 0.65rem',
+                        background: 'rgba(48, 209, 88, 0.1)',
+                        border: '1px solid rgba(48, 209, 88, 0.25)',
+                        color: '#30D158',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        borderRadius: 'var(--radius-xs)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem'
+                      }}>
+                        <Check size={13} /> {saveSuccess}
+                      </div>
+                    )}
+
+                    {/* Schema Customization Form Fields */}
+                    <div className="schema-container">
+                      {renderSchemaForm()}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="eyebrow">การเชื่อมต่อ</span>
+                <h2>สถานะ Twitch</h2>
+                <div className="status-badge">
+                  <div className="status-dot"></div>
+                  <div className="status-text">ไม่ได้เชื่อมต่อ</div>
+                </div>
+                <a href="http://localhost:3000/auth/twitch" className="btn-island accent">
+                  <span>เข้าสู่ระบบด้วย Twitch</span>
+                  <div className="btn-icon-wrapper">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+                  </div>
+                </a>
+              </>
             )}
           </div>
         </div>
 
-        {/* Right Column: Configurator & Roll History */}
+        {/* Right Column: Studio Workspace (Preview, OBS URL, Content Tabs & History) */}
         {status.connected ? (
           <div className="doppel-shell animate-fade-up" style={{ animationDelay: '200ms' }}>
             <div className="doppel-core">
-              <span className="eyebrow">แผงควบคุมอัจฉริยะ</span>
-              <h2>ปรับแต่ง Widget</h2>
-
-              <div className="widget-grid">
-                {widgets.map(w => (
-                  <div
-                    key={w.id}
-                    className={`widget-card ${selectedWidget === w.id ? 'active' : ''}`}
-                    onClick={() => {
-                      setSelectedWidget(w.id);
-                      setActiveTab('settings');
-                    }}
-                  >
-                    <h4>{w.name}</h4>
-                    <p>ID: {w.id}</p>
-                  </div>
-                ))}
-              </div>
-
               {selectedWidget && (
-                <div className="animate-fade-up">
-                  <hr className="divider" />
-                  
-                  {/* Top Bar: Title & Save */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.25rem' }}>
-                      {widgets.find(w => w.id === selectedWidget)?.name}
-                    </h3>
-                    {(activeTab === 'settings' || !hasRollHistory) && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        {saveSuccess && (
-                          <span style={{ color: '#30D158', fontSize: '0.85rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <Check size={14} /> {saveSuccess}
-                          </span>
+                <div>
+                  {/* Live Preview Canvas Box */}
+                  <div className="live-preview-box">
+                    <div className="live-preview-header">
+                      <div className="live-preview-title">
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                          <Eye size={16} /> ตัวอย่างผลลัพธ์สด (Live Preview)
+                        </span>
+                        <span className="live-preview-badge">Real-Time Sync</span>
+                      </div>
+
+                      <div className="live-preview-actions">
+                        {selectedWidget === 'twitch-shoutout' ? (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            <input
+                              type="text"
+                              value={shoutoutChannel}
+                              onChange={(e) => setShoutoutChannel(e.target.value)}
+                              placeholder="ชื่อช่อง (เช่น legionxiz)"
+                              style={{
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                color: '#fff',
+                                padding: '4px 8px',
+                                fontSize: '0.78rem',
+                                width: '130px'
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={handleTriggerPreview}
+                              className="btn-preview-action accent"
+                              title="ทดสอบยิง Shoutout ช่องนี้ทันที"
+                            >
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <Megaphone size={14} /> ยิง Shoutout
+                              </span>
+                            </button>
+                          </div>
+                        ) : selectedWidget === 'dbd-perks' ? (
+                          <button
+                            type="button"
+                            onClick={handleTriggerPreview}
+                            className="btn-preview-action accent"
+                            title="ทดสอบสุ่มเปิร์ค DBD ทันที"
+                          >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <Dices size={14} /> สุ่มเปิร์ค DBD (Test Roll)
+                            </span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleTriggerPreview}
+                            className="btn-preview-action accent"
+                            title="ทดสอบแสดงผล Roulette ทันที"
+                          >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <Play size={14} /> ทดสอบสุ่ม (Trigger)
+                            </span>
+                          </button>
                         )}
+
                         <button
-                          onClick={() => handleSaveSettings(fieldData)}
-                          className="btn-island accent"
-                          style={{ padding: '0.5rem 1.15rem', fontSize: '0.85rem' }}
-                          disabled={isSaving}
+                          type="button"
+                          onClick={handleReloadPreview}
+                          className="btn-preview-action"
+                          title="รีเฟรชหน้าต่าง Preview"
                         >
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                            {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                            {isSaving ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า'}
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <RotateCw size={14} /> รีเฟรช
                           </span>
                         </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowFullscreenPreview(true)}
+                          className="btn-preview-action"
+                          title="เปิดดูแบบขยายเต็มจอ"
+                        >
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <Maximize2 size={14} /> ขยายเต็มจอ
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setIsPreviewCollapsed(!isPreviewCollapsed)}
+                          className="btn-preview-action"
+                          title={isPreviewCollapsed ? "แสดงตัวอย่าง" : "ย่อตัวอย่าง"}
+                        >
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            {isPreviewCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                            {isPreviewCollapsed ? 'แสดง' : 'ย่อ'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {!isPreviewCollapsed && (
+                      <div className={`live-preview-canvas ${bgMode}`}>
+                        <iframe
+                          key={`preview-${previewKey}`}
+                          src={previewUrl}
+                          className="live-preview-iframe"
+                          title="Live Widget Preview"
+                        />
                       </div>
                     )}
                   </div>
 
-                  {/* Tab Navigation: Settings vs Roll History */}
-                  {hasRollHistory && (
-                    <div className="widget-tab-nav">
+                  {/* OBS URL Box (Static & Auto-Syncing) */}
+                  <div className="url-box" style={{
+                    marginTop: '1.25rem',
+                    marginBottom: '1.5rem',
+                    padding: '1.25rem',
+                    background: 'var(--card-bg, rgba(255, 255, 255, 0.03))',
+                    border: '1px solid var(--shell-border, rgba(255, 255, 255, 0.1))'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Link size={16} style={{ color: 'var(--text-secondary)' }} />
+                        <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          ลิงก์ Browser Source สำหรับ OBS
+                        </span>
+                        <span style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                          padding: '2px 8px',
+                          background: 'rgba(48, 209, 88, 0.12)',
+                          color: '#30D158',
+                          border: '1px solid rgba(48, 209, 88, 0.25)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          <Zap size={12} /> ซิงค์ค่าอัตโนมัติ Real-Time
+                        </span>
+                      </div>
+
                       <button
                         type="button"
-                        onClick={() => setActiveTab('settings')}
-                        className={`widget-tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
+                        onClick={handleCopyUrl}
+                        className="btn-island"
+                        style={{
+                          padding: '0.4rem 0.85rem',
+                          fontSize: '0.8rem',
+                          background: '#FFFFFF',
+                          color: '#000000',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          fontWeight: 600,
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          {copiedUrl ? <Check size={14} /> : <Copy size={14} />}
+                          {copiedUrl ? 'คัดลอกสำเร็จแล้ว!' : 'คัดลอกลิงก์ OBS'}
+                        </span>
+                      </button>
+                    </div>
+
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        readOnly
+                        value={widgetUrl}
+                        onClick={e => e.target.select()}
+                        style={{
+                          width: '100%',
+                          padding: '0.65rem 0.85rem',
+                          background: 'rgba(0, 0, 0, 0.35)',
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.85rem',
+                          fontFamily: 'monospace',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+
+                    <div style={{
+                      marginTop: '0.65rem',
+                      fontSize: '0.8rem',
+                      color: 'var(--text-secondary)',
+                      lineHeight: 1.55,
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '0.45rem',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      padding: '0.5rem 0.75rem',
+                    }}>
+                      <Info size={16} style={{ color: '#A3A3A3', flexShrink: 0, marginTop: '2px' }} />
+                      <span>
+                        <strong>ใส่เพียงครั้งเดียวจบ:</strong> ลิงก์นี้จะคงที่ถาวร เมื่อคุณเปลี่ยนสี, ปรับฟอนต์, สลับไอคอน หรือแก้ไขข้อความใดๆ ใน Sidebar ระบบจะบันทึกและส่งข้อมูลไปอัปเดตหน้าจอ OBS แบบ <strong>Real-time ทันที</strong> โดยไม่ต้องคัดลอกลิงก์ใหม่ และไม่ต้องกด Refresh ใน OBS
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Tab Navigation: Workspace vs Roll History */}
+                  {hasRollHistory && (
+                    <div className="widget-tab-nav" style={{ marginBottom: '1.25rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('workspace')}
+                        className={`widget-tab-btn ${activeTab === 'workspace' ? 'active' : ''}`}
                       >
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                          <Sliders size={16} /> ตั้งค่า Widget (Settings)
+                          {selectedWidget === 'loyalty-card' ? <Award size={16} /> : <Ban size={16} />}
+                          {selectedWidget === 'loyalty-card'
+                            ? 'สรุปยอดสะสม (Leaderboard)'
+                            : selectedWidget === 'dbd-perks'
+                              ? 'จัดการเปิร์ค & Blacklist'
+                              : 'จัดการคิลเลอร์ & Blacklist'}
                         </span>
                       </button>
                       <button
@@ -711,621 +977,515 @@ function Dashboard() {
                     </div>
                   )}
 
-                  {/* TAB 1: SETTINGS & LIVE PREVIEW */}
-                  {(!hasRollHistory || activeTab === 'settings') && (
+                  {/* TAB 1: WORKSPACE / BLACKLIST CONTENT */}
+                  {(!hasRollHistory || activeTab === 'workspace') && (
                     <>
-                      {/* Live Preview Canvas Box */}
-                      <div className="live-preview-box">
-                        <div className="live-preview-header">
-                          <div className="live-preview-title">
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                              <Eye size={16} /> ตัวอย่างผลลัพธ์สด (Live Preview)
-                            </span>
-                            <span className="live-preview-badge">Real-Time Sync</span>
-                          </div>
+                      {/* DBD Perks Searchable Blacklist / Exclude Section */}
+                      {selectedWidget === 'dbd-perks' && (() => {
+                        const currentRole = fieldData.role || 'survivor';
+                        const rolePerks = dbdPerksList[currentRole] || [];
+                        const excludedList = Array.isArray(fieldData.excludedPerks) ? fieldData.excludedPerks : [];
+                        const query = (dbdSearchQuery || '').trim().toLowerCase();
 
-                          <div className="live-preview-actions">
-                            {selectedWidget === 'twitch-shoutout' ? (
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                <input
-                                  type="text"
-                                  value={shoutoutChannel}
-                                  onChange={(e) => setShoutoutChannel(e.target.value)}
-                                  placeholder="ชื่อช่อง (เช่น legionxiz)"
-                                  style={{
-                                    background: 'rgba(255, 255, 255, 0.08)',
-                                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                                    color: '#fff',
-                                    padding: '4px 8px',
-                                    fontSize: '0.78rem',
-                                    width: '130px'
-                                  }}
-                                />
+                        const filteredPerks = rolePerks.filter(p => {
+                          if (!query) return true;
+                          return (p.name && p.name.toLowerCase().includes(query)) ||
+                            (p.character && p.character.toLowerCase().includes(query));
+                        });
+
+                        const excludedCount = rolePerks.filter(p => excludedList.includes(p.id) || excludedList.includes(p.name)).length;
+                        const activeCount = rolePerks.length - excludedCount;
+
+                        const handleTogglePerk = (pId) => {
+                          let next;
+                          if (excludedList.includes(pId)) {
+                            next = excludedList.filter(id => id !== pId);
+                          } else {
+                            next = [...excludedList, pId];
+                          }
+                          handleFieldChange('excludedPerks', next);
+                        };
+
+                        const handleExcludeAllSearch = () => {
+                          const toAdd = filteredPerks.map(p => p.id).filter(id => !excludedList.includes(id));
+                          if (toAdd.length > 0) {
+                            handleFieldChange('excludedPerks', [...excludedList, ...toAdd]);
+                          }
+                        };
+
+                        const handleResetRoleExclusions = () => {
+                          const roleIds = new Set(rolePerks.map(p => p.id));
+                          const next = excludedList.filter(id => !roleIds.has(id));
+                          handleFieldChange('excludedPerks', next);
+                        };
+
+                        return (
+                          <div className="dbd-blacklist-box">
+                            <div className="dbd-blacklist-header">
+                              <div>
+                                <div className="dbd-blacklist-title">
+                                  <Ban size={18} style={{ color: '#FF453A' }} />
+                                  <span>เลือกเปิร์คที่ไม่ต้องการ / ยังไม่มี (Blacklist & Exclude)</span>
+                                </div>
+                                <div className="dbd-blacklist-desc">
+                                  ค้นหาเปิร์คหรือตัวละคร แล้วคลิกเพื่อติ๊ก <strong>"ตัดออก"</strong> จากการสุ่ม ระบบจะบันทึกและซิงค์ไปยัง OBS ทันที
+                                </div>
+                              </div>
+
+                              {/* Role Switcher & Sync Button Row */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                                {/* Role Switcher Pills */}
+                                <div style={{ display: 'inline-flex', background: 'rgba(255, 255, 255, 0.05)', padding: '3px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleFieldChange('role', 'survivor')}
+                                    style={{
+                                      border: 'none',
+                                      padding: '6px 14px',
+                                      fontSize: '0.8rem',
+                                      fontWeight: 600,
+                                      cursor: 'pointer',
+                                      background: currentRole === 'survivor' ? 'var(--accent-color)' : 'transparent',
+                                      color: currentRole === 'survivor' ? 'var(--accent-contrast)' : 'var(--text-secondary)',
+                                      transition: 'all 0.15s ease'
+                                    }}
+                                  >
+                                    ผู้รอดชีวิต ({dbdPerksList.survivor?.length || 179})
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleFieldChange('role', 'killer')}
+                                    style={{
+                                      border: 'none',
+                                      padding: '6px 14px',
+                                      fontSize: '0.8rem',
+                                      fontWeight: 600,
+                                      cursor: 'pointer',
+                                      background: currentRole === 'killer' ? '#FF453A' : 'transparent',
+                                      color: currentRole === 'killer' ? '#FFFFFF' : 'var(--text-secondary)',
+                                      transition: 'all 0.15s ease'
+                                    }}
+                                  >
+                                    ฆาตกร ({dbdPerksList.killer?.length || 151})
+                                  </button>
+                                </div>
+
+                                {/* Admin Management Shortcut */}
+                                {status.isAdmin && (
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate('/admin?tab=dbd_perks')}
+                                    className="btn-preview-action"
+                                    style={{
+                                      padding: '6px 12px',
+                                      fontSize: '0.8rem',
+                                      borderColor: 'var(--border-secondary)',
+                                      color: '#FFFFFF'
+                                    }}
+                                    title="ไปที่หน้า Admin เพื่อเพิ่ม, ลบ หรือซิงค์เปิร์ค DBD"
+                                  >
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                      <ShieldCheck size={13} /> จัดการเปิร์ค (Admin)
+                                    </span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Search Bar */}
+                            <div className="dbd-search-bar">
+                              <Search size={16} style={{ color: '#94A3B8', flexShrink: 0 }} />
+                              <input
+                                type="text"
+                                className="dbd-search-input"
+                                placeholder={`ค้นหาชื่อเปิร์ค หรือชื่อตัวละคร (เช่น Sprint Burst, Meg Thomas)...`}
+                                value={dbdSearchQuery}
+                                onChange={(e) => setDbdSearchQuery(e.target.value)}
+                              />
+                              {dbdSearchQuery && (
                                 <button
                                   type="button"
-                                  onClick={handleTriggerPreview}
-                                  className="btn-preview-action accent"
-                                  title="ทดสอบยิง Shoutout ช่องนี้ทันที"
+                                  onClick={() => setDbdSearchQuery('')}
+                                  style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '2px', display: 'flex' }}
                                 >
-                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                    <Megaphone size={14} /> ยิง Shoutout
-                                  </span>
+                                  <X size={15} />
                                 </button>
-                              </div>
-                            ) : selectedWidget === 'dbd-perks' ? (
-                              <button
-                                type="button"
-                                onClick={handleTriggerPreview}
-                                className="btn-preview-action accent"
-                                title="ทดสอบสุ่มเปิร์ค DBD ทันที"
-                              >
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                  <Dices size={14} /> สุ่มเปิร์ค DBD (Test Roll)
+                              )}
+                            </div>
+
+                            {/* Status & Quick Actions */}
+                            <div className="dbd-stats-row">
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                <span className="dbd-stat-badge" style={{ background: 'rgba(48, 209, 88, 0.12)', color: '#30D158', border: '1px solid rgba(48, 209, 88, 0.25)' }}>
+                                  <Check size={12} /> สุ่มได้: <strong>{activeCount}</strong> เปิร์ค
                                 </span>
-                              </button>
+                                {excludedCount > 0 && (
+                                  <span className="dbd-stat-badge" style={{ background: 'rgba(255, 69, 58, 0.12)', color: '#FF453A', border: '1px solid rgba(255, 69, 58, 0.25)' }}>
+                                    <Ban size={12} /> ตัดออก: <strong>{excludedCount}</strong> เปิร์ค
+                                  </span>
+                                )}
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                  (แสดง {filteredPerks.length} จาก {rolePerks.length} เปิร์ค)
+                                </span>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                {dbdSearchQuery && filteredPerks.length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={handleExcludeAllSearch}
+                                    className="btn-preview-action"
+                                    style={{ fontSize: '0.75rem', color: 'var(--text-primary)', borderColor: 'var(--border-secondary)' }}
+                                    title="ตัดเปิร์คทั้งหมดในผลการค้นหานี้ออกจากการสุ่ม"
+                                  >
+                                    <Ban size={12} /> ตัดออกทั้งหมดในคำค้นหานี้ ({filteredPerks.length})
+                                  </button>
+                                )}
+                                {excludedCount > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={handleResetRoleExclusions}
+                                    className="btn-preview-action"
+                                    style={{ fontSize: '0.75rem' }}
+                                    title="รีเซ็ตให้สุ่มได้ทุกเปิร์คของบทบาทนี้"
+                                  >
+                                    <RotateCw size={12} /> รีเซ็ต (เปิดสุ่มทุกเปิร์ค)
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Perks Scrollable Grid */}
+                            {filteredPerks.length === 0 ? (
+                              <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-secondary)' }}>
+                                <Search size={32} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+                                <p style={{ margin: 0, fontSize: '0.85rem' }}>ไม่พบเปิร์คที่ตรงกับ "{dbdSearchQuery}"</p>
+                              </div>
                             ) : (
-                              <button
-                                type="button"
-                                onClick={handleTriggerPreview}
-                                className="btn-preview-action accent"
-                                title="ทดสอบแสดงผล Roulette ทันที"
-                              >
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                  <Play size={14} /> ทดสอบสุ่ม (Trigger)
-                                </span>
-                              </button>
+                              <div className="dbd-perk-grid">
+                                {filteredPerks.map((perk) => {
+                                  const isExcluded = excludedList.includes(perk.id) || excludedList.includes(perk.name);
+                                  return (
+                                    <div
+                                      key={perk.id}
+                                      className={`dbd-perk-card ${isExcluded ? 'excluded' : ''}`}
+                                      onClick={() => handleTogglePerk(perk.id)}
+                                      title={perk.description ? `${perk.name}\n${perk.description}` : perk.name}
+                                    >
+                                      <div className="dbd-check-indicator">
+                                        {isExcluded ? <Ban size={12} /> : null}
+                                      </div>
+
+                                      <div className="dbd-perk-icon-wrapper">
+                                        <div className="dbd-perk-diamond-bg" />
+                                        <img
+                                          src={perk.icon}
+                                          alt={perk.name}
+                                          className="dbd-perk-img"
+                                          loading="lazy"
+                                          onError={(e) => { e.target.style.opacity = '0.3'; }}
+                                        />
+                                      </div>
+
+                                      <div className="dbd-perk-info">
+                                        <div className="dbd-perk-name">{perk.name}</div>
+                                        <div className="dbd-perk-char">
+                                          {perk.character || 'เปิร์คทั่วไป (General)'}
+                                        </div>
+                                      </div>
+
+                                      {isExcluded && (
+                                        <span style={{
+                                          fontSize: '0.68rem',
+                                          color: '#FF453A',
+                                          fontWeight: 600,
+                                          background: 'rgba(255, 69, 58, 0.12)',
+                                          border: '1px solid rgba(255, 69, 58, 0.25)',
+                                          padding: '2px 6px',
+                                          whiteSpace: 'nowrap'
+                                        }}>
+                                          ตัดออก
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             )}
-
-                            <button
-                              type="button"
-                              onClick={handleReloadPreview}
-                              className="btn-preview-action"
-                              title="รีเฟรชหน้าต่าง Preview"
-                            >
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <RotateCw size={14} /> รีเฟรช
-                              </span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setShowFullscreenPreview(true)}
-                              className="btn-preview-action"
-                              title="เปิดดูแบบขยายเต็มจอ"
-                            >
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <Maximize2 size={14} /> ขยายเต็มจอ
-                              </span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setIsPreviewCollapsed(!isPreviewCollapsed)}
-                              className="btn-preview-action"
-                              title={isPreviewCollapsed ? "แสดงตัวอย่าง" : "ย่อตัวอย่าง"}
-                            >
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                {isPreviewCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-                                {isPreviewCollapsed ? 'แสดง' : 'ย่อ'}
-                              </span>
-                            </button>
                           </div>
-                        </div>
+                        );
+                      })()}
 
-                        {!isPreviewCollapsed && (
-                          <div className={`live-preview-canvas ${bgMode}`}>
-                            <iframe
-                              key={`preview-${previewKey}`}
-                              src={previewUrl}
-                              className="live-preview-iframe"
-                              title="Live Widget Preview"
-                            />
-                          </div>
-                        )}
-                      </div>
+                      {/* Random Killer Searchable Blacklist / Exclude Section */}
+                      {selectedWidget === 'random-killer' && (() => {
+                        const excludedList = Array.isArray(fieldData.excludedKillers) ? fieldData.excludedKillers : [];
+                        const query = (killerSearchQuery || '').trim().toLowerCase();
 
-                      {/* Schema Settings Form */}
-                      <div className="schema-container">
-                        {renderSchemaForm()}
+                        const filteredKillers = killersList.filter(k => {
+                          if (!query) return true;
+                          return (k.name && k.name.toLowerCase().includes(query)) ||
+                            (k.id && k.id.toLowerCase().includes(query));
+                        });
 
-                        {/* DBD Perks Searchable Blacklist / Exclude Section */}
-                        {selectedWidget === 'dbd-perks' && (() => {
-                          const currentRole = fieldData.role || 'survivor';
-                          const rolePerks = dbdPerksList[currentRole] || [];
-                          const excludedList = Array.isArray(fieldData.excludedPerks) ? fieldData.excludedPerks : [];
-                          const query = (dbdSearchQuery || '').trim().toLowerCase();
+                        const excludedCount = killersList.filter(k => excludedList.includes(k.id) || excludedList.includes(k.name)).length;
+                        const activeCount = Math.max(0, killersList.length - excludedCount);
 
-                          const filteredPerks = rolePerks.filter(p => {
-                            if (!query) return true;
-                            return (p.name && p.name.toLowerCase().includes(query)) ||
-                                   (p.character && p.character.toLowerCase().includes(query));
-                          });
+                        const handleToggleKiller = (killer) => {
+                          let next;
+                          if (excludedList.includes(killer.name) || excludedList.includes(killer.id)) {
+                            next = excludedList.filter(id => id !== killer.name && id !== killer.id);
+                          } else {
+                            next = [...excludedList, killer.name];
+                          }
+                          handleFieldChange('excludedKillers', next);
+                        };
 
-                          const excludedCount = rolePerks.filter(p => excludedList.includes(p.id) || excludedList.includes(p.name)).length;
-                          const activeCount = rolePerks.length - excludedCount;
+                        const handleExcludeAllSearch = () => {
+                          const toAdd = filteredKillers
+                            .map(k => k.name)
+                            .filter(name => !excludedList.includes(name));
+                          if (toAdd.length > 0) {
+                            handleFieldChange('excludedKillers', [...excludedList, ...toAdd]);
+                          }
+                        };
 
-                          const handleTogglePerk = (pId) => {
-                            let next;
-                            if (excludedList.includes(pId)) {
-                              next = excludedList.filter(id => id !== pId);
-                            } else {
-                              next = [...excludedList, pId];
-                            }
-                            handleFieldChange('excludedPerks', next);
-                          };
+                        const handleResetExclusions = () => {
+                          handleFieldChange('excludedKillers', []);
+                        };
 
-                          const handleExcludeAllSearch = () => {
-                            const toAdd = filteredPerks.map(p => p.id).filter(id => !excludedList.includes(id));
-                            if (toAdd.length > 0) {
-                              handleFieldChange('excludedPerks', [...excludedList, ...toAdd]);
-                            }
-                          };
-
-                          const handleResetRoleExclusions = () => {
-                            const roleIds = new Set(rolePerks.map(p => p.id));
-                            const next = excludedList.filter(id => !roleIds.has(id));
-                            handleFieldChange('excludedPerks', next);
-                          };
-
-                          return (
-                            <div className="dbd-blacklist-box">
-                              <div className="dbd-blacklist-header">
-                                <div>
-                                  <div className="dbd-blacklist-title">
-                                    <Ban size={18} style={{ color: '#FF453A' }} />
-                                    <span>เลือกเปิร์คที่ไม่ต้องการ / ยังไม่มี (Blacklist & Exclude)</span>
-                                  </div>
-                                  <div className="dbd-blacklist-desc">
-                                    ค้นหาเปิร์คหรือตัวละคร แล้วคลิกเพื่อติ๊ก <strong>"ตัดออก"</strong> จากการสุ่ม ระบบจะบันทึกและซิงค์ไปยัง OBS ทันที
-                                  </div>
+                        return (
+                          <div className="dbd-blacklist-box">
+                            <div className="dbd-blacklist-header">
+                              <div>
+                                <div className="dbd-blacklist-title">
+                                  <Ban size={18} style={{ color: '#FF453A' }} />
+                                  <span>เลือกคิลเลอร์ที่ไม่ต้องการให้สุ่ม (Blacklist & Exclude)</span>
                                 </div>
-
-                                {/* Role Switcher & Sync Button Row */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
-                                  {/* Role Switcher Pills */}
-                                  <div style={{ display: 'inline-flex', background: 'rgba(255, 255, 255, 0.05)', padding: '3px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleFieldChange('role', 'survivor')}
-                                      style={{
-                                        border: 'none',
-                                        padding: '6px 14px',
-                                        fontSize: '0.8rem',
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        background: currentRole === 'survivor' ? 'var(--accent-color)' : 'transparent',
-                                        color: currentRole === 'survivor' ? 'var(--accent-contrast)' : 'var(--text-secondary)',
-                                        transition: 'all 0.15s ease'
-                                      }}
-                                    >
-                                      ผู้รอดชีวิต ({dbdPerksList.survivor?.length || 179})
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleFieldChange('role', 'killer')}
-                                      style={{
-                                        border: 'none',
-                                        padding: '6px 14px',
-                                        fontSize: '0.8rem',
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        background: currentRole === 'killer' ? '#FF453A' : 'transparent',
-                                        color: currentRole === 'killer' ? '#FFFFFF' : 'var(--text-secondary)',
-                                        transition: 'all 0.15s ease'
-                                      }}
-                                    >
-                                      ฆาตกร ({dbdPerksList.killer?.length || 151})
-                                    </button>
-                                  </div>
-
-                                  {/* Admin Management Shortcut */}
-                                  {status.isAdmin && (
-                                    <button
-                                      type="button"
-                                      onClick={() => navigate('/admin?tab=dbd_perks')}
-                                      className="btn-preview-action"
-                                      style={{
-                                        padding: '6px 12px',
-                                        fontSize: '0.8rem',
-                                        borderColor: 'var(--border-secondary)',
-                                        color: '#FFFFFF'
-                                      }}
-                                      title="ไปที่หน้า Admin เพื่อเพิ่ม, ลบ หรือซิงค์เปิร์ค DBD"
-                                    >
-                                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                                        <ShieldCheck size={13} /> จัดการเปิร์ค (Admin)
-                                      </span>
-                                    </button>
-                                  )}
+                                <div className="dbd-blacklist-desc">
+                                  ค้นหาชื่อคิลเลอร์ แล้วคลิกเพื่อติ๊ก <strong>"ตัดออก"</strong> จากการสุ่ม ระบบจะบันทึกและซิงค์ไปยัง OBS ทันที (คิลเลอร์ที่ถูกตัดออกจะไม่ถูกสุ่มได้)
                                 </div>
                               </div>
+                            </div>
 
-                              {/* Search Bar */}
-                              <div className="dbd-search-bar">
-                                <Search size={16} style={{ color: '#94A3B8', flexShrink: 0 }} />
-                                <input
-                                  type="text"
-                                  className="dbd-search-input"
-                                  placeholder={`ค้นหาชื่อเปิร์ค หรือชื่อตัวละคร (เช่น Sprint Burst, Meg Thomas)...`}
-                                  value={dbdSearchQuery}
-                                  onChange={(e) => setDbdSearchQuery(e.target.value)}
-                                />
-                                {dbdSearchQuery && (
+                            {/* Search Bar */}
+                            <div className="dbd-search-bar">
+                              <Search size={16} style={{ color: '#94A3B8', flexShrink: 0 }} />
+                              <input
+                                type="text"
+                                className="dbd-search-input"
+                                placeholder="ค้นหาชื่อคิลเลอร์ (เช่น The Nurse, The Trapper, Blight, Chucky)..."
+                                value={killerSearchQuery}
+                                onChange={(e) => setKillerSearchQuery(e.target.value)}
+                              />
+                              {killerSearchQuery && (
+                                <button
+                                  type="button"
+                                  onClick={() => setKillerSearchQuery('')}
+                                  style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '2px', display: 'flex' }}
+                                >
+                                  <X size={15} />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Status & Quick Actions */}
+                            <div className="dbd-stats-row">
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                <span className="dbd-stat-badge" style={{ background: 'rgba(48, 209, 88, 0.12)', color: '#30D158', border: '1px solid rgba(48, 209, 88, 0.25)' }}>
+                                  <Check size={12} /> สุ่มได้: <strong>{activeCount}</strong> คิลเลอร์
+                                </span>
+                                {excludedCount > 0 && (
+                                  <span className="dbd-stat-badge" style={{ background: 'rgba(255, 69, 58, 0.12)', color: '#FF453A', border: '1px solid rgba(255, 69, 58, 0.25)' }}>
+                                    <Ban size={12} /> ตัดออก: <strong>{excludedCount}</strong> คิลเลอร์
+                                  </span>
+                                )}
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                  (แสดง {filteredKillers.length} จาก {killersList.length} คิลเลอร์)
+                                </span>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                {killerSearchQuery && filteredKillers.length > 0 && (
                                   <button
                                     type="button"
-                                    onClick={() => setDbdSearchQuery('')}
-                                    style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '2px', display: 'flex' }}
+                                    onClick={handleExcludeAllSearch}
+                                    className="btn-preview-action"
+                                    style={{ fontSize: '0.75rem', color: '#FFFFFF', borderColor: 'var(--border-secondary)' }}
+                                    title="ตัดคิลเลอร์ทั้งหมดในผลการค้นหานี้ออกจากการสุ่ม"
                                   >
-                                    <X size={15} />
+                                    <Ban size={12} /> ตัดออกทั้งหมดในคำค้นหานี้ ({filteredKillers.length})
+                                  </button>
+                                )}
+                                {excludedCount > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={handleResetExclusions}
+                                    className="btn-preview-action"
+                                    style={{ fontSize: '0.75rem' }}
+                                    title="รีเซ็ตให้สุ่มได้ทุกคิลเลอร์"
+                                  >
+                                    <RotateCw size={12} /> รีเซ็ต (เปิดสุ่มทุกตัว)
                                   </button>
                                 )}
                               </div>
-
-                              {/* Status & Quick Actions */}
-                              <div className="dbd-stats-row">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                  <span className="dbd-stat-badge" style={{ background: 'rgba(48, 209, 88, 0.12)', color: '#30D158', border: '1px solid rgba(48, 209, 88, 0.25)' }}>
-                                    <Check size={12} /> สุ่มได้: <strong>{activeCount}</strong> เปิร์ค
-                                  </span>
-                                  {excludedCount > 0 && (
-                                    <span className="dbd-stat-badge" style={{ background: 'rgba(255, 69, 58, 0.12)', color: '#FF453A', border: '1px solid rgba(255, 69, 58, 0.25)' }}>
-                                      <Ban size={12} /> ตัดออก: <strong>{excludedCount}</strong> เปิร์ค
-                                    </span>
-                                  )}
-                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                    (แสดง {filteredPerks.length} จาก {rolePerks.length} เปิร์ค)
-                                  </span>
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                  {dbdSearchQuery && filteredPerks.length > 0 && (
-                                    <button
-                                      type="button"
-                                      onClick={handleExcludeAllSearch}
-                                      className="btn-preview-action"
-                                      style={{ fontSize: '0.75rem', color: 'var(--text-primary)', borderColor: 'var(--border-secondary)' }}
-                                      title="ตัดเปิร์คทั้งหมดในผลการค้นหานี้ออกจากการสุ่ม"
-                                    >
-                                      <Ban size={12} /> ตัดออกทั้งหมดในคำค้นหานี้ ({filteredPerks.length})
-                                    </button>
-                                  )}
-                                  {excludedCount > 0 && (
-                                    <button
-                                      type="button"
-                                      onClick={handleResetRoleExclusions}
-                                      className="btn-preview-action"
-                                      style={{ fontSize: '0.75rem' }}
-                                      title="รีเซ็ตให้สุ่มได้ทุกเปิร์คของบทบาทนี้"
-                                    >
-                                      <RotateCw size={12} /> รีเซ็ต (เปิดสุ่มทุกเปิร์ค)
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Perks Scrollable Grid */}
-                              {filteredPerks.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-secondary)' }}>
-                                  <Search size={32} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
-                                  <p style={{ margin: 0, fontSize: '0.85rem' }}>ไม่พบเปิร์คที่ตรงกับ "{dbdSearchQuery}"</p>
-                                </div>
-                              ) : (
-                                <div className="dbd-perk-grid">
-                                  {filteredPerks.map((perk) => {
-                                    const isExcluded = excludedList.includes(perk.id) || excludedList.includes(perk.name);
-                                    return (
-                                      <div
-                                        key={perk.id}
-                                        className={`dbd-perk-card ${isExcluded ? 'excluded' : ''}`}
-                                        onClick={() => handleTogglePerk(perk.id)}
-                                        title={perk.description ? `${perk.name}\n${perk.description}` : perk.name}
-                                      >
-                                        <div className="dbd-check-indicator">
-                                          {isExcluded ? <Ban size={12} /> : null}
-                                        </div>
-
-                                        <div className="dbd-perk-icon-wrapper">
-                                          <div className="dbd-perk-diamond-bg" />
-                                          <img
-                                            src={perk.icon}
-                                            alt={perk.name}
-                                            className="dbd-perk-img"
-                                            loading="lazy"
-                                            onError={(e) => { e.target.style.opacity = '0.3'; }}
-                                          />
-                                        </div>
-
-                                        <div className="dbd-perk-info">
-                                          <div className="dbd-perk-name">{perk.name}</div>
-                                          <div className="dbd-perk-char">
-                                            {perk.character || 'เปิร์คทั่วไป (General)'}
-                                          </div>
-                                        </div>
-
-                                        {isExcluded && (
-                                          <span style={{
-                                            fontSize: '0.68rem',
-                                            color: '#FF453A',
-                                            fontWeight: 600,
-                                            background: 'rgba(255, 69, 58, 0.12)',
-                                            border: '1px solid rgba(255, 69, 58, 0.25)',
-                                            padding: '2px 6px',
-                                            whiteSpace: 'nowrap'
-                                          }}>
-                                            ตัดออก
-                                          </span>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
                             </div>
-                          );
-                        })()}
 
-                        {/* Random Killer Searchable Blacklist / Exclude Section */}
-                        {selectedWidget === 'random-killer' && (() => {
-                          const excludedList = Array.isArray(fieldData.excludedKillers) ? fieldData.excludedKillers : [];
-                          const query = (killerSearchQuery || '').trim().toLowerCase();
-
-                          const filteredKillers = killersList.filter(k => {
-                            if (!query) return true;
-                            return (k.name && k.name.toLowerCase().includes(query)) ||
-                                   (k.id && k.id.toLowerCase().includes(query));
-                          });
-
-                          const excludedCount = killersList.filter(k => excludedList.includes(k.id) || excludedList.includes(k.name)).length;
-                          const activeCount = Math.max(0, killersList.length - excludedCount);
-
-                          const handleToggleKiller = (killer) => {
-                            let next;
-                            if (excludedList.includes(killer.name) || excludedList.includes(killer.id)) {
-                              next = excludedList.filter(id => id !== killer.name && id !== killer.id);
-                            } else {
-                              next = [...excludedList, killer.name];
-                            }
-                            handleFieldChange('excludedKillers', next);
-                          };
-
-                          const handleExcludeAllSearch = () => {
-                            const toAdd = filteredKillers
-                              .map(k => k.name)
-                              .filter(name => !excludedList.includes(name));
-                            if (toAdd.length > 0) {
-                              handleFieldChange('excludedKillers', [...excludedList, ...toAdd]);
-                            }
-                          };
-
-                          const handleResetExclusions = () => {
-                            handleFieldChange('excludedKillers', []);
-                          };
-
-                          return (
-                            <div className="dbd-blacklist-box">
-                              <div className="dbd-blacklist-header">
-                                <div>
-                                  <div className="dbd-blacklist-title">
-                                    <Ban size={18} style={{ color: '#FF453A' }} />
-                                    <span>เลือกคิลเลอร์ที่ไม่ต้องการให้สุ่ม (Blacklist & Exclude)</span>
-                                  </div>
-                                  <div className="dbd-blacklist-desc">
-                                    ค้นหาชื่อคิลเลอร์ แล้วคลิกเพื่อติ๊ก <strong>"ตัดออก"</strong> จากการสุ่ม ระบบจะบันทึกและซิงค์ไปยัง OBS ทันที (คิลเลอร์ที่ถูกตัดออกจะไม่ถูกสุ่มได้)
-                                  </div>
-                                </div>
+                            {/* Killers Scrollable Grid */}
+                            {filteredKillers.length === 0 ? (
+                              <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-secondary)' }}>
+                                <Search size={32} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+                                <p style={{ margin: 0, fontSize: '0.85rem' }}>ไม่พบคิลเลอร์ที่ตรงกับ "{killerSearchQuery}"</p>
                               </div>
-
-                              {/* Search Bar */}
-                              <div className="dbd-search-bar">
-                                <Search size={16} style={{ color: '#94A3B8', flexShrink: 0 }} />
-                                <input
-                                  type="text"
-                                  className="dbd-search-input"
-                                  placeholder="ค้นหาชื่อคิลเลอร์ (เช่น The Nurse, The Trapper, Blight, Chucky)..."
-                                  value={killerSearchQuery}
-                                  onChange={(e) => setKillerSearchQuery(e.target.value)}
-                                />
-                                {killerSearchQuery && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setKillerSearchQuery('')}
-                                    style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '2px', display: 'flex' }}
-                                  >
-                                    <X size={15} />
-                                  </button>
-                                )}
-                              </div>
-
-                              {/* Status & Quick Actions */}
-                              <div className="dbd-stats-row">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                  <span className="dbd-stat-badge" style={{ background: 'rgba(48, 209, 88, 0.12)', color: '#30D158', border: '1px solid rgba(48, 209, 88, 0.25)' }}>
-                                    <Check size={12} /> สุ่มได้: <strong>{activeCount}</strong> คิลเลอร์
-                                  </span>
-                                  {excludedCount > 0 && (
-                                    <span className="dbd-stat-badge" style={{ background: 'rgba(255, 69, 58, 0.12)', color: '#FF453A', border: '1px solid rgba(255, 69, 58, 0.25)' }}>
-                                      <Ban size={12} /> ตัดออก: <strong>{excludedCount}</strong> คิลเลอร์
-                                    </span>
-                                  )}
-                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                    (แสดง {filteredKillers.length} จาก {killersList.length} คิลเลอร์)
-                                  </span>
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                  {killerSearchQuery && filteredKillers.length > 0 && (
-                                    <button
-                                      type="button"
-                                      onClick={handleExcludeAllSearch}
-                                      className="btn-preview-action"
-                                      style={{ fontSize: '0.75rem', color: '#FFFFFF', borderColor: 'var(--border-secondary)' }}
-                                      title="ตัดคิลเลอร์ทั้งหมดในผลการค้นหานี้ออกจากการสุ่ม"
+                            ) : (
+                              <div className="killer-blacklist-grid">
+                                {filteredKillers.map((killer) => {
+                                  const isExcluded = excludedList.includes(killer.name) || excludedList.includes(killer.id);
+                                  return (
+                                    <div
+                                      key={killer.id || killer.name}
+                                      className={`killer-card ${isExcluded ? 'excluded' : ''}`}
+                                      onClick={() => handleToggleKiller(killer)}
+                                      title={killer.name}
                                     >
-                                      <Ban size={12} /> ตัดออกทั้งหมดในคำค้นหานี้ ({filteredKillers.length})
-                                    </button>
-                                  )}
-                                  {excludedCount > 0 && (
-                                    <button
-                                      type="button"
-                                      onClick={handleResetExclusions}
-                                      className="btn-preview-action"
-                                      style={{ fontSize: '0.75rem' }}
-                                      title="รีเซ็ตให้สุ่มได้ทุกคิลเลอร์"
-                                    >
-                                      <RotateCw size={12} /> รีเซ็ต (เปิดสุ่มทุกตัว)
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Killers Scrollable Grid */}
-                              {filteredKillers.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-secondary)' }}>
-                                  <Search size={32} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
-                                  <p style={{ margin: 0, fontSize: '0.85rem' }}>ไม่พบคิลเลอร์ที่ตรงกับ "{killerSearchQuery}"</p>
-                                </div>
-                              ) : (
-                                <div className="killer-blacklist-grid">
-                                  {filteredKillers.map((killer) => {
-                                    const isExcluded = excludedList.includes(killer.name) || excludedList.includes(killer.id);
-                                    return (
-                                      <div
-                                        key={killer.id || killer.name}
-                                        className={`killer-card ${isExcluded ? 'excluded' : ''}`}
-                                        onClick={() => handleToggleKiller(killer)}
-                                        title={killer.name}
-                                      >
-                                        <div className="dbd-check-indicator">
-                                          {isExcluded ? <Ban size={12} /> : null}
-                                        </div>
-
-                                        <div className="killer-portrait-wrapper">
-                                          <img
-                                            src={killer.img}
-                                            alt={killer.name}
-                                            className="killer-portrait-img"
-                                            loading="lazy"
-                                            onError={(e) => { e.target.style.opacity = '0.3'; }}
-                                          />
-                                        </div>
-
-                                        <div className="killer-card-info">
-                                          <div className="killer-card-name">{killer.name}</div>
-                                          <div className="killer-card-sub">Dead by Daylight Killer</div>
-                                        </div>
-
-                                        {isExcluded && (
-                                          <span style={{
-                                            fontSize: '0.68rem',
-                                            color: '#FF453A',
-                                            fontWeight: 600,
-                                            background: 'rgba(255, 69, 58, 0.12)',
-                                            border: '1px solid rgba(255, 69, 58, 0.25)',
-                                            padding: '2px 6px',
-                                            whiteSpace: 'nowrap'
-                                          }}>
-                                            ตัดออก
-                                          </span>
-                                        )}
+                                      <div className="dbd-check-indicator">
+                                        {isExcluded ? <Ban size={12} /> : null}
                                       </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
 
-                      {/* OBS URL Box (Static & Auto-Syncing) */}
-                      <div className="url-box" style={{
-                        marginTop: '1.5rem',
-                        padding: '1.25rem',
-                        background: 'var(--card-bg, rgba(255, 255, 255, 0.03))',
-                        border: '1px solid var(--shell-border, rgba(255, 255, 255, 0.1))'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <Link size={16} style={{ color: 'var(--text-secondary)' }} />
-                            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                              ลิงก์ Browser Source สำหรับ OBS
-                            </span>
-                            <span style={{
-                              fontSize: '0.7rem',
-                              fontWeight: 600,
-                              padding: '2px 8px',
-                              background: 'rgba(48, 209, 88, 0.12)',
-                               color: '#30D158',
-                               border: '1px solid rgba(48, 209, 88, 0.25)',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}>
-                              <Zap size={12} /> ซิงค์ค่าอัตโนมัติ Real-Time
-                            </span>
+                                      <div className="killer-portrait-wrapper">
+                                        <img
+                                          src={killer.img}
+                                          alt={killer.name}
+                                          className="killer-portrait-img"
+                                          loading="lazy"
+                                          onError={(e) => { e.target.style.opacity = '0.3'; }}
+                                        />
+                                      </div>
+
+                                      <div className="killer-card-info">
+                                        <div className="killer-card-name">{killer.name}</div>
+                                        <div className="killer-card-sub">Dead by Daylight Killer</div>
+                                      </div>
+
+                                      {isExcluded && (
+                                        <span style={{
+                                          fontSize: '0.68rem',
+                                          color: '#FF453A',
+                                          fontWeight: 600,
+                                          background: 'rgba(255, 69, 58, 0.12)',
+                                          border: '1px solid rgba(255, 69, 58, 0.25)',
+                                          padding: '2px 6px',
+                                          whiteSpace: 'nowrap'
+                                        }}>
+                                          ตัดออก
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
+                        );
+                      })()}
 
-                          <button
-                            type="button"
-                            onClick={handleCopyUrl}
-                            className="btn-island"
-                            style={{
-                              padding: '0.4rem 0.85rem',
-                              fontSize: '0.8rem',
-                              background: '#FFFFFF',
-                               color: '#000000',
-                              border: 'none',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.4rem',
-                              fontWeight: 600,
-                              transition: 'all 0.2s ease'
-                            }}
-                          >
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                              {copiedUrl ? <Check size={14} /> : <Copy size={14} />}
-                              {copiedUrl ? 'คัดลอกสำเร็จแล้ว!' : 'คัดลอกลิงก์ OBS'}
-                            </span>
-                          </button>
-                        </div>
-
-                        <div style={{ position: 'relative' }}>
-                          <input
-                            type="text"
-                            readOnly
-                            value={widgetUrl}
-                            onClick={e => e.target.select()}
-                            style={{
-                              width: '100%',
-                              padding: '0.65rem 0.85rem',
-                              background: 'rgba(0, 0, 0, 0.35)',
-                              border: '1px solid rgba(255, 255, 255, 0.12)',
-                              color: 'var(--text-primary)',
-                              fontSize: '0.85rem',
-                              fontFamily: 'monospace',
-                              boxSizing: 'border-box'
-                            }}
-                          />
-                        </div>
-
+                      {/* Loyalty Card Leaderboard Summary */}
+                      {selectedWidget === 'loyalty-card' && (
                         <div style={{
-                          marginTop: '0.65rem',
-                          fontSize: '0.8rem',
-                          color: 'var(--text-secondary)',
-                          lineHeight: 1.55,
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '0.45rem',
-                          background: 'rgba(255, 255, 255, 0.02)',
-                          padding: '0.5rem 0.75rem',
+                          marginBottom: '1.25rem',
+                          padding: '1.25rem',
+                          background: 'var(--card-bg, rgba(255, 255, 255, 0.03))',
+                          border: '1px solid var(--shell-border, rgba(255, 255, 255, 0.08))',
+                          borderRadius: 'var(--radius-md)'
                         }}>
-                          <Info size={16} style={{ color: '#A3A3A3', flexShrink: 0, marginTop: '2px' }} />
-                          <span>
-                            <strong>ใส่เพียงครั้งเดียวจบ:</strong> ลิงก์นี้จะคงที่ถาวร เมื่อคุณเปลี่ยนสี, ปรับฟอนต์, สลับไอคอน หรือแก้ไขข้อความใดๆ ในหน้านี้ ระบบจะบันทึกและส่งข้อมูลไปอัปเดตหน้าจอ OBS แบบ <strong>Real-time ทันที</strong> โดยไม่ต้องคัดลอกลิงก์ใหม่ และไม่ต้องกด Refresh ใน OBS ครับ
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <Award size={18} style={{ color: '#FF9F0A' }} />
+                              <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                                กระดานผู้นำการเช็คอินสะสม (Loyalty Leaderboard)
+                              </h4>
+                            </div>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              เรียงตามจำนวนครั้งที่เช็คอินมากที่สุด ({loyaltyUserSummary.length} ผู้ใช้)
+                            </span>
+                          </div>
+
+                          {loyaltyUserSummary.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-secondary)' }}>
+                              <Ticket size={36} style={{ opacity: 0.35, marginBottom: '0.5rem' }} />
+                              <p style={{ margin: 0, fontSize: '0.85rem' }}>ยังไม่มีข้อมูลการเช็คอินสะสม เมื่อผู้ชมแลกแต้ม ระบบจะจัดอันดับผู้ที่เช็คอินมากที่สุดที่นี่</p>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                              {loyaltyUserSummary.map((u, idx) => (
+                                <div
+                                  key={u.username}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.65rem',
+                                    padding: '0.65rem 0.85rem',
+                                    background: 'var(--surface-1)',
+                                    border: idx === 0 ? '1px solid rgba(255, 159, 10, 0.35)' : '1px solid var(--border-secondary)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    position: 'relative'
+                                  }}
+                                >
+                                  {idx === 0 && (
+                                    <span style={{ position: 'absolute', top: '-7px', right: '8px', fontSize: '0.62rem', fontWeight: 800, background: '#FF9F0A', color: '#000', padding: '1px 5px', borderRadius: 'var(--radius-xs)' }}>
+                                      #1 TOP
+                                    </span>
+                                  )}
+                                  <img
+                                    src={u.avatar || `/api/twitch/avatar/${encodeURIComponent(u.username)}`}
+                                    alt={u.username}
+                                    style={{
+                                      width: '38px',
+                                      height: '38px',
+                                      objectFit: 'cover',
+                                      border: '1px solid var(--border-secondary)',
+                                      borderRadius: 'var(--radius-xs)',
+                                      flexShrink: 0
+                                    }}
+                                    onError={(e) => {
+                                      e.target.src = 'https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7ba-40d2-965a-52834b6f79e8-profile_image-300x300.png';
+                                    }}
+                                  />
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{
+                                      fontSize: '0.85rem',
+                                      fontWeight: 700,
+                                      color: 'var(--text-primary)',
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis'
+                                    }}>
+                                      @{u.username}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                      เช็คอิน: <strong style={{ color: 'var(--text-primary)' }}>{u.count}</strong> ครั้ง
+                                    </div>
+                                  </div>
+                                  <span style={{
+                                    fontSize: '0.75rem',
+                                    fontWeight: 700,
+                                    background: 'rgba(255, 159, 10, 0.12)',
+                                    color: '#FF9F0A',
+                                    padding: '3px 8px',
+                                    border: '1px solid rgba(255, 159, 10, 0.25)',
+                                    borderRadius: 'var(--radius-xs)',
+                                    whiteSpace: 'nowrap',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}>
+                                    {u.count} <Ticket size={12} />
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </div>
+                      )}
                     </>
                   )}
 
@@ -1422,9 +1582,9 @@ function Dashboard() {
                                   fontSize: '0.75rem',
                                   fontWeight: 700,
                                   background: 'rgba(255, 159, 10, 0.12)',
-                                   color: '#FF9F0A',
-                                   padding: '3px 8px',
-                                   border: '1px solid rgba(255, 159, 10, 0.25)',
+                                  color: '#FF9F0A',
+                                  padding: '3px 8px',
+                                  border: '1px solid rgba(255, 159, 10, 0.25)',
                                   whiteSpace: 'nowrap',
                                   display: 'inline-flex',
                                   alignItems: 'center',
@@ -1463,11 +1623,11 @@ function Dashboard() {
                                 <div key={item.id} className="roll-history-card" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.75rem' }}>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '0.5rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                                      <img 
-                                        src={item.avatar || `/api/twitch/avatar/${encodeURIComponent(item.username || '')}`} 
-                                        alt={item.username || 'User'} 
+                                      <img
+                                        src={item.avatar || `/api/twitch/avatar/${encodeURIComponent(item.username || '')}`}
+                                        alt={item.username || 'User'}
                                         style={{ width: '38px', height: '38px', objectFit: 'cover', border: '1px solid var(--border-secondary)' }}
-                                        onError={(e) => { 
+                                        onError={(e) => {
                                           e.target.src = 'https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7ba-40d2-965a-52834b6f79e8-profile_image-300x300.png';
                                         }}
                                       />
@@ -1481,8 +1641,8 @@ function Dashboard() {
                                             fontWeight: 700,
                                             padding: '2px 7px',
                                             background: item.role === 'killer' ? 'rgba(255, 69, 58, 0.12)' : 'rgba(41, 151, 255, 0.12)',
-                                             color: item.role === 'killer' ? '#FF453A' : '#2997FF',
-                                             border: item.role === 'killer' ? '1px solid rgba(255, 69, 58, 0.25)' : '1px solid rgba(41, 151, 255, 0.25)'
+                                            color: item.role === 'killer' ? '#FF453A' : '#2997FF',
+                                            border: item.role === 'killer' ? '1px solid rgba(255, 69, 58, 0.25)' : '1px solid rgba(41, 151, 255, 0.25)'
                                           }}>
                                             {item.role === 'killer' ? 'ฆาตกร (Killer)' : 'ผู้รอดชีวิต (Survivor)'}
                                           </span>
@@ -1519,19 +1679,19 @@ function Dashboard() {
                               <div key={item.id} className="roll-history-card">
                                 <div className="roll-card-left">
                                   {isLoyalty ? (
-                                    <img 
-                                      src={item.avatar || `/api/twitch/avatar/${encodeURIComponent(item.username || '')}`} 
-                                      alt={item.username || 'User'} 
+                                    <img
+                                      src={item.avatar || `/api/twitch/avatar/${encodeURIComponent(item.username || '')}`}
+                                      alt={item.username || 'User'}
                                       className="roll-killer-thumb"
                                       style={{ objectFit: 'cover', border: '1px solid var(--border-secondary)' }}
-                                      onError={(e) => { 
+                                      onError={(e) => {
                                         e.target.src = 'https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7ba-40d2-965a-52834b6f79e8-profile_image-300x300.png';
                                       }}
                                     />
                                   ) : item.killerImg ? (
-                                    <img 
-                                      src={item.killerImg} 
-                                      alt={item.killer || 'Killer'} 
+                                    <img
+                                      src={item.killerImg}
+                                      alt={item.killer || 'Killer'}
                                       className="roll-killer-thumb"
                                       onError={(e) => { e.target.style.display = 'none'; }}
                                     />
@@ -1597,10 +1757,10 @@ function Dashboard() {
                 fontSize: '1.85rem',
                 fontWeight: 800,
                 marginBottom: '0.75rem',
-                color: '#FFFFFF',
+                color: 'var(--text-primary)',
                 letterSpacing: '-0.03em'
               }}>
-                Solocast Overlay Studio
+                HyperCast Overlay Studio
               </h2>
               <p style={{ color: 'var(--text-secondary)', maxWidth: '480px', lineHeight: 1.6, marginBottom: '2rem', fontSize: '0.95rem' }}>
                 เชื่อมต่อบัญชี Twitch ของคุณเพื่อเริ่มปรับแต่ง Widget แบบเรียลไทม์ ซิงค์การตั้งค่าเข้ากับ OBS ทันทีโดยไม่ต้องคอยเปลี่ยน URL
@@ -1614,30 +1774,30 @@ function Dashboard() {
 
               {/* Feature Highlights Bento Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', width: '100%', maxWidth: '700px', marginTop: '3.5rem', textAlign: 'left' }}>
-                <div style={{ padding: '1.25rem', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <div style={{ padding: '1.25rem', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', borderRadius: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <Zap size={16} color="var(--text-primary)" />
-                    <h5 style={{ color: '#F8FAFC', margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Real-Time OBS Sync</h5>
+                    <h5 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Real-Time OBS Sync</h5>
                   </div>
-                  <p style={{ color: '#94A3B8', margin: 0, fontSize: '0.8rem', lineHeight: 1.5 }}>
+                  <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.8rem', lineHeight: 1.5 }}>
                     เปลี่ยนสี ข้อความ รูปแบบในแดชบอร์ด อัปเดตสดใน OBS Browser Source ทันที
                   </p>
                 </div>
-                <div style={{ padding: '1.25rem', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <div style={{ padding: '1.25rem', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', borderRadius: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <Sliders size={16} color="var(--text-primary)" />
-                    <h5 style={{ color: '#F8FAFC', margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Exclusive Widgets</h5>
+                    <h5 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Exclusive Widgets</h5>
                   </div>
-                  <p style={{ color: '#94A3B8', margin: 0, fontSize: '0.8rem', lineHeight: 1.5 }}>
+                  <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.8rem', lineHeight: 1.5 }}>
                     Loyalty Card สมุดเช็กอิน, สุ่ม Killer Roulette, และระบบ Twitch Shoutout
                   </p>
                 </div>
-                <div style={{ padding: '1.25rem', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <div style={{ padding: '1.25rem', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', borderRadius: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <Users size={16} color="var(--text-primary)" />
-                    <h5 style={{ color: '#F8FAFC', margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Twitch EventSub</h5>
+                    <h5 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Twitch EventSub</h5>
                   </div>
-                  <p style={{ color: '#94A3B8', margin: 0, fontSize: '0.8rem', lineHeight: 1.5 }}>
+                  <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.8rem', lineHeight: 1.5 }}>
                     ดักจับ Follow, Subscribe, Channel Points แลกของรางวัลโดยตรง ไม่มีดีเลย์
                   </p>
                 </div>
@@ -1723,7 +1883,7 @@ function Dashboard() {
               </div>
             </div>
 
-            <div className={`live-preview-canvas ${bgMode}`} style={{ height: '100%' }}>
+            <div className={`live-preview-canvas ${bgMode}`} style={{ flex: 1, minHeight: 0, height: '100%' }}>
               <iframe
                 key={`fs-${previewKey}`}
                 src={previewUrl}

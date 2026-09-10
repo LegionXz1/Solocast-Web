@@ -2,7 +2,8 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   CheckCircle2, AlertTriangle, X, ExternalLink, Plus, Trash2, 
-  RotateCw, Loader2, Search, Skull, UserCheck, Layers, Ban, Check, Key, Lock 
+  RotateCw, Loader2, Search, Skull, UserCheck, Layers, Ban, Check, Key, Lock,
+  LifeBuoy, MessageSquare, Clock, ShieldCheck, MessageCircle, Send, Edit3, Filter
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:3000';
@@ -70,7 +71,7 @@ window.addEventListener('onEventReceived', function (obj) {
     headerText: {
       type: "text",
       label: "ข้อความหัวข้อเริ่มต้น",
-      value: "Solocast Widget",
+      value: "HyperCast Widget",
       group: "ตั้งค่าทั่วไป"
     },
     accentColor: {
@@ -139,6 +140,20 @@ function Admin() {
   const [deleteConfirmPerk, setDeleteConfirmPerk] = useState(null);
   const [isDeletingPerk, setIsDeletingPerk] = useState(false);
 
+  // Support Tickets Management State
+  const [ticketsList, setTicketsList] = useState([]);
+  const [ticketCounts, setTicketCounts] = useState({ total: 0, pending: 0, in_progress: 0, resolved: 0, closed: 0 });
+  const [isLoadingTickets, setIsLoadingTickets] = useState(false);
+  const [ticketStatusFilter, setTicketStatusFilter] = useState('all');
+  const [ticketCategoryFilter, setTicketCategoryFilter] = useState('all');
+  const [ticketSearchQuery, setTicketSearchQuery] = useState('');
+  const [activeManageTicket, setActiveManageTicket] = useState(null);
+  const [editTicketStatus, setEditTicketStatus] = useState('pending');
+  const [editTicketReply, setEditTicketReply] = useState('');
+  const [isSavingTicket, setIsSavingTicket] = useState(false);
+  const [deleteConfirmTicket, setDeleteConfirmTicket] = useState(null);
+  const [isDeletingTicket, setIsDeletingTicket] = useState(false);
+
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
@@ -195,6 +210,88 @@ function Admin() {
       }
     } catch (err) {
       console.error('Error fetching DBD perks:', err);
+    }
+  };
+
+  // Fetch Support Tickets
+  const fetchSupportTickets = async () => {
+    setIsLoadingTickets(true);
+    try {
+      const adminKey = localStorage.getItem('solocast_admin_key') || 'solocast_admin_2026';
+      const res = await fetch(`${API_BASE}/api/support/tickets?adminKey=${encodeURIComponent(adminKey)}`, {
+        headers: getAuthHeader()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setTicketsList(data.tickets || []);
+          setTicketCounts(data.counts || { total: 0, pending: 0, in_progress: 0, resolved: 0, closed: 0 });
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching support tickets:', err);
+    } finally {
+      setIsLoadingTickets(false);
+    }
+  };
+
+  const handleOpenManageTicket = (ticket) => {
+    setActiveManageTicket(ticket);
+    setEditTicketStatus(ticket.status || 'pending');
+    setEditTicketReply(ticket.adminReply || '');
+  };
+
+  const handleUpdateTicket = async () => {
+    if (!activeManageTicket) return;
+    setIsSavingTicket(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/support/tickets/${activeManageTicket.ticketId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify({
+          status: editTicketStatus,
+          adminReply: editTicketReply.trim(),
+          adminUser: authStatus.connectedUsername || 'Admin'
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`อัปเดตเรื่อง #${activeManageTicket.ticketId} สำเร็จ!`, 'success');
+        setActiveManageTicket(null);
+        fetchSupportTickets();
+      } else {
+        showToast(data.error || 'เกิดข้อผิดพลาดในการอัปเดต', 'error');
+      }
+    } catch (e) {
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+    } finally {
+      setIsSavingTicket(false);
+    }
+  };
+
+  const handleDeleteTicket = async (ticketId) => {
+    setIsDeletingTicket(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/support/tickets/${ticketId}`, {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast('ลบเรื่องแจ้งปัญหาเรียบร้อยแล้ว', 'success');
+        setDeleteConfirmTicket(null);
+        if (activeManageTicket?.ticketId === ticketId) setActiveManageTicket(null);
+        fetchSupportTickets();
+      } else {
+        showToast(data.error || 'ลบไม่สำเร็จ', 'error');
+      }
+    } catch (err) {
+      showToast('เกิดข้อผิดพลาดในการลบข้อมูล', 'error');
+    } finally {
+      setIsDeletingTicket(false);
     }
   };
 
@@ -287,6 +384,26 @@ function Admin() {
     );
   }, [dbdData, dbdRole, dbdSearch]);
 
+  // Filtered Support Tickets calculation
+  const filteredTicketsList = useMemo(() => {
+    return ticketsList.filter(t => {
+      // Status filter
+      if (ticketStatusFilter !== 'all' && t.status !== ticketStatusFilter) return false;
+      // Category filter
+      if (ticketCategoryFilter !== 'all' && t.category !== ticketCategoryFilter) return false;
+      // Text search
+      if (ticketSearchQuery.trim()) {
+        const q = ticketSearchQuery.toLowerCase().trim();
+        const matchId = (t.ticketId || '').toLowerCase().includes(q);
+        const matchSub = (t.subject || '').toLowerCase().includes(q);
+        const matchUser = (t.username || '').toLowerCase().includes(q);
+        const matchDesc = (t.description || '').toLowerCase().includes(q);
+        if (!matchId && !matchSub && !matchUser && !matchDesc) return false;
+      }
+      return true;
+    });
+  }, [ticketsList, ticketStatusFilter, ticketCategoryFilter, ticketSearchQuery]);
+
   // Verify Admin Access purely via Twitch Broadcaster session
   const verifyAuth = async () => {
     try {
@@ -305,6 +422,7 @@ function Admin() {
         setIsAuthorized(true);
         fetchWidgets();
         fetchDbdPerks();
+        fetchSupportTickets();
       } else {
         setIsAuthorized(false);
       }
@@ -622,6 +740,31 @@ function Admin() {
                 {dbdData.total || 0}
               </span>
             </button>
+            <button
+              type="button"
+              className={`admin-section-btn ${adminSection === 'tickets' ? 'active' : ''}`}
+              onClick={() => {
+                setAdminSection('tickets');
+                setSearchParams({ tab: 'tickets' });
+                fetchSupportTickets();
+              }}
+            >
+              <LifeBuoy size={15} />
+              <span>จัดการเรื่องแจ้งปัญหา</span>
+              {ticketCounts.pending > 0 && (
+                <span style={{
+                  fontSize: '0.7rem',
+                  background: '#EF4444',
+                  color: '#FFFFFF',
+                  padding: '1px 6px',
+                  marginLeft: '2px',
+                  borderRadius: '999px',
+                  fontWeight: 800
+                }}>
+                  {ticketCounts.pending}
+                </span>
+              )}
+            </button>
           </div>
 
           {adminSection === 'widgets' && (
@@ -647,6 +790,17 @@ function Admin() {
             >
               <Plus size={15} />
               <span>เพิ่มเปิร์คใหม่</span>
+            </button>
+          )}
+
+          {adminSection === 'tickets' && (
+            <button
+              onClick={fetchSupportTickets}
+              disabled={isLoadingTickets}
+              className="btn-island"
+            >
+              <RotateCw size={14} className={isLoadingTickets ? 'spin' : ''} />
+              <span>รีเฟรชข้อมูล</span>
             </button>
           )}
         </div>
@@ -1106,6 +1260,307 @@ function Admin() {
         </div>
       )}
 
+      {/* Main Content: Support Tickets View */}
+      {adminSection === 'tickets' && (
+        <div className="admin-perks-dashboard animate-fade-up">
+          {/* Top Stat Cards */}
+          <div className="admin-stats-card-group" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
+            <div className="admin-stat-card">
+              <div className="admin-stat-card-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: 'var(--accent-color)' }}>
+                <LifeBuoy size={22} />
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>เรื่องแจ้งปัญหาทั้งหมด</span>
+                <h3 style={{ margin: '0.15rem 0 0 0', fontSize: '1.4rem', fontWeight: 700 }}>
+                  {ticketCounts.total} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>เรื่อง</span>
+                </h3>
+              </div>
+            </div>
+
+            <div className="admin-stat-card">
+              <div className="admin-stat-card-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B' }}>
+                <Clock size={22} />
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>รอดำเนินการ (Pending)</span>
+                <h3 style={{ margin: '0.15rem 0 0 0', fontSize: '1.4rem', fontWeight: 700, color: '#F59E0B' }}>
+                  {ticketCounts.pending} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>เรื่อง</span>
+                </h3>
+              </div>
+            </div>
+
+            <div className="admin-stat-card">
+              <div className="admin-stat-card-icon" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3B82F6' }}>
+                <RotateCw size={22} />
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>กำลังตรวจสอบ (In Progress)</span>
+                <h3 style={{ margin: '0.15rem 0 0 0', fontSize: '1.4rem', fontWeight: 700, color: '#3B82F6' }}>
+                  {ticketCounts.in_progress} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>เรื่อง</span>
+                </h3>
+              </div>
+            </div>
+
+            <div className="admin-stat-card">
+              <div className="admin-stat-card-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981' }}>
+                <CheckCircle2 size={22} />
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>แก้ไขแล้ว (Resolved)</span>
+                <h3 style={{ margin: '0.15rem 0 0 0', fontSize: '1.4rem', fontWeight: 700, color: '#10B981' }}>
+                  {ticketCounts.resolved} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>เรื่อง</span>
+                </h3>
+              </div>
+            </div>
+          </div>
+
+          {/* Tickets Toolbar */}
+          <div className="admin-perks-toolbar" style={{ marginTop: '1.25rem', marginBottom: '1.25rem' }}>
+            <div className="admin-perks-filter-group" style={{ flexWrap: 'wrap', gap: '0.65rem' }}>
+              {/* Status Switcher */}
+              <div style={{ display: 'inline-flex', background: 'rgba(255,255,255,0.05)', padding: '3px', border: '1px solid var(--shell-border)' }}>
+                {[
+                  { id: 'all', label: `ทั้งหมด (${ticketCounts.total})` },
+                  { id: 'pending', label: `รอดำเนินการ (${ticketCounts.pending})` },
+                  { id: 'in_progress', label: `กำลังตรวจ (${ticketCounts.in_progress})` },
+                  { id: 'resolved', label: `แก้ไขแล้ว (${ticketCounts.resolved})` },
+                  { id: 'closed', label: `ปิดเรื่อง (${ticketCounts.closed})` }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setTicketStatusFilter(tab.id)}
+                    style={{
+                      border: 'none',
+                      padding: '5px 12px',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      background: ticketStatusFilter === tab.id ? 'var(--accent-color)' : 'transparent',
+                      color: ticketStatusFilter === tab.id ? 'var(--accent-contrast)' : 'var(--text-secondary)',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Category Filter */}
+              <select
+                value={ticketCategoryFilter}
+                onChange={e => setTicketCategoryFilter(e.target.value)}
+                style={{
+                  padding: '6px 10px',
+                  fontSize: '0.8rem',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid var(--shell-border)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="all" style={{ background: '#0F172A' }}>ทุกหมวดหมู่ (All Categories)</option>
+                <option value="bug" style={{ background: '#0F172A' }}>บั๊ก / ข้อผิดพลาด</option>
+                <option value="perks" style={{ background: '#0F172A' }}>เปิร์ก DBD ขาดหาย</option>
+                <option value="obs" style={{ background: '#0F172A' }}>ปัญหา OBS Studio</option>
+                <option value="feature" style={{ background: '#0F172A' }}>ข้อเสนอแนะฟีเจอร์ใหม่</option>
+                <option value="other" style={{ background: '#0F172A' }}>คำถามหรือเรื่องอื่นๆ</option>
+              </select>
+
+              {/* Search Bar */}
+              <div style={{ position: 'relative', width: '280px' }}>
+                <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                <input
+                  type="text"
+                  placeholder="ค้นหา Ticket ID, ผู้ส่ง, หรือหัวข้อ..."
+                  value={ticketSearchQuery}
+                  onChange={e => setTicketSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px 6px 32px',
+                    fontSize: '0.8rem',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid var(--shell-border)',
+                    color: 'var(--text-primary)',
+                    outline: 'none'
+                  }}
+                />
+                {ticketSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setTicketSearchQuery('')}
+                    style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer' }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Tickets List */}
+          <div className="admin-perk-table-wrap">
+            {isLoadingTickets ? (
+              <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
+                <Loader2 size={28} className="animate-spin" style={{ margin: '0 auto 0.75rem auto' }} />
+                <p>กำลังโหลดรายการเรื่องแจ้งปัญหา...</p>
+              </div>
+            ) : filteredTicketsList.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'var(--text-secondary)' }}>
+                <LifeBuoy size={36} style={{ opacity: 0.35, marginBottom: '0.75rem' }} />
+                <h4>ไม่พบเรื่องแจ้งปัญหาในเงื่อนไขนี้</h4>
+                <p style={{ fontSize: '0.85rem' }}>ลองเปลี่ยนตัวกรองสถานะ หรือล้างคำค้นหา</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                {filteredTicketsList.map(ticket => {
+                  const statusInfo = {
+                    pending: { label: 'รอดำเนินการ', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.35)' },
+                    in_progress: { label: 'กำลังตรวจสอบ', color: '#3B82F6', bg: 'rgba(59, 130, 246, 0.15)', border: 'rgba(59, 130, 246, 0.35)' },
+                    resolved: { label: 'แก้ไขแล้ว', color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)', border: 'rgba(16, 185, 129, 0.35)' },
+                    closed: { label: 'ปิดเรื่องแล้ว', color: '#6B7280', bg: 'rgba(107, 114, 128, 0.15)', border: 'rgba(107, 114, 128, 0.35)' }
+                  }[ticket.status] || { label: 'รอดำเนินการ', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.35)' };
+
+                  const hasReply = Boolean(ticket.adminReply && ticket.adminReply.trim());
+
+                  return (
+                    <div
+                      key={ticket.ticketId}
+                      style={{
+                        background: 'var(--surface-1)',
+                        border: '1px solid var(--border-primary)',
+                        padding: '1.25rem',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.75rem'
+                      }}
+                    >
+                      {/* Row 1: Header tags */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          {/* Status Pill */}
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            background: statusInfo.bg,
+                            border: `1px solid ${statusInfo.border}`,
+                            color: statusInfo.color,
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '999px'
+                          }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusInfo.color }} />
+                            {statusInfo.label}
+                          </span>
+
+                          {/* Ticket ID */}
+                          <span style={{
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontSize: '0.85rem',
+                            fontWeight: 800,
+                            color: 'var(--text-primary)'
+                          }}>
+                            #{ticket.ticketId}
+                          </span>
+
+                          {/* Category */}
+                          <span style={{
+                            fontSize: '0.75rem',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid var(--shell-border)',
+                            color: 'var(--text-secondary)',
+                            padding: '2px 6px',
+                            borderRadius: '4px'
+                          }}>
+                            {ticket.category}
+                          </span>
+
+                          {/* Reply status */}
+                          {hasReply ? (
+                            <span style={{ fontSize: '0.72rem', color: '#10B981', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                              <CheckCircle2 size={12} /> ตอบกลับแล้ว
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.72rem', color: '#F59E0B', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <Clock size={12} /> รอตอบกลับ
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Date */}
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          {new Date(ticket.createdAt).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
+                        </span>
+                      </div>
+
+                      {/* Row 2: Subject & Description preview */}
+                      <div>
+                        <h4 style={{ margin: '0 0 0.35rem 0', fontSize: '1.05rem', color: 'var(--text-primary)', fontWeight: 700 }}>
+                          {ticket.subject}
+                        </h4>
+                        <p style={{
+                          margin: 0,
+                          fontSize: '0.85rem',
+                          color: 'var(--text-secondary)',
+                          lineHeight: 1.5,
+                          maxHeight: '4.5em',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {ticket.description}
+                        </p>
+                      </div>
+
+                      {/* Row 3: User Info & Actions */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        borderTop: '1px solid var(--border-primary)',
+                        paddingTop: '0.75rem',
+                        marginTop: '0.25rem',
+                        flexWrap: 'wrap',
+                        gap: '0.5rem'
+                      }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                          <span>ผู้ส่ง: <strong style={{ color: 'var(--text-primary)' }}>@{ticket.username || 'Guest'}</strong></span>
+                          {ticket.contact && <span>ติดต่อ: <span style={{ color: 'var(--text-secondary)' }}>{ticket.contact}</span></span>}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirmTicket(ticket)}
+                            className="code-action-btn danger"
+                            style={{ padding: '4px 8px' }}
+                            title="ลบเรื่องนี้"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenManageTicket(ticket)}
+                            className="btn-island accent"
+                            style={{ padding: '0.45rem 0.95rem', fontSize: '0.8rem' }}
+                          >
+                            <Edit3 size={13} />
+                            <span>จัดการ & ตอบกลับ</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirm Modal */}
       {showDeleteModal && (
         <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
@@ -1411,6 +1866,198 @@ function Admin() {
                 style={{ padding: '0.65rem 1.25rem' }}
               >
                 {isDeletingPerk ? 'กำลังลบ...' : 'ยืนยันการลบ'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manage / Reply Support Ticket Modal */}
+      {activeManageTicket && (
+        <div className="modal-overlay" onClick={() => setActiveManageTicket(null)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '620px', width: '90%' }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-primary)', paddingBottom: '0.85rem' }}>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+                  TICKET #{activeManageTicket.ticketId}
+                </span>
+                <h3 style={{ margin: '0.2rem 0 0 0', fontSize: '1.25rem', color: 'var(--text-primary)' }}>
+                  จัดการและตอบกลับเรื่องแจ้งปัญหา
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveManageTicket(null)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Ticket Info Card */}
+            <div style={{
+              background: 'var(--surface-1)',
+              border: '1px solid var(--border-secondary)',
+              borderRadius: '8px',
+              padding: '1rem',
+              marginBottom: '1.25rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  ผู้ส่ง: <strong>@{activeManageTicket.username || 'Guest'}</strong> {activeManageTicket.contact && `(${activeManageTicket.contact})`}
+                </span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  {new Date(activeManageTicket.createdAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}
+                </span>
+              </div>
+              <h4 style={{ margin: '0 0 0.45rem 0', fontSize: '1rem', color: 'var(--text-primary)' }}>
+                {activeManageTicket.subject}
+              </h4>
+              <p style={{
+                margin: 0,
+                fontSize: '0.85rem',
+                color: 'var(--text-secondary)',
+                lineHeight: 1.6,
+                whiteSpace: 'pre-wrap'
+              }}>
+                {activeManageTicket.description}
+              </p>
+              {activeManageTicket.screenshotUrl && (
+                <div style={{ marginTop: '0.65rem', paddingTop: '0.65rem', borderTop: '1px solid var(--border-primary)' }}>
+                  <a
+                    href={activeManageTicket.screenshotUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: 'var(--accent, #3B82F6)', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <span>เปิดดูรูปภาพ/ลิงก์ที่แนบมา</span>
+                    <ExternalLink size={12} />
+                  </a>
+                </div>
+              )}
+            </div>
+
+            {/* Edit Form */}
+            <form onSubmit={e => { e.preventDefault(); handleUpdateTicket(); }}>
+              {/* Status Selector */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
+                  สถานะของปัญหา (Ticket Status) *
+                </label>
+                <select
+                  value={editTicketStatus}
+                  onChange={e => setEditTicketStatus(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    fontSize: '0.85rem',
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border-secondary)',
+                    color: 'var(--text-primary)',
+                    borderRadius: '6px',
+                    outline: 'none'
+                  }}
+                >
+                  <option value="pending" style={{ background: '#0F172A' }}>🟡 รอดำเนินการ (Pending)</option>
+                  <option value="in_progress" style={{ background: '#0F172A' }}>🔵 กำลังตรวจสอบ (In Progress)</option>
+                  <option value="resolved" style={{ background: '#0F172A' }}>🟢 แก้ไขเรียบร้อยแล้ว (Resolved)</option>
+                  <option value="closed" style={{ background: '#0F172A' }}>⚪ ปิดเรื่องแล้ว (Closed)</option>
+                </select>
+              </div>
+
+              {/* Admin Reply */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
+                  ข้อความตอบกลับจากแอดมิน (Admin Reply)
+                </label>
+                <textarea
+                  rows={4}
+                  placeholder="พิมพ์ข้อความตอบกลับไปยังผู้แจ้งเรื่อง เช่น ทางเราได้ตรวจสอบและอัปเดตระบบแล้ว หรือแนะนำขั้นตอนแก้ปัญหา... (ข้อความนี้จะแสดงในหน้า ติดตามสถานะ ของผู้ใช้ทันที)"
+                  value={editTicketReply}
+                  onChange={e => setEditTicketReply(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    fontSize: '0.85rem',
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border-secondary)',
+                    color: 'var(--text-primary)',
+                    borderRadius: '6px',
+                    outline: 'none',
+                    resize: 'vertical',
+                    lineHeight: 1.5
+                  }}
+                />
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteConfirmTicket(activeManageTicket);
+                  }}
+                  className="code-action-btn danger"
+                  style={{ padding: '0.55rem 0.85rem', fontSize: '0.8rem' }}
+                >
+                  <Trash2 size={14} />
+                  <span>ลบเรื่องนี้</span>
+                </button>
+
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveManageTicket(null)}
+                    className="btn-island"
+                    style={{ padding: '0.6rem 1.15rem' }}
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingTicket}
+                    className="btn-island accent"
+                    style={{ padding: '0.6rem 1.35rem' }}
+                  >
+                    {isSavingTicket ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    <span>{isSavingTicket ? 'กำลังบันทึก...' : 'บันทึก & ส่งการตอบกลับ'}</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Ticket Confirm Modal */}
+      {deleteConfirmTicket && (
+        <div className="modal-overlay" onClick={() => setDeleteConfirmTicket(null)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <h3 style={{ color: '#FFFFFF', marginBottom: '0.75rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={20} /> ยืนยันการลบเรื่องแจ้งปัญหา
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+              คุณแน่ใจหรือไม่ว่าต้องการลบเรื่อง <strong>#{deleteConfirmTicket.ticketId}</strong>: "{deleteConfirmTicket.subject}"?
+              การกระทำนี้จะลบข้อมูลออกจากระบบอย่างถาวร
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmTicket(null)}
+                className="btn-island"
+                style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)' }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingTicket}
+                onClick={() => handleDeleteTicket(deleteConfirmTicket.ticketId)}
+                className="btn-danger"
+                style={{ padding: '0.65rem 1.25rem' }}
+              >
+                {isDeletingTicket ? 'กำลังลบ...' : 'ยืนยันการลบ'}
               </button>
             </div>
           </div>

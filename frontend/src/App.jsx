@@ -4,7 +4,12 @@ import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
 import FAQ from './pages/FAQ';
-import Login from './pages/Login';
+function DirectLoginRedirect() {
+  React.useEffect(() => {
+    window.location.href = 'http://localhost:3000/auth/twitch';
+  }, []);
+  return null;
+}
 import Support from './pages/Support';
 import Navbar from './components/Navbar';
 import { ThemeProvider } from './context/ThemeContext';
@@ -23,7 +28,7 @@ function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/faq" element={<FAQ />} />
-              <Route path="/login" element={<Login />} />
+              <Route path="/login" element={<DirectLoginRedirect />} />
               <Route path="/support" element={<Support />} />
               <Route path="/report" element={<Support />} />
             </Routes>

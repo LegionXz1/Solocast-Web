@@ -29,12 +29,11 @@ export default function Login() {
         <span className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
           <Lock size={12} /> ระบบความปลอดภัย TWITCH OAUTH
         </span>
-        <h1 className="hero-title" style={{ fontSize: '2.4rem' }}>เข้าสู่ระบบ SoloCast</h1>
+        <h1 className="hero-title" style={{ fontSize: '2.4rem' }}>เข้าสู่ระบบ HyperCast</h1>
         <p className="hero-desc" style={{ textAlign: 'center', maxWidth: 520 }}>
-          เชื่อมต่อบัญชี Twitch ของคุณเพื่อเข้าถึงการตั้งค่า Widgets, การดักฟัง Event แบบเรียลไทม์ และการสร้างลิงก์สำหรับโปรแกรม OBS Studio
+          เชื่อมต่อบัญชี Twitch ของคุณเพื่อเข้าถึงการตั้งค่า Widgets
         </p>
       </div>
-
       {/* Main Login Shell */}
       <div className="doppel-shell" style={{ marginBottom: '2rem' }}>
         <div className="doppel-core" style={{ padding: '2.25rem' }}>
@@ -101,7 +100,7 @@ export default function Login() {
             <div>
               <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
-                  กดปุ่มด้านล่างเพื่อเข้าสู่ระบบผ่านหน้ายืนยันตัวตนอย่างเป็นทางการของ Twitch ระบบจะไม่จัดเก็บรหัสผ่านของคุณ
+                  กดปุ่มด้านล่างเพื่อเข้าสู่ระบบผ่าน Twitch
                 </p>
                 <button
                   onClick={handleTwitchLogin}
@@ -115,50 +114,14 @@ export default function Login() {
                   }}
                 >
                   <LogIn size={18} />
-                  <span>เข้าสู่ระบบด้วย Twitch (Twitch Login)</span>
+                  <span>เข้าสู่ระบบด้วย Twitch</span>
                   <div className="btn-icon-wrapper">
                     <ArrowRight size={14} />
                   </div>
                 </button>
               </div>
-
-              {/* Scope & Permissions Disclosure */}
-              <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: '1.5rem' }}>
-                <h4 style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-secondary)', marginBottom: '0.85rem' }}>
-                  สิทธิ์การเข้าถึงที่ระบบร้องขอ:
-                </h4>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                  <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    <CheckCircle2 size={16} style={{ color: 'var(--apple-green)', flexShrink: 0, marginTop: '2px' }} />
-                    <span><strong>ยืนยันตัวตนของช่อง:</strong> ตรวจสอบชื่อผู้ใช้และสิทธิ์ Broadcaster สำหรับเข้าสู่แผงควบคุม</span>
-                  </li>
-                  <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    <CheckCircle2 size={16} style={{ color: 'var(--apple-green)', flexShrink: 0, marginTop: '2px' }} />
-                    <span><strong>ดักจับการแลก Channel Points:</strong> สำหรับสั่งสุ่มเปิร์ก DBD, วงล้อ Killer หรือเช็คอินสะสมแต้ม</span>
-                  </li>
-                  <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    <CheckCircle2 size={16} style={{ color: 'var(--apple-green)', flexShrink: 0, marginTop: '2px' }} />
-                    <span><strong>ดักฟังข้อความแชทในช่อง:</strong> สำหรับคำสั่งบอท เช่น <code>!roll</code>, <code>!killer</code>, <code>!checkin</code></span>
-                  </li>
-                </ul>
-              </div>
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Security Guarantee Box */}
-      <div className="doppel-shell">
-        <div className="doppel-core" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <ShieldCheck size={28} style={{ color: 'var(--apple-green)', flexShrink: 0 }} />
-          <div>
-            <h4 style={{ margin: '0 0 0.2rem 0', color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-              ความปลอดภัยมาตรฐานระดับสูง (Zero-Data Breach Guarantee)
-            </h4>
-            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.8rem', lineHeight: 1.5 }}>
-              SoloCast ดำเนินการส่งข้อมูลผ่าน Twitch OAuth 2.0 อย่างถูกต้อง ไม่มีการเข้าถึงรหัสผ่าน และไม่ส่งต่อข้อมูลส่วนตัวใดๆ ไปยังบุคคลภายนอก
-            </p>
-          </div>
         </div>
       </div>
     </div>

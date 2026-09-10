@@ -30,51 +30,33 @@ const FAQ_ITEMS = [
   {
     id: 1,
     category: 'general',
-    question: 'SoloCast Powered by LegionX คืออะไร?',
-    answer: 'SoloCast เป็นแพลตฟอร์ม Interactive Widgets ระดับพรีเมียมสำหรับสตรีมเมอร์ Twitch ที่ต้องการยกระดับความสนุกในการไลฟ์สด เช่น การสุ่มเปิร์ก Dead by Daylight อัตโนมัติ, วงล้อสุ่ม Killer, และระบบบัตรสะสมแต้มดิจิทัล โดยประมวลผลแบบ Zero Latency ผ่าน Twitch EventSub WebSockets โดยตรง'
+    question: 'HyperCast Powered by LegionX คืออะไร?',
+    answer: 'HyperCast เป็นแพลตฟอร์ม Interactive Widgets สำหรับสตรีมเมอร์ Twitch ที่ต้องการยกระดับความสนุกในการไลฟ์สด เช่น การสุ่มเปิร์ก Dead by Daylight, วงล้อสุ่ม Killer, และระบบบัตรสะสมแต้ม'
   },
   {
     id: 2,
     category: 'obs',
-    question: 'วิธีนำ Widget ไปใช้งานในโปรแกรม OBS Studio ทำอย่างไร?',
-    answer: '1. ไปที่หน้า "แผงควบคุม (Dashboard)"\n2. เลือก Widget ที่ต้องการใช้งาน และปรับแต่งสี/ฟังก์ชันตามต้องการ\n3. คัดลอก "ลิงก์ Browser Source ของคุณ" ด้านล่างหน้าจอ\n4. ใน OBS Studio: กดเพิ่ม Source (+) > เลือก "Browser"\n5. วาง URL ที่คัดลอกมา กำหนดขนาด Width: 1920, Height: 1080 (หรือขนาดที่เหมาะสม) และติ๊กถูก "Shutdown source when not visible" กับ "Refresh browser when scene becomes active"'
+    question: 'วิธีนำ Widget ไปใช้งานในโปรแกรม OBS ทำอย่างไร?',
+    answer: '1. ไปที่หน้า "แผงควบคุม"\n2. เลือก Widget ที่ต้องการใช้งาน และปรับแต่งสี/ฟังก์ชันตามต้องการ\n3. คัดลอก "ลิงก์ Browser Source ของคุณ" ด้านล่างหน้าจอ\n4. ใน OBS Studio: กดเพิ่ม Source (+) > เลือก "Browser"\n5. วาง URL ที่คัดลอกมา กำหนดขนาด Width: 1920, Height: 1080 (หรือขนาดที่เหมาะสม) และติ๊กถูก "Shutdown source when not visible" กับ "Refresh browser when scene becomes active"'
   },
   {
     id: 3,
-    category: 'twitch',
-    question: 'จำเป็นต้องเข้าสู่ระบบด้วยบัญชี Twitch หรือไม่?',
-    answer: 'จำเป็นสำหรับการดักจับ Event แบบ Real-time เช่น การแลก Channel Points หรือคำสั่งแชทจากผู้ชมในช่องของคุณ โดยระบบจะเชื่อมต่อไปยัง Twitch OAuth อย่างปลอดภัยเพื่อรับสิทธิ์ดักฟัง Event เฉพาะช่องของคุณเท่านั้น'
+    category: 'dbd',
+    question: 'ระบบสุ่มเปิร์ก Dead by Daylight ทำงานอย่างไร และมีเปิร์กครบหรือไม่?',
+    answer: 'ระบบดึงข้อมูลและรูปภาพไอคอนเปิร์กจาก Dead by Daylight อย่างสมบูรณ์ รองรับทั้งฝั่ง Survivor และ Killer ผู้สตรีมสามารถกด "ตัดออก (Exclude)" เปิร์กที่ไม่ต้องการให้ระบบสุ่มได้ทีละเปิร์ก '
   },
   {
     id: 4,
     category: 'dbd',
-    question: 'ระบบสุ่มเปิร์ก Dead by Daylight ทำงานอย่างไร และมีเปิร์กครบหรือไม่?',
-    answer: 'ระบบดึงข้อมูลและรูปภาพไอคอนเปิร์กแท้จาก Dead by Daylight Wiki อย่างสมบูรณ์ รองรับทั้งฝั่ง Survivor และ Killer ผู้สตรีมสามารถกด "ตัดออก (Exclude)" เปิร์กที่ไม่ต้องการให้ระบบสุ่มได้ทีละเปิร์ก และแอดมินยังสามารถกดปุ่ม "ซิงค์เปิร์กใหม่จาก Wiki" ได้ทุกเมื่อที่มี DLC หรืออัปเดตใหม่'
+    question: 'สามารถเลือกตัด Killer ที่ไม่ต้องการสุ่มใน Killer Roulette ได้ไหม?',
+    answer: 'ได้! ในแถบ "สุ่ม Killer" จะมีส่วน "รายชื่อคิลเลอร์ที่ถูกตัดออก (Excluded Killers)" ให้คุณสามารถกดคลิกที่การ์ดคิลเลอร์ตัวไหนก็ได้เพื่อตัดออกจากการสุ่มได้ทันที โดยคิลเลอร์ที่ตัดออกจะแสดงป้ายสีแดงและจะไม่ถูกเลือกเมื่อมีการกดสุ่ม'
   },
   {
     id: 5,
-    category: 'dbd',
-    question: 'สามารถเลือกตัด Killer ที่ไม่ต้องการสุ่มใน Killer Roulette ได้ไหม?',
-    answer: 'ได้แน่นอน! ในแถบ "สุ่ม Killer" จะมีส่วน "รายชื่อคิลเลอร์ที่ถูกตัดออก (Excluded Killers)" ให้คุณสามารถกดคลิกที่การ์ดคิลเลอร์ตัวไหนก็ได้เพื่อตัดออกจากการสุ่มได้ทันที โดยคิลเลอร์ที่ตัดออกจะแสดงป้ายสีแดงและจะไม่ถูกเลือกเมื่อมีการกดสุ่ม'
-  },
-  {
-    id: 6,
     category: 'loyalty',
     question: 'ระบบบัตรสะสมแต้ม (Loyalty Card) ทำงานอย่างไร?',
     answer: 'บัตรสะสมแต้มช่วยสร้างความผูกพันกับผู้ชม เมื่อผู้ชมแลก Channel Points หรือพิมพ์คำสั่งเช็คอินในแชท ระบบจะทำการประทับตราดิจิทัลลงบนการ์ดในไลฟ์สตรีมแบบเรียลไทม์ พร้อมบันทึกประวัติสะสมแต้มและแสดงบน Leaderboard ในแดชบอร์ดของคุณ'
   },
-  {
-    id: 7,
-    category: 'general',
-    question: 'ระบบมีความหน่วง (Latency) หรือไม่?',
-    answer: 'ระบบ SoloCast ถูกออกแบบให้ทำงานแบบ Zero Latency โดยเชื่อมต่อ Twitch EventSub ผ่าน WebSockets ตรงไปยังเครื่องเซิร์ฟเวอร์ และส่งต่อมายัง Browser Source ของคุณภายในเสี้ยววินาที ทำให้การแสดงผลบนหน้าจอไลฟ์เกิดขึ้นแทบจะในทันทีที่มีคนแลกแต้ม'
-  },
-  {
-    id: 8,
-    category: 'obs',
-    question: 'หาก Widget ใน OBS ไม่ขยับหรือหน้าจอว่างเปล่า ควรแก้ไขอย่างไร?',
-    answer: '1. ตรวจสอบสถานะการเชื่อมต่อในแดชบอร์ดว่าขึ้นไฟเขียว "กำลังดักจับข้อมูลช่อง" หรือไม่\n2. ใน OBS Studio: คลิกขวาที่ Browser Source > เลือก "Refresh"\n3. ตรวจสอบว่าเปิดเซิร์ฟเวอร์ SoloCast ทำงานอยู่เรียบร้อยแล้ว\n4. หากยังพบปัญหา สามารถกดที่เมนู "แจ้งปัญหา" เพื่อส่งข้อมูลให้ทีมงานตรวจสอบได้ทันที'
-  }
 ];
 
 export default function FAQ() {
@@ -93,7 +75,7 @@ export default function FAQ() {
   const filteredFaqs = FAQ_ITEMS.filter(item => {
     const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
     const matchesSearch = item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          item.answer.toLowerCase().includes(searchQuery.toLowerCase());
+      item.answer.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
@@ -106,7 +88,7 @@ export default function FAQ() {
         </span>
         <h1 className="hero-title">คำถามที่พบบ่อย (FAQ)</h1>
         <p className="hero-desc">
-          รวบรวมคำตอบและวิธีแก้ไขปัญหาเบื้องต้นเกี่ยวกับการใช้งาน SoloCast, การติดตั้งลงใน OBS Studio, ระบบสุ่มเปิร์ก และการเชื่อมต่อ Twitch
+          รวบรวมคำตอบและวิธีแก้ไขปัญหาเบื้องต้นเกี่ยวกับการใช้งาน HyperCast, การติดตั้งลงในสตรีมมิ่งโปรแกรม และการเชื่อมต่อ Twitch
         </p>
       </div>
 

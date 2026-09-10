@@ -1371,35 +1371,189 @@ io.on('connection', (socket) => {
 
 // Support Ticket / Issue Reporting Endpoint
 const SUPPORT_FILE = path.join(__dirname, 'data', 'support_reports.json');
+
+function loadSupportTickets() {
+  if (!fs.existsSync(SUPPORT_FILE)) {
+    return [];
+  }
+  try {
+    return JSON.parse(fs.readFileSync(SUPPORT_FILE, 'utf8'));
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveSupportTickets(tickets) {
+  const dir = path.dirname(SUPPORT_FILE);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(SUPPORT_FILE, JSON.stringify(tickets, null, 2), 'utf8');
+}
+
+// 1. Submit a new support report
 app.post('/api/support/report', (req, res) => {
   try {
     const { category, subject, description, username, contact, screenshotUrl } = req.body || {};
     if (!subject || !description) {
       return res.status(400).json({ error: 'กรุณากรอกหัวข้อและรายละเอียดปัญหา' });
     }
-    let reports = [];
-    if (fs.existsSync(SUPPORT_FILE)) {
-      try { reports = JSON.parse(fs.readFileSync(SUPPORT_FILE, 'utf8')); } catch (e) { reports = []; }
-    }
-    const ticketId = 'SOLO-' + Math.floor(100000 + Math.random() * 900000);
+    const reports = loadSupportTickets();
+    const ticketId = 'HYPER-' + Math.floor(100000 + Math.random() * 900000);
+    const now = new Date().toISOString();
     const newReport = {
       ticketId,
       category: category || 'general',
-      subject,
-      description,
-      username: username || 'Guest',
-      contact: contact || '',
-      screenshotUrl: screenshotUrl || '',
-      status: 'pending',
-      createdAt: new Date().toISOString()
+      subject: subject.trim(),
+      description: description.trim(),
+      username: username ? username.trim() : 'Guest',
+      contact: contact ? contact.trim() : '',
+      screenshotUrl: screenshotUrl ? screenshotUrl.trim() : '',
+      status: 'pending', // pending, in_progress, resolved, closed
+      adminReply: '',
+      adminRepliedAt: null,
+      adminUser: null,
+      createdAt: now,
+      updatedAt: now
     };
     reports.unshift(newReport);
-    fs.writeFileSync(SUPPORT_FILE, JSON.stringify(reports, null, 2), 'utf8');
+    saveSupportTickets(reports);
     console.log(`[Support] 📩 New ticket created: ${ticketId} - ${subject}`);
     res.json({ success: true, ticketId, report: newReport });
   } catch (err) {
     console.error('[Support] Error saving report:', err);
     res.status(500).json({ error: 'เกิดข้อผิดพลาดในการส่งข้อมูล' });
+  }
+});
+
+// 2. Query tickets (for users tracking their tickets OR admin querying all tickets)
+app.get('/api/support/tickets', (req, res) => {
+  try {
+    const tickets = loadSupportTickets();
+    const { ticketId, username, ticketIds, status, search } = req.query;
+
+    // Check if requester is Admin
+    const session = getSessionFromReq(req);
+    const adminKey = req.headers['x-admin-key'] || req.query.adminKey || req.query.admin_key;
+    const configuredKey = process.env.ADMIN_KEY || 'solocast_admin_2026';
+    const isAdmin = Boolean((session && session.isAdmin) || (adminKey && adminKey === configuredKey));
+
+    if (ticketId) {
+      // Direct ticket ID lookup
+      const found = tickets.find(t => t.ticketId.toUpperCase() === ticketId.trim().toUpperCase());
+      if (!found) {
+        return res.status(404).json({ error: 'ไม่พบหมายเลขเรื่องแจ้งปัญหานี้ในระบบ' });
+      }
+      return res.json({ success: true, ticket: found });
+    }
+
+    if (!isAdmin) {
+      // User mode: filter by username or list of ticketIds
+      let filtered = [];
+      if (username) {
+        const u = username.trim().toLowerCase();
+        filtered = tickets.filter(t => (t.username || '').toLowerCase() === u);
+      }
+      if (ticketIds) {
+        const idList = ticketIds.split(',').map(id => id.trim().toUpperCase());
+        const byIds = tickets.filter(t => idList.includes(t.ticketId.toUpperCase()));
+        // Merge without duplicates
+        const existingIds = new Set(filtered.map(t => t.ticketId));
+        byIds.forEach(t => {
+          if (!existingIds.has(t.ticketId)) {
+            filtered.push(t);
+          }
+        });
+      }
+      filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      return res.json({ success: true, tickets: filtered });
+    }
+
+    // Admin mode: can filter by status, search query, and return counts
+    let result = [...tickets];
+    if (status && status !== 'all') {
+      result = result.filter(t => t.status === status);
+    }
+    if (search && search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter(t =>
+        t.ticketId.toLowerCase().includes(q) ||
+        (t.subject || '').toLowerCase().includes(q) ||
+        (t.username || '').toLowerCase().includes(q) ||
+        (t.description || '').toLowerCase().includes(q)
+      );
+    }
+    result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    const counts = {
+      total: tickets.length,
+      pending: tickets.filter(t => t.status === 'pending').length,
+      in_progress: tickets.filter(t => t.status === 'in_progress').length,
+      resolved: tickets.filter(t => t.status === 'resolved').length,
+      closed: tickets.filter(t => t.status === 'closed').length
+    };
+
+    res.json({ success: true, tickets: result, counts });
+  } catch (err) {
+    console.error('[Support] Error retrieving tickets:', err);
+    res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลรายการเรื่องแจ้งปัญหาได้' });
+  }
+});
+
+// 3. Admin: Update ticket status and reply
+app.put('/api/support/tickets/:ticketId', checkAdminAuth, (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const { status, adminReply, adminUser } = req.body || {};
+    const tickets = loadSupportTickets();
+    const index = tickets.findIndex(t => t.ticketId.toUpperCase() === ticketId.toUpperCase());
+
+    if (index === -1) {
+      return res.status(404).json({ error: 'ไม่พบเรื่องแจ้งปัญหานี้' });
+    }
+
+    const ticket = tickets[index];
+    const now = new Date().toISOString();
+
+    if (status) {
+      ticket.status = status;
+    }
+    if (adminReply !== undefined) {
+      ticket.adminReply = adminReply;
+      ticket.adminRepliedAt = adminReply ? now : null;
+      ticket.adminUser = adminReply ? (adminUser || req.user?.displayName || req.user?.username || 'HyperCast Admin') : null;
+    }
+    ticket.updatedAt = now;
+
+    tickets[index] = ticket;
+    saveSupportTickets(tickets);
+
+    console.log(`[Support] ✏️ Ticket ${ticketId} updated by admin: status=${ticket.status}`);
+    res.json({ success: true, ticket });
+  } catch (err) {
+    console.error('[Support] Error updating ticket:', err);
+    res.status(500).json({ error: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูล' });
+  }
+});
+
+// 4. Admin: Delete ticket
+app.delete('/api/support/tickets/:ticketId', checkAdminAuth, (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    let tickets = loadSupportTickets();
+    const initialLen = tickets.length;
+    tickets = tickets.filter(t => t.ticketId.toUpperCase() !== ticketId.toUpperCase());
+
+    if (tickets.length === initialLen) {
+      return res.status(404).json({ error: 'ไม่พบเรื่องแจ้งปัญหานี้' });
+    }
+
+    saveSupportTickets(tickets);
+    console.log(`[Support] 🗑️ Ticket ${ticketId} deleted by admin`);
+    res.json({ success: true, message: `ลบเรื่อง #${ticketId} เรียบร้อยแล้ว` });
+  } catch (err) {
+    console.error('[Support] Error deleting ticket:', err);
+    res.status(500).json({ error: 'เกิดข้อผิดพลาดในการลบข้อมูล' });
   }
 });
 

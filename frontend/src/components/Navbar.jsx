@@ -34,6 +34,10 @@ export default function Navbar() {
     return location.pathname.startsWith(path);
   };
 
+  const handleLogin = () => {
+    window.location.href = 'http://localhost:3000/auth/twitch';
+  };
+
   const handleLogout = async () => {
     await logout();
     navigate('/');
@@ -46,7 +50,7 @@ export default function Navbar() {
         {/* Brand */}
         <div className="navbar-brand-group">
           <Link to="/" className="navbar-logo" onClick={() => setIsMobileMenuOpen(false)}>
-            <span className="navbar-logo-text">SoloCast</span>
+            <span className="navbar-logo-text">HyperCast</span>
             <span className="navbar-logo-badge">by LegionX</span>
           </Link>
 
@@ -105,14 +109,18 @@ export default function Navbar() {
                 title="ออกจากระบบ"
               >
                 <LogOut size={14} />
-                <span className="navbar-logout-text">ออก</span>
+                <span className="navbar-logout-text">ออกจากระบบ</span>
               </button>
             </div>
           ) : (
-            <Link to="/login" className="btn-island accent navbar-login-cta">
+            <button
+              type="button"
+              onClick={handleLogin}
+              className="btn-island accent navbar-login-cta"
+            >
               <LogIn size={14} />
-              <span>เข้าสู่ระบบ</span>
-            </Link>
+              <span>เริ่มต้นใช้งาน</span>
+            </button>
           )}
 
           {/* Mobile Menu Toggle Button */}
@@ -184,15 +192,18 @@ export default function Navbar() {
                 </button>
               </div>
             ) : (
-              <Link
-                to="/login"
+              <button
+                type="button"
                 className="btn-island accent"
                 style={{ width: '100%', justifyContent: 'center', padding: '0.65rem 1rem' }}
-                onClick={() => setIsMobileMenuOpen(false)}
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  handleLogin();
+                }}
               >
                 <LogIn size={15} />
                 <span>เข้าสู่ระบบด้วย Twitch</span>
-              </Link>
+              </button>
             )}
           </div>
         </div>
