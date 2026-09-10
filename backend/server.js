@@ -1260,7 +1260,7 @@ function startEventSub(userId) {
       const parts = text.split(/\s+/);
       const cmd = parts[0].toLowerCase();
       const isSoCmd = parts.length >= 2 && (cmd === '!so' || cmd === '!shoutout');
-      const isSrCmd = parts.length >= 2 && cmd === '!sr';
+      const isSrCmd = cmd === '!sr';
 
       if (isSoCmd) {
         // ตรวจสอบคำสั่ง !so <channel> หรือ !shoutout <channel>
@@ -1279,11 +1279,33 @@ function startEventSub(userId) {
           }
         };
         io.to('user_' + userId).emit('onEventReceived', soEv);
-      } else if (isSrCmd && spotify.isSpotifyConfigured()) {
+      } else if (isSrCmd) {
         // คำสั่ง !sr <ชื่อเพลง / Spotify URL> — ขอเพลงจาก Spotify
         const query = parts.slice(1).join(' ').trim();
         const chatterName = e.chatterName || 'viewer';
         const displayName = e.chatterDisplayName || chatterName;
+
+        // ถ้าพิมพ์แค่ !sr โดยไม่มีชื่อเพลง
+        if (!query) {
+          try {
+            await apiClient?.asUser(userId, async (ctx) => {
+              await ctx.chat.sendChatMessage(userId, `@${displayName} วิธีขอเพลง: พิมพ์ !sr <ชื่อเพลง หรือ ลิงก์ Spotify> 🎵`);
+            });
+          } catch (_) {}
+          return;
+        }
+
+        // ตรวจสอบว่าตั้งค่า Spotify Client ID ใน .env หรือยัง
+        if (!spotify.isSpotifyConfigured()) {
+          console.warn(`[Spotify SR] ⚠️ Spotify Client ID / Secret is missing in .env`);
+          try {
+            await apiClient?.asUser(userId, async (ctx) => {
+              await ctx.chat.sendChatMessage(userId, `@${displayName} ระบบขอเพลงยังไม่ได้ตั้งค่า Spotify Client ID/Secret ใน .env กรุณาตั้งค่าก่อนใช้งาน`);
+            });
+          } catch (_) {}
+          return;
+        }
+
         try {
           // ตรวจสอบ Cooldown
           const srSettings = widgetSettingsStore['spotify-sr']?.[userId] || {};
@@ -1304,28 +1326,39 @@ function startEventSub(userId) {
           if (!accessToken) {
             try {
               await apiClient?.asUser(userId, async (ctx) => {
-                await ctx.chat.sendChatMessage(userId, `ยังไม่ได้เชื่อมต่อ Spotify กรุณาเชื่อมต่อในหน้า Dashboard ก่อนนะ 🎵`);
+                await ctx.chat.sendChatMessage(userId, `@${displayName} สตรีมเมอร์ยังไม่ได้เชื่อมต่อ Spotify กรุณากดปุ่ม "เชื่อมต่อกับ Spotify" ใน Dashboard ก่อนนะ 🎵`);
               });
             } catch (_) {}
             return;
           }
 
-          // ค้นหาเพลง
+          // ค้นหาเพลงบน Spotify
           const track = await spotify.searchSpotifyTrack(query, accessToken);
           if (!track) {
             try {
               await apiClient?.asUser(userId, async (ctx) => {
-                await ctx.chat.sendChatMessage(userId, `@${displayName} ไม่พบเพลง "${query}" ใน Spotify ลองใหม่อีกครั้งนะ 🔍`);
+                await ctx.chat.sendChatMessage(userId, `@${displayName} ไม่พบเพลง "${query}" ใน Spotify ลองพิมพ์ชื่อเพลงหรือชื่อศิลปินให้ชัดเจนขึ้นนะ 🔍`);
               });
             } catch (_) {}
             return;
           }
 
-          // เพิ่มเพลงเข้า Spotify Queue
-          await spotify.addTrackToSpotifyQueue(track.uri, accessToken);
-          spotify.recordUserCooldown(userId, chatterName);
+          // พยายามเพิ่มเพลงเข้า Spotify Player Queue
+          let addedToSpotifyDevice = true;
+          let spotifyDeviceWarning = '';
+          try {
+            await spotify.addTrackToSpotifyQueue(track.uri, accessToken);
+          } catch (deviceErr) {
+            addedToSpotifyDevice = false;
+            if (deviceErr.message === 'NO_ACTIVE_DEVICE') {
+              spotifyDeviceWarning = ' (⚠️ อย่าลืมเปิด Spotify และกดเล่นเพลงบนคอมหรือมือถือด้วยนะ)';
+            } else if (deviceErr.message === 'PREMIUM_REQUIRED') {
+              spotifyDeviceWarning = ' (⚠️ ต้องใช้บัญชี Spotify Premium ถึงจะเล่นเพลงต่อเนื่องอัตโนมัติได้)';
+            }
+          }
 
-          // บันทึกลง Song Request Queue ของเรา
+          // บันทึกลง Song Request Queue ของ Solocast เสมอ (เพื่อให้ขึ้นใน Dashboard และ OBS)
+          spotify.recordUserCooldown(userId, chatterName);
           const queueItem = spotify.addToSongQueue(userId, displayName, track, 'chat');
 
           // ส่ง Real-time update ไปยัง Dashboard และ Widget Overlay
@@ -1344,20 +1377,16 @@ function startEventSub(userId) {
           const artists = track.artists;
           try {
             await apiClient?.asUser(userId, async (ctx) => {
-              await ctx.chat.sendChatMessage(userId, `🎵 @${displayName} เพิ่ม "${trackName}" โดย ${artists} เข้า Queue เรียบร้อย!`);
+              await ctx.chat.sendChatMessage(userId, `🎵 @${displayName} เพิ่ม "${trackName}" โดย ${artists} เข้า Queue เรียบร้อย!${spotifyDeviceWarning}`);
             });
           } catch (_) {}
 
-          console.log(`[Spotify SR] 🎵 ${displayName} requested: "${trackName}" by ${artists}`);
+          console.log(`[Spotify SR] 🎵 ${displayName} requested: "${trackName}" by ${artists} (device queued: ${addedToSpotifyDevice})`);
         } catch (srErr) {
           console.error(`[Spotify SR] ❌ Error processing !sr from ${chatterName}:`, srErr?.message || srErr);
-          const errMsg = srErr?.message || '';
-          let reply = `@${displayName} ไม่สามารถเพิ่มเพลงได้ในตอนนี้`;
-          if (errMsg === 'NO_ACTIVE_DEVICE') reply = `@${displayName} กรุณาเปิด Spotify และเล่นเพลงก่อนนะ 🎧`;
-          if (errMsg === 'PREMIUM_REQUIRED') reply = `@${displayName} ต้องการ Spotify Premium ถึงจะขอเพลงได้ 💎`;
           try {
             await apiClient?.asUser(userId, async (ctx) => {
-              await ctx.chat.sendChatMessage(userId, reply);
+              await ctx.chat.sendChatMessage(userId, `@${displayName} ไม่สามารถขอเพลงได้: ${srErr.message}`);
             });
           } catch (_) {}
         }
