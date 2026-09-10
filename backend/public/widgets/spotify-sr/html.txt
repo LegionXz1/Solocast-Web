@@ -1,0 +1,70 @@
+<div id="spotify-widget-root" class="spotify-card theme-glassmorphism">
+  <!-- Toast Notification when a new song is requested -->
+  <div id="request-toast" class="request-toast hidden">
+    <span class="toast-badge">🎵 REQUEST</span>
+    <span id="toast-text" class="toast-text">เพิ่มเพลงลงคิวแล้ว!</span>
+  </div>
+
+  <!-- Idle State View -->
+  <div id="idle-view" class="idle-view">
+    <div class="idle-icon-wrapper">
+      <svg class="spotify-logo-svg" viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.502 17.308c-.218.358-.684.474-1.042.256-2.857-1.745-6.455-2.14-10.69-1.172-.409.094-.816-.16-.91-.569-.093-.41.16-.817.57-.91 4.636-1.06 8.604-.61 11.815 1.353.359.218.475.684.257 1.042zm1.468-3.26c-.274.446-.86.588-1.306.314-3.27-2.01-8.254-2.593-12.12-1.42-.497.15-1.026-.135-1.176-.632-.15-.497.135-1.026.632-1.176 4.417-1.34 9.911-.69 13.656 1.608.446.274.588.86.314 1.306zm.126-3.398C15.18 8.32 8.71 8.1 4.978 9.233c-.604.183-1.246-.164-1.429-.768-.182-.604.165-1.246.769-1.429 4.29-1.302 11.438-1.047 16.002 1.662.544.323.725 1.033.402 1.577-.323.543-1.033.724-1.576.401z"/>
+      </svg>
+    </div>
+    <div class="idle-text-group">
+      <div class="idle-title">พร้อมรับเพลงจากผู้ชม</div>
+      <div class="idle-desc">พิมพ์ <span id="idle-cmd-label" class="highlight-pill">!sr ชื่อเพลง</span> ในแชทเพื่อขอเพลง</div>
+    </div>
+  </div>
+
+  <!-- Active Playing View -->
+  <div id="playing-view" class="playing-view hidden">
+    <!-- Album Art & Vinyl -->
+    <div class="art-container">
+      <img id="album-art" class="album-art" src="" alt="Album Artwork" />
+      <div id="vinyl-disc" class="vinyl-disc hidden"></div>
+      <div id="visualizer" class="sound-visualizer">
+        <span class="bar bar-1"></span>
+        <span class="bar bar-2"></span>
+        <span class="bar bar-3"></span>
+        <span class="bar bar-4"></span>
+        <span class="bar bar-5"></span>
+      </div>
+    </div>
+
+    <!-- Track Details -->
+    <div class="track-details">
+      <!-- Status Pill & Requester Row -->
+      <div class="meta-header-row">
+        <span id="status-pill" class="status-pill">
+          <span class="pulse-dot"></span>
+          <span id="status-text">NOW PLAYING</span>
+        </span>
+        <span id="requester-badge" class="requester-badge hidden">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" class="twitch-icon">
+            <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/>
+          </svg>
+          <span id="requester-name">@Streamer</span>
+        </span>
+      </div>
+
+      <!-- Title & Artist -->
+      <div class="track-title-wrapper">
+        <div id="track-title" class="track-title">กำลังโหลดชื่อเพลง...</div>
+      </div>
+      <div id="track-artist" class="track-artist">ศิลปิน</div>
+
+      <!-- Real-time Progress Bar -->
+      <div id="progress-container" class="progress-container">
+        <div class="progress-bar-bg">
+          <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+        </div>
+        <div class="time-labels">
+          <span id="time-current">00:00</span>
+          <span id="time-total">00:00</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

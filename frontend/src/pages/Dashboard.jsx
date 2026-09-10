@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import ThemeToggle from '../components/ThemeToggle';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
@@ -38,7 +38,13 @@ import {
   Star,
   LogOut,
   Search,
-  Ban
+  Ban,
+  Music,
+  SkipForward,
+  ListMusic,
+  ExternalLink,
+  Volume2,
+  AlertCircle
 } from 'lucide-react';
 
 const socket = io(WS_BASE);
@@ -63,6 +69,11 @@ const WIDGET_META = {
     icon: <Megaphone size={20} />,
     desc: 'ป็อปอัปแนะนำ & โปรโมทช่องสตรีม',
     gradient: 'linear-gradient(135deg, #9146FF, #6D28D9)'
+  },
+  'spotify-sr': {
+    icon: <Music size={20} />,
+    desc: 'ระบบขอเพลง Spotify ผ่านแชท !sr & วิดเจ็ตเพลง',
+    gradient: 'linear-gradient(135deg, #1DB954, #158a3e)'
   }
 };
 
@@ -92,7 +103,7 @@ function Dashboard() {
   const [isPreviewCollapsed, setIsPreviewCollapsed] = useState(false);
   const [bgMode, setBgMode] = useState('checker'); // 'checker' | 'dark-solid' | 'green-screen'
   const [shoutoutChannel, setShoutoutChannel] = useState('legionxiz');
-  const hasRollHistory = selectedWidget && selectedWidget !== 'twitch-shoutout';
+  const hasRollHistory = selectedWidget && selectedWidget !== 'twitch-shoutout' && selectedWidget !== 'spotify-sr';
 
   // DBD Perks State & Search
   const [dbdPerksList, setDbdPerksList] = useState({ survivor: [], killer: [] });
@@ -103,6 +114,15 @@ function Dashboard() {
   // Random Killer State & Search
   const [killersList, setKillersList] = useState([]);
   const [killerSearchQuery, setKillerSearchQuery] = useState('');
+
+  // Spotify Song Request State
+  const [spotifyStatus, setSpotifyStatus] = useState({ configured: false, connected: false, displayName: null, product: null });
+  const [nowPlaying, setNowPlaying] = useState(null);
+  const [spotifyQueue, setSpotifyQueue] = useState([]);
+  const [srSearchQuery, setSrSearchQuery] = useState('');
+  const [srIsRequesting, setSrIsRequesting] = useState(false);
+  const [spotifyLoading, setSpotifyLoading] = useState(false);
+  const [spotifyMsg, setSpotifyMsg] = useState({ type: '', text: '' });
 
   // สรุปยอดนับการเช็คอินของผู้ใช้แต่ละคน (สำหรับ Loyalty Card)
   const loyaltyUserSummary = useMemo(() => {
@@ -129,13 +149,18 @@ function Dashboard() {
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
   }, [rollHistory, selectedWidget]);
 
-  // 1. ดักจับ Token ที่ส่งกลับมาจาก Twitch OAuth Redirect
+  // 1. ดักจับ Token ที่ส่งกลับมาจาก Twitch OAuth Redirect หรือ Spotify OAuth
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlToken = params.get('auth_token');
     if (urlToken) {
       localStorage.setItem('solocast_user_token', urlToken);
       setToken(urlToken);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    if (params.get('spotify_connected') === '1') {
+      setSelectedWidget('spotify-sr');
+      setSpotifyMsg({ type: 'success', text: 'เชื่อมต่อบัญชี Spotify สำเร็จแล้ว! พร้อมใช้งาน 🎉' });
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -237,6 +262,29 @@ function Dashboard() {
     }
   }, [selectedWidget, killersList]);
 
+  // 4.3 โหลดข้อมูล Spotify เมื่อเลือก Widget spotify-sr
+  const fetchSpotifyData = useCallback(async () => {
+    if (selectedWidget !== 'spotify-sr') return;
+    try {
+      const [resStatus, resQueue, resCurrent] = await Promise.all([
+        fetch(`${API_BASE}/api/spotify/status?userId=${encodeURIComponent(status.userId || '')}`).then(r => r.ok ? r.json() : null),
+        fetch(`${API_BASE}/api/spotify/queue?userId=${encodeURIComponent(status.userId || '')}`).then(r => r.ok ? r.json() : { queue: [] }),
+        fetch(`${API_BASE}/api/spotify/current?userId=${encodeURIComponent(status.userId || '')}`).then(r => r.ok ? r.json() : null)
+      ]);
+      if (resStatus) setSpotifyStatus(resStatus);
+      if (resQueue && Array.isArray(resQueue.queue)) setSpotifyQueue(resQueue.queue);
+      if (resCurrent && resCurrent.connected) setNowPlaying(resCurrent);
+    } catch (err) {
+      console.error('Error fetching Spotify data:', err);
+    }
+  }, [selectedWidget, status.userId]);
+
+  useEffect(() => {
+    if (selectedWidget === 'spotify-sr') {
+      fetchSpotifyData();
+    }
+  }, [selectedWidget, fetchSpotifyData]);
+
   // 5. โหลดประวัติการสุ่ม (Roll History) ของ Widget นี้
   useEffect(() => {
     if (!selectedWidget || selectedWidget === 'twitch-shoutout') {
@@ -251,7 +299,7 @@ function Dashboard() {
       .catch(err => console.error('Error fetching roll history:', err));
   }, [selectedWidget, status.userId]);
 
-  // 6. ฟัง Event เข้ามา (Twitch Live Events & Real-time Roll History)
+  // 6. ฟัง Event เข้ามา (Twitch Live Events & Real-time Roll History & Spotify)
   useEffect(() => {
     const handleEvent = (event) => {
       setEvents((prev) => [event, ...prev].slice(0, 5));
@@ -275,16 +323,29 @@ function Dashboard() {
       if (newData) setDbdPerksList(newData);
     };
 
+    const handleSpotifyNowPlaying = (data) => {
+      if (data) setNowPlaying(data);
+    };
+    const handleSpotifyQueueUpdated = (data) => {
+      if (data && Array.isArray(data.queue)) {
+        setSpotifyQueue(data.queue);
+      }
+    };
+
     socket.on('onEventReceived', handleEvent);
     socket.on('widget_roll_history_item', handleNewRoll);
     socket.on('widget_roll_history_cleared', handleClearedHistory);
     socket.on('dbd_perks_updated', handleDbdPerksUpdated);
+    socket.on('spotify_now_playing', handleSpotifyNowPlaying);
+    socket.on('spotify_queue_updated', handleSpotifyQueueUpdated);
 
     return () => {
       socket.off('onEventReceived', handleEvent);
       socket.off('widget_roll_history_item', handleNewRoll);
       socket.off('widget_roll_history_cleared', handleClearedHistory);
       socket.off('dbd_perks_updated', handleDbdPerksUpdated);
+      socket.off('spotify_now_playing', handleSpotifyNowPlaying);
+      socket.off('spotify_queue_updated', handleSpotifyQueueUpdated);
     };
   }, [selectedWidget]);
 
@@ -395,6 +456,25 @@ function Dashboard() {
         role: curRole,
         username: testUser
       });
+    } else if (selectedWidget === 'spotify-sr') {
+      const mockTrack = {
+        isPlaying: true,
+        progressMs: 65000,
+        track: {
+          id: 'test-preview-track',
+          name: 'Shape of You',
+          artist: 'Ed Sheeran',
+          artists: 'Ed Sheeran',
+          album: '÷ (Divide)',
+          albumArt: 'https://i.scdn.co/image/ab67616d0000b273ba5db46f4b838ef6027e6f96',
+          durationMs: 233712,
+          uri: 'spotify:track:7qiZfU4dY1lWllzX7mPBI3'
+        },
+        requester: status.username || 'ChatViewer',
+        timestamp: Date.now()
+      };
+      socket.emit('spotify_now_playing', mockTrack);
+      setNowPlaying(mockTrack);
     } else {
       handleSimulateRedemption();
     }
@@ -431,6 +511,134 @@ function Dashboard() {
     } catch (err) {
       console.error('Failed to clear roll history:', err);
     }
+  };
+
+  // Spotify SR Actions
+  const handleConnectSpotify = async () => {
+    setSpotifyLoading(true);
+    setSpotifyMsg({ type: '', text: '' });
+    try {
+      const res = await fetch(`${API_BASE}/api/spotify/auth-url?userId=${encodeURIComponent(status.userId || '')}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setSpotifyMsg({ type: 'error', text: data.error || 'ไม่สามารถสร้างลิงก์เข้าสู่ระบบ Spotify ได้ (ตรวจสอบ .env)' });
+      }
+    } catch (e) {
+      setSpotifyMsg({ type: 'error', text: e.message });
+    } finally {
+      setSpotifyLoading(false);
+    }
+  };
+
+  const handleDisconnectSpotify = async () => {
+    if (!window.confirm('คุณต้องการยกเลิกการเชื่อมต่อ Spotify ใช่หรือไม่?')) return;
+    setSpotifyLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/spotify/disconnect`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setSpotifyStatus({ configured: true, connected: false, displayName: null, product: null });
+        setNowPlaying(null);
+        setSpotifyQueue([]);
+        setSpotifyMsg({ type: 'success', text: 'ยกเลิกการเชื่อมต่อ Spotify สำเร็จ' });
+      }
+    } catch (e) {
+      setSpotifyMsg({ type: 'error', text: e.message });
+    } finally {
+      setSpotifyLoading(false);
+    }
+  };
+
+  const handleSkipTrack = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/spotify/skip`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'ไม่สามารถข้ามเพลงได้');
+      } else {
+        fetchSpotifyData();
+      }
+    } catch (e) {
+      alert('ข้ามเพลงไม่สำเร็จ: ' + e.message);
+    }
+  };
+
+  const handleManualSongRequest = async (e) => {
+    if (e) e.preventDefault();
+    if (!srSearchQuery.trim()) return;
+    setSrIsRequesting(true);
+    setSpotifyMsg({ type: '', text: '' });
+    try {
+      const res = await fetch(`${API_BASE}/api/spotify/request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          query: srSearchQuery.trim(),
+          requester: status.username || 'Dashboard'
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSrSearchQuery('');
+        setSpotifyMsg({ type: 'success', text: `เพิ่มเพลง "${data.track.name} - ${data.track.artist}" เข้าคิวแล้ว!` });
+        fetchSpotifyData();
+      } else {
+        setSpotifyMsg({ type: 'error', text: data.error || 'เพิ่มเพลงไม่สำเร็จ' });
+      }
+    } catch (err) {
+      setSpotifyMsg({ type: 'error', text: err.message });
+    } finally {
+      setSrIsRequesting(false);
+    }
+  };
+
+  const handleDeleteQueueItem = async (itemId) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/spotify/queue/${itemId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setSpotifyQueue(prev => prev.filter(it => it.id !== itemId));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleClearQueue = async () => {
+    if (!window.confirm('คุณต้องการล้างคิวเพลงทั้งหมดใช่หรือไม่?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/spotify/queue`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setSpotifyQueue([]);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const formatDuration = (ms) => {
+    if (!ms || isNaN(ms)) return '0:00';
+    const totalSec = Math.floor(ms / 1000);
+    const min = Math.floor(totalSec / 60);
+    const sec = totalSec % 60;
+    return `${min}:${sec < 10 ? '0' : ''}${sec}`;
   };
 
   const formatTime = (ts) => {
@@ -836,6 +1044,17 @@ function Dashboard() {
                           >
                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                               <Dices size={14} /> สุ่มเปิร์ค DBD (Test Roll)
+                            </span>
+                          </button>
+                        ) : selectedWidget === 'spotify-sr' ? (
+                          <button
+                            type="button"
+                            onClick={handleTriggerPreview}
+                            className="btn-preview-action accent"
+                            title="ทดสอบส่งข้อมูลเพลงจำลองไปยัง Widget"
+                          >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <Music size={14} /> ทดสอบแสดงเพลง (Test Now Playing)
                             </span>
                           </button>
                         ) : (
@@ -1530,6 +1749,507 @@ function Dashboard() {
                               ))}
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {/* Spotify Song Request Workspace */}
+                      {selectedWidget === 'spotify-sr' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                          {/* Spotify Alert / Notification */}
+                          {spotifyMsg.text && (
+                            <div style={{
+                              padding: '0.75rem 1rem',
+                              borderRadius: 'var(--radius-sm)',
+                              background: spotifyMsg.type === 'error' ? 'rgba(255, 69, 58, 0.12)' : 'rgba(48, 209, 88, 0.12)',
+                              border: spotifyMsg.type === 'error' ? '1px solid rgba(255, 69, 58, 0.3)' : '1px solid rgba(48, 209, 88, 0.3)',
+                              color: spotifyMsg.type === 'error' ? '#FF453A' : '#30D158',
+                              fontSize: '0.875rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '0.5rem'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                {spotifyMsg.type === 'error' ? <AlertCircle size={18} /> : <Check size={18} />}
+                                <span>{spotifyMsg.text}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setSpotifyMsg({ type: '', text: '' })}
+                                style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', padding: '2px' }}
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Section 1: Spotify Account & Connection Banner */}
+                          <div style={{
+                            background: 'linear-gradient(135deg, rgba(29, 185, 84, 0.08), rgba(20, 20, 26, 0.8))',
+                            border: '1px solid rgba(29, 185, 84, 0.25)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '1.25rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '1rem'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                              <div style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #1DB954, #158a3e)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#fff',
+                                boxShadow: '0 4px 16px rgba(29, 185, 84, 0.35)',
+                                flexShrink: 0
+                              }}>
+                                <Music size={26} />
+                              </div>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <h4 style={{ margin: 0, fontSize: '1.05rem', color: '#fff', fontWeight: 700 }}>
+                                    Spotify Song Request (ขอเพลง)
+                                  </h4>
+                                  {spotifyStatus.connected ? (
+                                    <span style={{
+                                      fontSize: '0.7rem',
+                                      fontWeight: 700,
+                                      color: '#1DB954',
+                                      background: 'rgba(29, 185, 84, 0.15)',
+                                      border: '1px solid rgba(29, 185, 84, 0.35)',
+                                      padding: '2px 8px',
+                                      borderRadius: '100px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px'
+                                    }}>
+                                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1DB954' }}></span>
+                                      เชื่อมต่อแล้ว
+                                    </span>
+                                  ) : (
+                                    <span style={{
+                                      fontSize: '0.7rem',
+                                      fontWeight: 600,
+                                      color: 'var(--text-secondary)',
+                                      background: 'rgba(255, 255, 255, 0.08)',
+                                      padding: '2px 8px',
+                                      borderRadius: '100px'
+                                    }}>
+                                      ยังไม่ได้เชื่อมต่อ
+                                    </span>
+                                  )}
+                                </div>
+                                <p style={{ margin: '4px 0 0', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
+                                  {spotifyStatus.connected
+                                    ? `บัญชี Spotify: ${spotifyStatus.displayName || 'กำลังใช้งาน'} ${spotifyStatus.product ? `(${spotifyStatus.product})` : ''}`
+                                    : 'เชื่อมต่อกับบัญชี Spotify ของคุณเพื่อให้ผู้ชมสามารถพิมพ์ !sr ในแชท Twitch ได้ทันที'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                              {spotifyStatus.connected ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={handleConnectSpotify}
+                                    disabled={spotifyLoading}
+                                    className="btn-preview-action"
+                                    style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+                                    title="เชื่อมต่อใหม่อีกครั้ง"
+                                  >
+                                    <RotateCw size={13} /> เชื่อมต่อใหม่
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleDisconnectSpotify}
+                                    disabled={spotifyLoading}
+                                    className="btn-preview-action"
+                                    style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem', color: '#FF453A', borderColor: 'rgba(255, 69, 58, 0.3)' }}
+                                  >
+                                    <LogOut size={13} /> ยกเลิกการเชื่อมต่อ
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={handleConnectSpotify}
+                                  disabled={spotifyLoading}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    padding: '0.55rem 1.15rem',
+                                    background: 'linear-gradient(135deg, #1DB954, #158a3e)',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: 'var(--radius-sm)',
+                                    fontWeight: 700,
+                                    fontSize: '0.875rem',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 4px 14px rgba(29, 185, 84, 0.3)',
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                >
+                                  {spotifyLoading ? <Loader2 size={16} className="spin" /> : <Music size={16} />}
+                                  เชื่อมต่อกับ Spotify
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Section 2: Now Playing Card (กำลังเล่นเพลง) */}
+                          <div style={{
+                            background: 'var(--surface-1)',
+                            border: '1px solid var(--border-secondary)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '1.25rem',
+                            position: 'relative',
+                            overflow: 'hidden'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Volume2 size={18} style={{ color: '#1DB954' }} />
+                                <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: 700 }}>
+                                  กำลังเล่นอยู่ (Now Playing)
+                                </h4>
+                              </div>
+                              {nowPlaying?.track && (
+                                <button
+                                  type="button"
+                                  onClick={handleSkipTrack}
+                                  className="btn-preview-action accent"
+                                  style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem' }}
+                                  title="ข้ามไปเพลงถัดไปบน Spotify"
+                                >
+                                  <SkipForward size={14} /> ข้ามเพลง (Skip)
+                                </button>
+                              )}
+                            </div>
+
+                            {nowPlaying?.track ? (
+                              <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <div style={{ position: 'relative', flexShrink: 0 }}>
+                                  <img
+                                    src={nowPlaying.track.albumArt || 'https://via.placeholder.com/100?text=Spotify'}
+                                    alt={nowPlaying.track.name}
+                                    style={{
+                                      width: '88px',
+                                      height: '88px',
+                                      borderRadius: 'var(--radius-sm)',
+                                      objectFit: 'cover',
+                                      boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                                      border: '1px solid rgba(255,255,255,0.1)'
+                                    }}
+                                  />
+                                  {nowPlaying.isPlaying && (
+                                    <span style={{
+                                      position: 'absolute',
+                                      bottom: '6px',
+                                      right: '6px',
+                                      background: '#1DB954',
+                                      color: '#fff',
+                                      borderRadius: '50%',
+                                      width: '18px',
+                                      height: '18px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center'
+                                    }}>
+                                      <Volume2 size={11} />
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div style={{ flex: 1, minWidth: '220px' }}>
+                                  <div style={{
+                                    fontSize: '1.15rem',
+                                    fontWeight: 800,
+                                    color: 'var(--text-primary)',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    marginBottom: '4px'
+                                  }}>
+                                    {nowPlaying.track.name}
+                                  </div>
+                                  <div style={{
+                                    fontSize: '0.875rem',
+                                    color: 'var(--text-secondary)',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    marginBottom: '0.5rem'
+                                  }}>
+                                    {nowPlaying.track.artists || nowPlaying.track.artist} {nowPlaying.track.album ? `• ${nowPlaying.track.album}` : ''}
+                                  </div>
+
+                                  {/* Progress Bar */}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                                      {formatDuration(nowPlaying.progressMs)}
+                                    </span>
+                                    <div style={{
+                                      flex: 1,
+                                      height: '5px',
+                                      background: 'rgba(255,255,255,0.1)',
+                                      borderRadius: '10px',
+                                      overflow: 'hidden'
+                                    }}>
+                                      <div style={{
+                                        width: `${nowPlaying.track.durationMs ? Math.min(100, Math.max(0, (nowPlaying.progressMs / nowPlaying.track.durationMs) * 100)) : 0}%`,
+                                        height: '100%',
+                                        background: 'linear-gradient(90deg, #1DB954, #2ebd59)',
+                                        borderRadius: '10px',
+                                        transition: 'width 0.5s ease'
+                                      }} />
+                                    </div>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                                      {formatDuration(nowPlaying.track.durationMs)}
+                                    </span>
+                                  </div>
+
+                                  {nowPlaying.requester && (
+                                    <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                      ขอเพลงโดย: <strong style={{ color: '#1DB954' }}>@{nowPlaying.requester}</strong>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{
+                                textAlign: 'center',
+                                padding: '2rem 1rem',
+                                color: 'var(--text-secondary)',
+                                background: 'rgba(255,255,255,0.02)',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px dashed var(--border-secondary)'
+                              }}>
+                                <Music size={36} style={{ opacity: 0.35, marginBottom: '0.5rem' }} />
+                                <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                  ไม่มีเพลงที่กำลังเล่นอยู่ในขณะนี้
+                                </p>
+                                <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                  เปิด Spotify บนอุปกรณ์ของคุณและกดเล่นเพลง หรือรอผู้ชมขอเพลงผ่านคำสั่ง <code>!sr &lt;ชื่อเพลง&gt;</code> ในแชท
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Section 3: Manual Request Input + Queue List */}
+                          <div style={{
+                            background: 'var(--surface-1)',
+                            border: '1px solid var(--border-secondary)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '1.25rem'
+                          }}>
+                            {/* Search and Add Song to Queue */}
+                            <div style={{ marginBottom: '1.25rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                <Search size={16} style={{ color: 'var(--text-secondary)' }} />
+                                <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: 700 }}>
+                                  เพิ่มเพลงเข้าคิวเอง (Manual Song Request)
+                                </h4>
+                              </div>
+                              <form onSubmit={handleManualSongRequest} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                <div style={{ flex: 1, minWidth: '220px', position: 'relative' }}>
+                                  <input
+                                    type="text"
+                                    value={srSearchQuery}
+                                    onChange={(e) => setSrSearchQuery(e.target.value)}
+                                    placeholder="พิมพ์ชื่อเพลง, ศิลปิน หรือวางลิงก์ Spotify (เช่น https://open.spotify.com/track/...)"
+                                    style={{
+                                      width: '100%',
+                                      padding: '0.55rem 0.85rem',
+                                      background: 'var(--surface-3)',
+                                      border: '1px solid var(--border-primary)',
+                                      borderRadius: 'var(--radius-sm)',
+                                      color: 'var(--text-primary)',
+                                      fontSize: '0.85rem'
+                                    }}
+                                  />
+                                </div>
+                                <button
+                                  type="submit"
+                                  disabled={srIsRequesting || !srSearchQuery.trim()}
+                                  style={{
+                                    padding: '0.55rem 1.15rem',
+                                    background: '#1DB954',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: 'var(--radius-sm)',
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    cursor: srIsRequesting || !srSearchQuery.trim() ? 'not-allowed' : 'pointer',
+                                    opacity: srIsRequesting || !srSearchQuery.trim() ? 0.6 : 1,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.45rem'
+                                  }}
+                                >
+                                  {srIsRequesting ? <Loader2 size={15} className="spin" /> : <Music size={15} />}
+                                  เพิ่มเข้าคิว
+                                </button>
+                              </form>
+                            </div>
+
+                            {/* Queue Header */}
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              paddingTop: '1rem',
+                              borderTop: '1px solid var(--border-secondary)',
+                              marginBottom: '0.75rem'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <ListMusic size={16} style={{ color: 'var(--text-secondary)' }} />
+                                <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: 700 }}>
+                                  คิวเพลงที่รอเล่น ({spotifyQueue.length})
+                                </h4>
+                              </div>
+                              {spotifyQueue.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={handleClearQueue}
+                                  className="btn-preview-action"
+                                  style={{ fontSize: '0.75rem', color: '#FF453A', borderColor: 'rgba(255, 69, 58, 0.25)' }}
+                                  title="ล้างคิวเพลงทั้งหมด"
+                                >
+                                  <Trash2 size={12} /> ล้างคิวทั้งหมด
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Queue List */}
+                            {spotifyQueue.length === 0 ? (
+                              <div style={{
+                                textAlign: 'center',
+                                padding: '2rem 1rem',
+                                color: 'var(--text-secondary)'
+                              }}>
+                                <ListMusic size={32} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+                                <p style={{ margin: 0, fontSize: '0.85rem' }}>
+                                  ยังไม่มีเพลงในคิวรอ
+                                </p>
+                                <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                  ผู้ชมสามารถพิมพ์ <code>!sr &lt;ชื่อเพลง&gt;</code> ใน Twitch Chat เพื่อเพิ่มเพลงเข้ามาในรายการนี้ได้อัตโนมัติ
+                                </p>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '360px', overflowY: 'auto' }}>
+                                {spotifyQueue.map((item, idx) => (
+                                  <div
+                                    key={item.id || idx}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.75rem',
+                                      padding: '0.6rem 0.85rem',
+                                      background: 'var(--surface-3)',
+                                      border: '1px solid var(--border-secondary)',
+                                      borderRadius: 'var(--radius-sm)'
+                                    }}
+                                  >
+                                    <span style={{
+                                      fontSize: '0.75rem',
+                                      fontWeight: 800,
+                                      color: 'var(--text-secondary)',
+                                      width: '24px',
+                                      textAlign: 'center'
+                                    }}>
+                                      #{idx + 1}
+                                    </span>
+                                    <img
+                                      src={item.track?.albumArt || 'https://via.placeholder.com/40?text=Song'}
+                                      alt={item.track?.name}
+                                      style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        borderRadius: 'var(--radius-xs)',
+                                        objectFit: 'cover',
+                                        flexShrink: 0
+                                      }}
+                                    />
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{
+                                        fontSize: '0.875rem',
+                                        fontWeight: 700,
+                                        color: 'var(--text-primary)',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                      }}>
+                                        {item.track?.name}
+                                      </div>
+                                      <div style={{
+                                        fontSize: '0.75rem',
+                                        color: 'var(--text-secondary)',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                      }}>
+                                        {item.track?.artists || item.track?.artist}
+                                      </div>
+                                    </div>
+                                    <span style={{
+                                      fontSize: '0.72rem',
+                                      color: '#1DB954',
+                                      background: 'rgba(29, 185, 84, 0.12)',
+                                      padding: '2px 8px',
+                                      borderRadius: 'var(--radius-xs)',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      @{item.requester || 'แชท'}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteQueueItem(item.id)}
+                                      style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--text-secondary)',
+                                        cursor: 'pointer',
+                                        padding: '4px',
+                                        borderRadius: 'var(--radius-xs)',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                      }}
+                                      title="ลบออกจากคิว"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Section 4: Chat Command Guide for Streamer */}
+                          <div style={{
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid var(--border-secondary)',
+                            borderRadius: 'var(--radius-sm)',
+                            padding: '1rem',
+                            fontSize: '0.825rem',
+                            color: 'var(--text-secondary)',
+                            lineHeight: 1.6
+                          }}>
+                            <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <Info size={15} style={{ color: '#1DB954' }} /> วิธีใช้งานสำหรับผู้ชมในช่อง Twitch
+                            </div>
+                            <ul style={{ margin: '0.4rem 0 0 1.25rem', padding: 0 }}>
+                              <li>ผู้ชมพิมพ์ <code>!sr &lt;ชื่อเพลง หรือ ลิงก์ Spotify&gt;</code> ใน Twitch Chat ได้ตลอดเวลา</li>
+                              <li>ระบบจะค้นหาเพลงที่ดีที่สุดบน Spotify แล้วใส่เข้าคิวของสตรีมเมอร์ให้อัตโนมัติ</li>
+                              <li>หากเปิด Spotify อยู่บนคอมพิวเตอร์หรือโทรศัพท์ เพลงจะเล่นตามคิวต่อเนื่อง</li>
+                              <li>สามารถปรับแต่งธีม (Glassmorphism, Cyberpunk, Vinyl), คูลดาวน์ และสี ได้จากแถบด้านซ้าย</li>
+                            </ul>
+                          </div>
                         </div>
                       )}
                     </>

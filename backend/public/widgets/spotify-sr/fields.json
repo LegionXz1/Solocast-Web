@@ -1,0 +1,78 @@
+{
+  "theme": {
+    "type": "dropdown",
+    "label": "ธีมการแสดงผล (Visual Theme)",
+    "value": "glassmorphism",
+    "options": {
+      "glassmorphism": "✨ Glassmorphism (กระจกหรูหรา)",
+      "cyberpunk": "⚡ Cyberpunk Neon (นีออนล้ำยุค)",
+      "minimal": "🖤 Clean Minimalist (เรียบหรู คมชัด)",
+      "vinyl": "💿 Retro Vinyl Record (แผ่นเสียงหมุน)"
+    },
+    "group": "Appearance"
+  },
+  "accentColor": {
+    "type": "colorpicker",
+    "label": "สีหลักของ Widget (Accent Color)",
+    "value": "#1DB954",
+    "group": "Appearance"
+  },
+  "showVisualizer": {
+    "type": "checkbox",
+    "label": "แสดงกราฟคลื่นเสียงดนตรี (Animated Equalizer)",
+    "value": true,
+    "group": "Appearance"
+  },
+  "showProgressBar": {
+    "type": "checkbox",
+    "label": "แสดงหลอดเวลาเพลง (Progress Bar)",
+    "value": true,
+    "group": "Appearance"
+  },
+  "showRequester": {
+    "type": "checkbox",
+    "label": "แสดงชื่อผู้ขอเพลงบนจอ (Show Requester Name)",
+    "value": true,
+    "group": "Appearance"
+  },
+  "commandPrefix": {
+    "type": "text",
+    "label": "คำสั่งขอเพลงในแชท (Chat Command Prefix)",
+    "value": "!sr",
+    "group": "Song Request Settings"
+  },
+  "channelPointsReward": {
+    "type": "text",
+    "label": "ชื่อรางวัลแต้มช่องสำหรับขอเพลง (Channel Points Reward)",
+    "value": "ขอเพลง",
+    "group": "Song Request Settings"
+  },
+  "maxDuration": {
+    "type": "slider",
+    "label": "ความยาวเพลงสูงสุดที่อนุญาต (นาที)",
+    "value": 7,
+    "min": 2,
+    "max": 20,
+    "step": 1,
+    "group": "Song Request Settings"
+  },
+  "userCooldown": {
+    "type": "slider",
+    "label": "คูลดาวน์ต่อผู้ใช้ (วินาที)",
+    "value": 60,
+    "min": 0,
+    "max": 600,
+    "step": 10,
+    "group": "Song Request Settings"
+  },
+  "idleBehavior": {
+    "type": "dropdown",
+    "label": "เมื่อไม่มีเพลงเล่น (Idle State)",
+    "value": "idle_card",
+    "options": {
+      "idle_card": "แสดงกล่องสแตนด์บายพร้อมคำสั่งขอเพลง",
+      "hide": "ซ่อน Widget อัตโนมัติ (Fade Out)"
+    },
+    "group": "Behavior"
+  }
+}

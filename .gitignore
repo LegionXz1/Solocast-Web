@@ -13,6 +13,8 @@ frontend/.env
 # Sensitive Runtime Data (OAuth Tokens & Sessions)
 backend/data/tokens.json
 backend/data/sessions.json
+backend/data/spotify_tokens.json
+backend/data/spotify_queue.json
 
 # Build outputs
 frontend/dist/

@@ -14,6 +14,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { syncDbdPerks } from './scripts/scrape_dbd_perks.js';
 import { initDatabase, syncStore, saveAllItems, syncTickets, saveAllTickets, deleteTicketFromMongo } from './database.js';
+import * as spotify from './spotify.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1250,14 +1251,16 @@ function startEventSub(userId) {
     console.warn(`[EventSub] Shoutout listener setup warning for ${userId}:`, err?.message || err);
   }
 
-  // ดักฟังข้อความแชทเพื่อตรวจจับคำสั่ง !so หรือ !shoutout
+  // ดักฟังข้อความแชทเพื่อตรวจจับคำสั่ง !so, !shoutout และ !sr (Song Request)
   try {
-    el.onChannelChatMessage(userId, userId, (e) => {
+    el.onChannelChatMessage(userId, userId, async (e) => {
       const text = (e.messageText || '').trim();
       console.log(`[Twitch Chat] 💬 <${e.chatterName}> in channel ${userId}: "${text}"`);
 
       const parts = text.split(/\s+/);
-      const isSoCmd = parts.length >= 2 && (parts[0].toLowerCase() === '!so' || parts[0].toLowerCase() === '!shoutout');
+      const cmd = parts[0].toLowerCase();
+      const isSoCmd = parts.length >= 2 && (cmd === '!so' || cmd === '!shoutout');
+      const isSrCmd = parts.length >= 2 && cmd === '!sr';
 
       if (isSoCmd) {
         // ตรวจสอบคำสั่ง !so <channel> หรือ !shoutout <channel>
@@ -1276,6 +1279,88 @@ function startEventSub(userId) {
           }
         };
         io.to('user_' + userId).emit('onEventReceived', soEv);
+      } else if (isSrCmd && spotify.isSpotifyConfigured()) {
+        // คำสั่ง !sr <ชื่อเพลง / Spotify URL> — ขอเพลงจาก Spotify
+        const query = parts.slice(1).join(' ').trim();
+        const chatterName = e.chatterName || 'viewer';
+        const displayName = e.chatterDisplayName || chatterName;
+        try {
+          // ตรวจสอบ Cooldown
+          const srSettings = widgetSettingsStore['spotify-sr']?.[userId] || {};
+          const cooldownSec = parseInt(srSettings.cooldownSeconds ?? 60);
+          const remaining = spotify.checkUserCooldown(userId, chatterName, cooldownSec);
+          if (remaining > 0) {
+            // บอก cooldown ในแชท
+            try {
+              await apiClient?.asUser(userId, async (ctx) => {
+                await ctx.chat.sendChatMessage(userId, `@${displayName} โปรดรอ ${remaining} วินาทีก่อนขอเพลงอีกครั้ง! ⏳`);
+              });
+            } catch (_) {}
+            return;
+          }
+
+          // ดึง Access Token ของ Spotify
+          const accessToken = await spotify.getValidAccessToken(userId);
+          if (!accessToken) {
+            try {
+              await apiClient?.asUser(userId, async (ctx) => {
+                await ctx.chat.sendChatMessage(userId, `ยังไม่ได้เชื่อมต่อ Spotify กรุณาเชื่อมต่อในหน้า Dashboard ก่อนนะ 🎵`);
+              });
+            } catch (_) {}
+            return;
+          }
+
+          // ค้นหาเพลง
+          const track = await spotify.searchSpotifyTrack(query, accessToken);
+          if (!track) {
+            try {
+              await apiClient?.asUser(userId, async (ctx) => {
+                await ctx.chat.sendChatMessage(userId, `@${displayName} ไม่พบเพลง "${query}" ใน Spotify ลองใหม่อีกครั้งนะ 🔍`);
+              });
+            } catch (_) {}
+            return;
+          }
+
+          // เพิ่มเพลงเข้า Spotify Queue
+          await spotify.addTrackToSpotifyQueue(track.uri, accessToken);
+          spotify.recordUserCooldown(userId, chatterName);
+
+          // บันทึกลง Song Request Queue ของเรา
+          const queueItem = spotify.addToSongQueue(userId, displayName, track, 'chat');
+
+          // ส่ง Real-time update ไปยัง Dashboard และ Widget Overlay
+          io.to('user_' + userId).emit('spotify_queue_updated', {
+            userId,
+            queue: spotify.getSongQueueList(userId)
+          });
+          io.emit('spotify_new_request', {
+            userId,
+            track,
+            requester: displayName
+          });
+
+          // ตอบกลับในแชท
+          const trackName = track.name;
+          const artists = track.artists;
+          try {
+            await apiClient?.asUser(userId, async (ctx) => {
+              await ctx.chat.sendChatMessage(userId, `🎵 @${displayName} เพิ่ม "${trackName}" โดย ${artists} เข้า Queue เรียบร้อย!`);
+            });
+          } catch (_) {}
+
+          console.log(`[Spotify SR] 🎵 ${displayName} requested: "${trackName}" by ${artists}`);
+        } catch (srErr) {
+          console.error(`[Spotify SR] ❌ Error processing !sr from ${chatterName}:`, srErr?.message || srErr);
+          const errMsg = srErr?.message || '';
+          let reply = `@${displayName} ไม่สามารถเพิ่มเพลงได้ในตอนนี้`;
+          if (errMsg === 'NO_ACTIVE_DEVICE') reply = `@${displayName} กรุณาเปิด Spotify และเล่นเพลงก่อนนะ 🎧`;
+          if (errMsg === 'PREMIUM_REQUIRED') reply = `@${displayName} ต้องการ Spotify Premium ถึงจะขอเพลงได้ 💎`;
+          try {
+            await apiClient?.asUser(userId, async (ctx) => {
+              await ctx.chat.sendChatMessage(userId, reply);
+            });
+          } catch (_) {}
+        }
       } else {
         // ส่งข้อความแชททั่วไปเข้าห้อง Socket เผื่อ Widget อื่นใช้งาน
         const chatEv = {
@@ -1570,6 +1655,197 @@ app.delete('/api/support/tickets/:ticketId', checkAdminAuth, (req, res) => {
   }
 });
 
+// ============================================================
+// 🎵 Spotify Song Request — API Routes
+// ============================================================
+
+// GET /api/spotify/status — ตรวจสอบสถานะการเชื่อมต่อ Spotify
+app.get('/api/spotify/status', (req, res) => {
+  const userId = req.query.userId || req.query.user || '';
+  const configured = spotify.isSpotifyConfigured();
+  const token = spotify.getSpotifyUserToken(userId || undefined);
+  const connected = Boolean(token && token.accessToken);
+  res.json({
+    configured,
+    connected,
+    displayName: connected ? (token.spotifyDisplayName || token.spotifyUserId || 'Connected') : null,
+    product: connected ? (token.product || 'unknown') : null
+  });
+});
+
+// GET /api/spotify/auth-url — ดึง URL สำหรับ Login Spotify
+app.get('/api/spotify/auth-url', checkAdminAuth, (req, res) => {
+  try {
+    const userId = req.user?.userId || req.query.userId || '';
+    if (!spotify.isSpotifyConfigured()) {
+      return res.status(503).json({ error: 'Spotify Client ID/Secret ยังไม่ได้ตั้งค่าใน .env' });
+    }
+    const url = spotify.getSpotifyAuthUrl(userId);
+    res.json({ url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /auth/spotify/callback — รับ Code กลับมาจาก Spotify OAuth
+app.get('/auth/spotify/callback', async (req, res) => {
+  const { code, state, error } = req.query;
+  if (error) {
+    return res.send(`<script>window.close();</script><p>Spotify authorization cancelled: ${error}</p>`);
+  }
+  if (!code) {
+    return res.status(400).send('Missing code from Spotify');
+  }
+  try {
+    // Decode state to get userId
+    let userId = '';
+    try {
+      const stateObj = JSON.parse(Buffer.from(state || '', 'base64').toString('utf8'));
+      userId = stateObj.userId || '';
+    } catch (_) {}
+
+    const tokenData = await spotify.exchangeSpotifyCode(code);
+    const targetKey = userId || tokenData.spotifyUserId || 'default';
+
+    const existing = spotify.getSpotifyUserToken(undefined) || {};
+    const allTokens = {};
+    // Keep only this user's token (single-streamer setup)
+    allTokens[targetKey] = tokenData;
+    spotify.saveSpotifyTokens(allTokens);
+
+    console.log(`[Spotify] ✅ Connected Spotify account: ${tokenData.spotifyDisplayName} (${tokenData.product})`);
+    const frontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173');
+    res.redirect(`${frontendUrl}/dashboard?spotify_connected=1`);
+  } catch (err) {
+    console.error('[Spotify] OAuth callback error:', err);
+    res.status(500).send(`Spotify connection failed: ${err.message}`);
+  }
+});
+
+// DELETE /api/spotify/disconnect — ยกเลิกการเชื่อมต่อ Spotify
+app.delete('/api/spotify/disconnect', checkAdminAuth, (req, res) => {
+  try {
+    spotify.saveSpotifyTokens({});
+    res.json({ success: true, message: 'Spotify disconnected' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/spotify/current & /api/spotify/currently-playing — เพลงที่กำลังเล่นอยู่ตอนนี้
+app.get(['/api/spotify/current', '/api/spotify/currently-playing'], async (req, res) => {
+  try {
+    const userId = req.query.userId || req.query.user || '';
+    const accessToken = await spotify.getValidAccessToken(userId || undefined);
+    if (!accessToken) {
+      return res.json({ isPlaying: false, track: null, connected: false });
+    }
+    const current = await spotify.getCurrentlyPlaying(accessToken);
+    res.json({ ...current, connected: true });
+  } catch (err) {
+    if (err.message === 'TOKEN_EXPIRED') {
+      return res.json({ isPlaying: false, track: null, connected: false, error: 'TOKEN_EXPIRED' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/spotify/queue — รายการขอเพลงที่รอคิว
+app.get('/api/spotify/queue', (req, res) => {
+  try {
+    const userId = req.query.userId || req.query.user || '';
+    const limit = parseInt(req.query.limit || '50');
+    const queue = spotify.getSongQueueList(userId || undefined, limit);
+    res.json({ queue });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/spotify/request — ขอเพลงจาก Dashboard (ไม่ผ่านแชท)
+app.post('/api/spotify/request', checkAdminAuth, async (req, res) => {
+  try {
+    const { query, requester } = req.body || {};
+    if (!query) return res.status(400).json({ error: 'กรุณากรอกชื่อเพลงหรือ Spotify URL' });
+
+    const userId = req.user?.userId || '';
+    const accessToken = await spotify.getValidAccessToken(userId || undefined);
+    if (!accessToken) {
+      return res.status(503).json({ error: 'ยังไม่ได้เชื่อมต่อ Spotify กรุณา Connect ก่อน' });
+    }
+
+    const track = await spotify.searchSpotifyTrack(query, accessToken);
+    if (!track) {
+      return res.status(404).json({ error: `ไม่พบเพลง "${query}" ใน Spotify` });
+    }
+
+    await spotify.addTrackToSpotifyQueue(track.uri, accessToken);
+    const queueItem = spotify.addToSongQueue(userId, requester || req.user?.username || 'Dashboard', track, 'dashboard');
+
+    io.to('user_' + userId).emit('spotify_queue_updated', {
+      userId,
+      queue: spotify.getSongQueueList(userId)
+    });
+    io.emit('spotify_new_request', {
+      userId,
+      track,
+      requester: requester || req.user?.username || 'Dashboard'
+    });
+
+    res.json({ success: true, track, queueItem });
+  } catch (err) {
+    let msg = err.message;
+    if (msg === 'NO_ACTIVE_DEVICE') msg = 'กรุณาเปิด Spotify และเล่นเพลงก่อนนะ 🎧';
+    if (msg === 'PREMIUM_REQUIRED') msg = 'ต้องการ Spotify Premium ถึงจะใช้งานได้';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// DELETE /api/spotify/queue/:id — ลบรายการออกจาก Queue
+app.delete('/api/spotify/queue/:id', checkAdminAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const removed = spotify.removeQueueItem(id);
+    if (!removed) return res.status(404).json({ error: 'ไม่พบรายการนี้ใน Queue' });
+    const userId = req.user?.userId || '';
+    io.to('user_' + userId).emit('spotify_queue_updated', {
+      userId,
+      queue: spotify.getSongQueueList(userId)
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/spotify/queue — ล้าง Queue ทั้งหมด
+app.delete('/api/spotify/queue', checkAdminAuth, (req, res) => {
+  try {
+    const userId = req.user?.userId || '';
+    spotify.clearSongQueue(userId || undefined);
+    io.to('user_' + userId).emit('spotify_queue_updated', { userId, queue: [] });
+    res.json({ success: true, message: 'Queue cleared' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/spotify/skip — ข้ามเพลง (Admin เท่านั้น)
+app.post('/api/spotify/skip', checkAdminAuth, async (req, res) => {
+  try {
+    const userId = req.user?.userId || '';
+    const accessToken = await spotify.getValidAccessToken(userId || undefined);
+    if (!accessToken) return res.status(503).json({ error: 'ยังไม่ได้เชื่อมต่อ Spotify' });
+    await spotify.skipSpotifyTrack(accessToken);
+    res.json({ success: true });
+  } catch (err) {
+    let msg = err.message;
+    if (msg === 'NO_ACTIVE_DEVICE') msg = 'กรุณาเปิด Spotify และเล่นเพลงก่อน';
+    if (msg === 'PREMIUM_REQUIRED') msg = 'ต้องการ Spotify Premium';
+    res.status(500).json({ error: msg });
+  }
+});
+
 // Function to hydrate all in-memory stores from MongoDB on startup
 async function hydrateFromMongo() {
   try {
@@ -1594,6 +1870,13 @@ async function hydrateFromMongo() {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(SUPPORT_FILE, JSON.stringify(mongoTickets, null, 2), 'utf8');
     }
+
+    // 🎵 Hydrate Spotify Tokens & Queue from MongoDB
+    const mongoSpotifyTokens = await syncStore('spotify_tokens', {});
+    const mongoSpotifyQueue = await syncStore('spotify_queue', {});
+    const queueList = Object.values(mongoSpotifyQueue || {}).sort((a, b) => (a.requestedAt || 0) - (b.requestedAt || 0));
+    spotify.setHydratedSpotifyData(mongoSpotifyTokens, queueList);
+
     console.log('✨ [Database] In-memory stores successfully synchronized with MongoDB Atlas!');
   } catch (err) {
     console.error('❌ [Database] Failed to hydrate stores from MongoDB:', err.message);
@@ -1615,5 +1898,25 @@ server.listen(PORT, async () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
   await initDatabase();
   await hydrateFromMongo();
+
+  // 🎵 Spotify Now Playing — Poll & Broadcast every 15 seconds
+  if (spotify.isSpotifyConfigured()) {
+    setInterval(async () => {
+      try {
+        const token = spotify.getSpotifyUserToken(undefined);
+        if (!token) return;
+        const uid = token.spotifyUserId || Object.keys({}).find(Boolean) || 'default';
+        const accessToken = await spotify.getValidAccessToken(undefined);
+        if (!accessToken) return;
+        const current = await spotify.getCurrentlyPlaying(accessToken);
+        if (current) {
+          io.emit('spotify_now_playing', { ...current, timestamp: Date.now() });
+        }
+      } catch (e) {
+        // Silently ignore polling errors
+      }
+    }, 15000);
+    console.log('🎵 [Spotify] Now Playing polling started (15s interval)');
+  }
 });
 

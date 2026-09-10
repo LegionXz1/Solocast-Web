@@ -1,0 +1,202 @@
+// Spotify Song Request & Now Playing Widget Logic
+
+let currentTrack = null;
+let isPlaying = false;
+let currentProgressMs = 0;
+let totalDurationMs = 0;
+let progressInterval = null;
+let toastTimeout = null;
+
+let settings = {
+  theme: 'glassmorphism',
+  accentColor: '#1DB954',
+  showVisualizer: true,
+  showProgressBar: true,
+  showRequester: true,
+  commandPrefix: '!sr',
+  channelPointsReward: 'ขอเพลง',
+  idleBehavior: 'idle_card'
+};
+
+function formatTime(ms) {
+  if (!ms || isNaN(ms)) return '00:00';
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function applySettings(newSettings) {
+  if (!newSettings) return;
+  settings = { ...settings, ...newSettings };
+
+  const root = document.getElementById('spotify-widget-root');
+  if (root) {
+    // Theme class
+    root.className = 'spotify-card';
+    root.classList.add(`theme-${settings.theme || 'glassmorphism'}`);
+
+    // Accent Color
+    const accent = settings.accentColor || '#1DB954';
+    root.style.setProperty('--accent-color', accent);
+    root.style.setProperty('--accent-glow', `${accent}40`);
+
+    // Vinyl Disc
+    const vinylDisc = document.getElementById('vinyl-disc');
+    if (vinylDisc) {
+      if (settings.theme === 'vinyl') vinylDisc.classList.remove('hidden');
+      else vinylDisc.classList.add('hidden');
+    }
+
+    // Visualizer
+    const visualizer = document.getElementById('visualizer');
+    if (visualizer) {
+      if (settings.showVisualizer !== false) visualizer.classList.remove('hidden');
+      else visualizer.classList.add('hidden');
+    }
+
+    // Progress Bar
+    const progContainer = document.getElementById('progress-container');
+    if (progContainer) {
+      if (settings.showProgressBar !== false) progContainer.classList.remove('hidden');
+      else progContainer.classList.add('hidden');
+    }
+
+    // Requester Badge
+    const reqBadge = document.getElementById('requester-badge');
+    if (reqBadge && (!settings.showRequester || !reqBadge.dataset.hasUser)) {
+      reqBadge.classList.add('hidden');
+    }
+
+    // Command label in Idle card
+    const cmdLabel = document.getElementById('idle-cmd-label');
+    if (cmdLabel) {
+      cmdLabel.innerText = `${settings.commandPrefix || '!sr'} ชื่อเพลง`;
+    }
+  }
+}
+
+function startProgressTimer() {
+  if (progressInterval) clearInterval(progressInterval);
+  progressInterval = setInterval(() => {
+    if (!isPlaying || !totalDurationMs) return;
+    currentProgressMs += 1000;
+    if (currentProgressMs > totalDurationMs) currentProgressMs = totalDurationMs;
+
+    const fill = document.getElementById('progress-bar-fill');
+    const timeCurrent = document.getElementById('time-current');
+    if (fill && totalDurationMs > 0) {
+      const pct = Math.min(100, Math.max(0, (currentProgressMs / totalDurationMs) * 100));
+      fill.style.width = `${pct}%`;
+    }
+    if (timeCurrent) {
+      timeCurrent.innerText = formatTime(currentProgressMs);
+    }
+  }, 1000);
+}
+
+function updatePlayingState(data) {
+  const root = document.getElementById('spotify-widget-root');
+  const idleView = document.getElementById('idle-view');
+  const playingView = document.getElementById('playing-view');
+  const albumArt = document.getElementById('album-art');
+  const trackTitle = document.getElementById('track-title');
+  const trackArtist = document.getElementById('track-artist');
+  const timeCurrent = document.getElementById('time-current');
+  const timeTotal = document.getElementById('time-total');
+  const progressBarFill = document.getElementById('progress-bar-fill');
+  const reqBadge = document.getElementById('requester-badge');
+  const reqName = document.getElementById('requester-name');
+  const statusText = document.getElementById('status-text');
+
+  if (!data || !data.track || !data.isPlaying) {
+    isPlaying = false;
+    if (settings.idleBehavior === 'hide') {
+      root.classList.add('hidden');
+    } else {
+      root.classList.remove('hidden');
+      idleView.classList.remove('hidden');
+      playingView.classList.add('hidden');
+    }
+    return;
+  }
+
+  root.classList.remove('hidden');
+  idleView.classList.add('hidden');
+  playingView.classList.remove('hidden');
+
+  isPlaying = Boolean(data.isPlaying);
+  currentProgressMs = data.progressMs || 0;
+  totalDurationMs = data.durationMs || data.track?.durationMs || 0;
+
+  if (albumArt) albumArt.src = data.track.albumArt || 'https://via.placeholder.com/120x120?text=Spotify';
+  if (trackTitle) trackTitle.innerText = data.track.name || 'Unknown Track';
+  if (trackArtist) trackArtist.innerText = data.track.artists || 'Unknown Artist';
+
+  if (timeCurrent) timeCurrent.innerText = formatTime(currentProgressMs);
+  if (timeTotal) timeTotal.innerText = formatTime(totalDurationMs);
+
+  if (progressBarFill && totalDurationMs > 0) {
+    const pct = Math.min(100, Math.max(0, (currentProgressMs / totalDurationMs) * 100));
+    progressBarFill.style.width = `${pct}%`;
+  }
+
+  if (statusText) {
+    statusText.innerText = isPlaying ? 'NOW PLAYING' : 'PAUSED';
+  }
+
+  // Requester Name
+  if (reqBadge && reqName) {
+    if (data.requester && settings.showRequester !== false) {
+      reqName.innerText = `@${data.requester}`;
+      reqBadge.dataset.hasUser = 'true';
+      reqBadge.classList.remove('hidden');
+    } else {
+      reqBadge.dataset.hasUser = '';
+      reqBadge.classList.add('hidden');
+    }
+  }
+
+  startProgressTimer();
+}
+
+function showRequestToast(trackName, requester) {
+  const toast = document.getElementById('request-toast');
+  const text = document.getElementById('toast-text');
+  if (!toast || !text) return;
+
+  text.innerText = `คิวใหม่: "${trackName}" โดย @${requester || 'แชท'}`;
+  toast.classList.remove('hidden');
+
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    toast.classList.add('hidden');
+  }, 6000);
+}
+
+// StreamElements / Solocast standard events
+window.addEventListener('onWidgetLoad', function(obj) {
+  const fieldData = obj.detail?.fieldData || {};
+  applySettings(fieldData);
+
+  // Initial fetch for current track
+  const params = new URLSearchParams(window.location.search);
+  const user = params.get('user') || '';
+  fetch(`/api/spotify/currently-playing?user=${encodeURIComponent(user)}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (data) updatePlayingState(data);
+    })
+    .catch(() => {});
+});
+
+window.addEventListener('onEventReceived', function(obj) {
+  const event = obj.detail;
+  if (!event) return;
+
+  if (event.type === 'spotify_now_playing') {
+    updatePlayingState(event.data);
+  } else if (event.type === 'spotify_new_request') {
+    showRequestToast(event.data?.track?.name, event.data?.requester);
+  }
+});

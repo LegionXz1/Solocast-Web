@@ -365,3 +365,27 @@ socket.on('onEventReceived', (event) => {
     console.log('[Solocast Adapter] Dispatched onEventReceived:', seEventDetail);
   }
 });
+
+// 🎵 Spotify Now Playing & Requests Bridge
+socket.on('spotify_now_playing', (data) => {
+  const seEvent = new CustomEvent('onEventReceived', {
+    detail: {
+      type: 'spotify_now_playing',
+      listener: 'spotify_now_playing',
+      data: data
+    }
+  });
+  window.dispatchEvent(seEvent);
+});
+
+socket.on('spotify_new_request', (data) => {
+  const seEvent = new CustomEvent('onEventReceived', {
+    detail: {
+      type: 'spotify_new_request',
+      listener: 'spotify_new_request',
+      data: data
+    }
+  });
+  window.dispatchEvent(seEvent);
+});
+

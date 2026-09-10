@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Spotify Song Request & Now Playing - FastChick</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/adapter.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
+
+    :root {
+      --accent-color: #1DB954;
+      --accent-glow: rgba(29, 185, 84, 0.45);
+      --bg-surface: rgba(18, 18, 22, 0.85);
+      --border-color: rgba(255, 255, 255, 0.12);
+      --text-primary: #FFFFFF;
+      --text-secondary: rgba(255, 255, 255, 0.7);
+      --radius-card: 16px;
+      --radius-art: 12px;
+      --font-main: 'Outfit', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: transparent;
+      overflow: hidden;
+      font-family: var(--font-main);
+      color: var(--text-primary);
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 24px;
+    }
+
+    /* Card Root Container */
+    .spotify-card {
+      position: relative;
+      width: 520px;
+      min-height: 120px;
+      border-radius: var(--radius-card);
+      padding: 16px;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+    }
+
+    /* Theme 1: Glassmorphism (Default) */
+    .theme-glassmorphism {
+      background: linear-gradient(135deg, rgba(26, 26, 36, 0.82), rgba(16, 16, 22, 0.94));
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 0 24px var(--accent-glow);
+    }
+
+    /* Theme 2: Cyberpunk Neon */
+    .theme-cyberpunk {
+      background: rgba(10, 10, 15, 0.95);
+      border: 2px solid var(--accent-color);
+      box-shadow: 0 0 20px var(--accent-glow), inset 0 0 15px rgba(0, 0, 0, 0.8);
+      border-radius: 6px;
+    }
+    .theme-cyberpunk .album-art {
+      border-radius: 4px;
+    }
+    .theme-cyberpunk .status-pill {
+      border-radius: 4px;
+    }
+
+    /* Theme 3: Clean Minimalist */
+    .theme-minimal {
+      background: #111116;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      border-radius: 12px;
+    }
+
+    /* Theme 4: Retro Vinyl */
+    .theme-vinyl .album-art {
+      border-radius: 50%;
+      animation: spinVinyl 12s linear infinite;
+      box-shadow: 0 0 0 4px #1a1a1a, 0 0 0 8px #2a2a2a, 0 8px 24px rgba(0, 0, 0, 0.6);
+    }
+    @keyframes spinVinyl {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Toast Notification for New Requests */
+    .request-toast {
+      position: absolute;
+      top: 10px;
+      left: 16px;
+      right: 16px;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, rgba(29, 185, 84, 0.95), rgba(20, 140, 60, 0.95));
+      color: #FFFFFF;
+      padding: 8px 14px;
+      border-radius: 10px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+      animation: slideToast 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .toast-badge {
+      background: rgba(0, 0, 0, 0.25);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      font-family: var(--font-mono);
+    }
+    .toast-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    @keyframes slideToast {
+      from { transform: translateY(-120%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Idle State View */
+    .idle-view {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 6px 4px;
+    }
+    .idle-icon-wrapper {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: rgba(29, 185, 84, 0.12);
+      color: var(--accent-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(29, 185, 84, 0.25);
+      flex-shrink: 0;
+      animation: pulseGlow 3s infinite ease-in-out;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 10px rgba(29, 185, 84, 0.2); }
+      50% { box-shadow: 0 0 22px rgba(29, 185, 84, 0.5); }
+    }
+    .idle-text-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .idle-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .idle-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+    .highlight-pill {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--accent-color);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    /* Active Playing View */
+    .playing-view {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      animation: fadeIn 0.4s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.97); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Album Art */
+    .art-container {
+      position: relative;
+      width: 84px;
+      height: 84px;
+      flex-shrink: 0;
+    }
+    .album-art {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: var(--radius-art);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Sound Visualizer Bars */
+    .sound-visualizer {
+      position: absolute;
+      bottom: 6px;
+      right: 6px;
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 18px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 3px 5px;
+      border-radius: 6px;
+      backdrop-filter: blur(4px);
+    }
+    .sound-visualizer .bar {
+      width: 3px;
+      background: var(--accent-color);
+      border-radius: 2px;
+      animation: barBounce 0.8s ease-in-out infinite alternate;
+    }
+    .sound-visualizer .bar-1 { height: 6px; animation-delay: 0.1s; }
+    .sound-visualizer .bar-2 { height: 14px; animation-delay: 0.3s; }
+    .sound-visualizer .bar-3 { height: 9px; animation-delay: 0.15s; }
+    .sound-visualizer .bar-4 { height: 16px; animation-delay: 0.45s; }
+    .sound-visualizer .bar-5 { height: 7px; animation-delay: 0.25s; }
+
+    @keyframes barBounce {
+      0% { height: 3px; opacity: 0.5; }
+      100% { height: 16px; opacity: 1; }
+    }
+
+    /* Track Details Group */
+    .track-details {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    /* Meta Header Row (Status & Requester) */
+    .meta-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.68rem;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--accent-color);
+      background: rgba(29, 185, 84, 0.12);
+      padding: 2px 8px;
+      border-radius: 20px;
+      border: 1px solid rgba(29, 185, 84, 0.25);
+    }
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      animation: pulseDot 1.4s infinite ease-in-out;
+    }
+    @keyframes pulseDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.5; }
+    }
+
+    .requester-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.75rem;
+      color: #BF94FF;
+      background: rgba(145, 70, 255, 0.14);
+      border: 1px solid rgba(145, 70, 255, 0.3);
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    .twitch-icon {
+      flex-shrink: 0;
+    }
+
+    /* Track Title & Artist */
+    .track-title-wrapper {
+      overflow: hidden;
+      white-space: nowrap;
+      position: relative;
+    }
+    .track-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: inline-block;
+    }
+    .track-artist {
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Real-time Progress Bar */
+    .progress-container {
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .progress-bar-bg {
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent-color);
+      border-radius: 6px;
+      transition: width 0.3s linear;
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+    .time-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.68rem;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="spotify-widget-root" class="spotify-card theme-glassmorphism">
+    <!-- Toast Notification when a new song is requested -->
+    <div id="request-toast" class="request-toast hidden">
+      <span class="toast-badge">🎵 REQUEST</span>
+      <span id="toast-text" class="toast-text">เพิ่มเพลงลงคิวแล้ว!</span>
+    </div>
+
+    <!-- Idle State View -->
+    <div id="idle-view" class="idle-view">
+      <div class="idle-icon-wrapper">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.502 17.308c-.218.358-.684.474-1.042.256-2.857-1.745-6.455-2.14-10.69-1.172-.409.094-.816-.16-.91-.569-.093-.41.16-.817.57-.91 4.636-1.06 8.604-.61 11.815 1.353.359.218.475.684.257 1.042zm1.468-3.26c-.274.446-.86.588-1.306.314-3.27-2.01-8.254-2.593-12.12-1.42-.497.15-1.026-.135-1.176-.632-.15-.497.135-1.026.632-1.176 4.417-1.34 9.911-.69 13.656 1.608.446.274.588.86.314 1.306zm.126-3.398C15.18 8.32 8.71 8.1 4.978 9.233c-.604.183-1.246-.164-1.429-.768-.182-.604.165-1.246.769-1.429 4.29-1.302 11.438-1.047 16.002 1.662.544.323.725 1.033.402 1.577-.323.543-1.033.724-1.576.401z"/>
+        </svg>
+      </div>
+      <div class="idle-text-group">
+        <div class="idle-title">พร้อมรับเพลงจากผู้ชม</div>
+        <div class="idle-desc">พิมพ์ <span id="idle-cmd-label" class="highlight-pill">!sr ชื่อเพลง</span> ในแชทเพื่อขอเพลง</div>
+      </div>
+    </div>
+
+    <!-- Active Playing View -->
+    <div id="playing-view" class="playing-view hidden">
+      <!-- Album Art & Vinyl -->
+      <div class="art-container">
+        <img id="album-art" class="album-art" src="" alt="Album Artwork" />
+        <div id="vinyl-disc" class="vinyl-disc hidden"></div>
+        <div id="visualizer" class="sound-visualizer">
+          <span class="bar bar-1"></span>
+          <span class="bar bar-2"></span>
+          <span class="bar bar-3"></span>
+          <span class="bar bar-4"></span>
+          <span class="bar bar-5"></span>
+        </div>
+      </div>
+
+      <!-- Track Details -->
+      <div class="track-details">
+        <!-- Status Pill & Requester Row -->
+        <div class="meta-header-row">
+          <span id="status-pill" class="status-pill">
+            <span class="pulse-dot"></span>
+            <span id="status-text">NOW PLAYING</span>
+          </span>
+          <span id="requester-badge" class="requester-badge hidden">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" class="twitch-icon">
+              <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/>
+            </svg>
+            <span id="requester-name">@Streamer</span>
+          </span>
+        </div>
+
+        <!-- Title & Artist -->
+        <div class="track-title-wrapper">
+          <div id="track-title" class="track-title">กำลังโหลดชื่อเพลง...</div>
+        </div>
+        <div id="track-artist" class="track-artist">ศิลปิน</div>
+
+        <!-- Real-time Progress Bar -->
+        <div id="progress-container" class="progress-container">
+          <div class="progress-bar-bg">
+            <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+          </div>
+          <div class="time-labels">
+            <span id="time-current">00:00</span>
+            <span id="time-total">00:00</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentTrack = null;
+    let isPlaying = false;
+    let currentProgressMs = 0;
+    let totalDurationMs = 0;
+    let progressInterval = null;
+    let toastTimeout = null;
+
+    let settings = {
+      theme: 'glassmorphism',
+      accentColor: '#1DB954',
+      showVisualizer: true,
+      showProgressBar: true,
+      showRequester: true,
+      commandPrefix: '!sr',
+      channelPointsReward: 'ขอเพลง',
+      idleBehavior: 'idle_card'
+    };
+
+    function formatTime(ms) {
+      if (!ms || isNaN(ms)) return '00:00';
+      const totalSeconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function applySettings(newSettings) {
+      if (!newSettings) return;
+      settings = { ...settings, ...newSettings };
+
+      const root = document.getElementById('spotify-widget-root');
+      if (root) {
+        root.className = 'spotify-card';
+        root.classList.add(`theme-${settings.theme || 'glassmorphism'}`);
+
+        const accent = settings.accentColor || '#1DB954';
+        root.style.setProperty('--accent-color', accent);
+        root.style.setProperty('--accent-glow', `${accent}40`);
+
+        const vinylDisc = document.getElementById('vinyl-disc');
+        if (vinylDisc) {
+          if (settings.theme === 'vinyl') vinylDisc.classList.remove('hidden');
+          else vinylDisc.classList.add('hidden');
+        }
+
+        const visualizer = document.getElementById('visualizer');
+        if (visualizer) {
+          if (settings.showVisualizer !== false) visualizer.classList.remove('hidden');
+          else visualizer.classList.add('hidden');
+        }
+
+        const progContainer = document.getElementById('progress-container');
+        if (progContainer) {
+          if (settings.showProgressBar !== false) progContainer.classList.remove('hidden');
+          else progContainer.classList.add('hidden');
+        }
+
+        const reqBadge = document.getElementById('requester-badge');
+        if (reqBadge && (!settings.showRequester || !reqBadge.dataset.hasUser)) {
+          reqBadge.classList.add('hidden');
+        }
+
+        const cmdLabel = document.getElementById('idle-cmd-label');
+        if (cmdLabel) {
+          cmdLabel.innerText = `${settings.commandPrefix || '!sr'} ชื่อเพลง`;
+        }
+      }
+    }
+
+    function startProgressTimer() {
+      if (progressInterval) clearInterval(progressInterval);
+      progressInterval = setInterval(() => {
+        if (!isPlaying || !totalDurationMs) return;
+        currentProgressMs += 1000;
+        if (currentProgressMs > totalDurationMs) currentProgressMs = totalDurationMs;
+
+        const fill = document.getElementById('progress-bar-fill');
+        const timeCurrent = document.getElementById('time-current');
+        if (fill && totalDurationMs > 0) {
+          const pct = Math.min(100, Math.max(0, (currentProgressMs / totalDurationMs) * 100));
+          fill.style.width = `${pct}%`;
+        }
+        if (timeCurrent) {
+          timeCurrent.innerText = formatTime(currentProgressMs);
+        }
+      }, 1000);
+    }
+
+    function updatePlayingState(data) {
+      const root = document.getElementById('spotify-widget-root');
+      const idleView = document.getElementById('idle-view');
+      const playingView = document.getElementById('playing-view');
+      const albumArt = document.getElementById('album-art');
+      const trackTitle = document.getElementById('track-title');
+      const trackArtist = document.getElementById('track-artist');
+      const timeCurrent = document.getElementById('time-current');
+      const timeTotal = document.getElementById('time-total');
+      const progressBarFill = document.getElementById('progress-bar-fill');
+      const reqBadge = document.getElementById('requester-badge');
+      const reqName = document.getElementById('requester-name');
+      const statusText = document.getElementById('status-text');
+
+      if (!data || !data.track || !data.isPlaying) {
+        isPlaying = false;
+        if (settings.idleBehavior === 'hide') {
+          root.classList.add('hidden');
+        } else {
+          root.classList.remove('hidden');
+          idleView.classList.remove('hidden');
+          playingView.classList.add('hidden');
+        }
+        return;
+      }
+
+      root.classList.remove('hidden');
+      idleView.classList.add('hidden');
+      playingView.classList.remove('hidden');
+
+      isPlaying = Boolean(data.isPlaying);
+      currentProgressMs = data.progressMs || 0;
+      totalDurationMs = data.durationMs || data.track?.durationMs || 0;
+
+      if (albumArt) albumArt.src = data.track.albumArt || 'https://via.placeholder.com/120x120?text=Spotify';
+      if (trackTitle) trackTitle.innerText = data.track.name || 'Unknown Track';
+      if (trackArtist) trackArtist.innerText = data.track.artists || 'Unknown Artist';
+
+      if (timeCurrent) timeCurrent.innerText = formatTime(currentProgressMs);
+      if (timeTotal) timeTotal.innerText = formatTime(totalDurationMs);
+
+      if (progressBarFill && totalDurationMs > 0) {
+        const pct = Math.min(100, Math.max(0, (currentProgressMs / totalDurationMs) * 100));
+        progressBarFill.style.width = `${pct}%`;
+      }
+
+      if (statusText) {
+        statusText.innerText = isPlaying ? 'NOW PLAYING' : 'PAUSED';
+      }
+
+      if (reqBadge && reqName) {
+        if (data.requester && settings.showRequester !== false) {
+          reqName.innerText = `@${data.requester}`;
+          reqBadge.dataset.hasUser = 'true';
+          reqBadge.classList.remove('hidden');
+        } else {
+          reqBadge.dataset.hasUser = '';
+          reqBadge.classList.add('hidden');
+        }
+      }
+
+      startProgressTimer();
+    }
+
+    function showRequestToast(trackName, requester) {
+      const toast = document.getElementById('request-toast');
+      const text = document.getElementById('toast-text');
+      if (!toast || !text) return;
+
+      text.innerText = `คิวใหม่: "${trackName}" โดย @${requester || 'แชท'}`;
+      toast.classList.remove('hidden');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 6000);
+    }
+
+    window.addEventListener('onWidgetLoad', function(obj) {
+      const fieldData = obj.detail?.fieldData || {};
+      applySettings(fieldData);
+
+      const params = new URLSearchParams(window.location.search);
+      const user = params.get('user') || '';
+      fetch(`/api/spotify/currently-playing?user=${encodeURIComponent(user)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data) updatePlayingState(data);
+        })
+        .catch(() => {});
+    });
+
+    window.addEventListener('onEventReceived', function(obj) {
+      const event = obj.detail;
+      if (!event) return;
+
+      if (event.type === 'spotify_now_playing') {
+        updatePlayingState(event.data);
+      } else if (event.type === 'spotify_new_request') {
+        showRequestToast(event.data?.track?.name, event.data?.requester);
+      }
+    });
+  </script>
+</body>
+</html>
