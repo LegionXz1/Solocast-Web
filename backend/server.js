@@ -138,6 +138,19 @@ function checkAdminAuth(req, res, next) {
   });
 }
 
+// ตรวจสอบว่า Login อยู่ (ไม่จำเป็นต้องเป็น Admin) — สำหรับ Route ที่ผู้ใช้ทั่วไปเข้าถึงได้
+function checkUserAuth(req, res, next) {
+  const session = getSessionFromReq(req);
+  if (session) {
+    req.user = session;
+    return next();
+  }
+  return res.status(401).json({
+    error: '401 Unauthorized: กรุณาเข้าสู่ระบบก่อนใช้งาน',
+    loggedIn: false
+  });
+}
+
 // ตรวจสอบข้อมูล Session ของผู้ใช้ในเบราว์เซอร์นี้
 app.get('/api/auth/me', (req, res) => {
   const session = getSessionFromReq(req);
@@ -1867,9 +1880,11 @@ app.delete('/api/support/tickets/:ticketId', checkAdminAuth, (req, res) => {
 // 🎵 Spotify Song Request — API Routes
 // ============================================================
 
-// GET /api/spotify/status — ตรวจสอบสถานะการเชื่อมต่อ Spotify
+// GET /api/spotify/status — ตรวจสอบสถานะการเชื่อมต่อ Spotify (ของตนเอง)
 app.get('/api/spotify/status', (req, res) => {
-  const userId = req.query.userId || req.query.user || '';
+  const session = getSessionFromReq(req);
+  // ใช้ userId จาก session ก่อน ถ้าไม่มีค่อยใช้จาก query param
+  const userId = session?.userId || req.query.userId || req.query.user || '';
   const configured = spotify.isSpotifyConfigured();
   const token = spotify.getSpotifyUserToken(userId || undefined);
   const connected = Boolean(token && token.accessToken);
@@ -1881,8 +1896,8 @@ app.get('/api/spotify/status', (req, res) => {
   });
 });
 
-// GET /api/spotify/auth-url — ดึง URL สำหรับ Login Spotify
-app.get('/api/spotify/auth-url', checkAdminAuth, (req, res) => {
+// GET /api/spotify/auth-url — ดึง URL สำหรับ Login Spotify (ผู้ใช้ที่ Login แล้วทุกคนเข้าถึงได้)
+app.get('/api/spotify/auth-url', checkUserAuth, (req, res) => {
   try {
     const userId = req.user?.userId || req.query.userId || '';
     if (!spotify.isSpotifyConfigured()) {
