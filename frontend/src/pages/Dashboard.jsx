@@ -202,12 +202,20 @@ function Dashboard() {
   }, [token]);
 
   // 3. โหลด Widgets รายการทั้งหมด
+  // Helper: คำนวณสถานะ Widget จาก overview
+  const getWidgetStatus = useCallback((widgetId) => {
+    const globalInfo = widgetStatusOverview.global[widgetId];
+    const globalEnabled = globalInfo ? globalInfo.enabled !== false : true;
+    const userEnabled = widgetStatusOverview.user[widgetId] !== false;
+    return { globalEnabled, userEnabled, active: globalEnabled && userEnabled, reason: globalInfo?.reason || '' };
+  }, [widgetStatusOverview]);
+
+  // 3. โหลด Widgets รายการทั้งหมด
   useEffect(() => {
     fetch(`${API_BASE}/api/widgets`)
       .then(res => res.json())
       .then(data => {
         setWidgets(data);
-        if (data.length > 0) setSelectedWidget(data[0].id);
       })
       .catch(err => console.error("Error fetching widgets:", err));
   }, []);
@@ -232,6 +240,21 @@ function Dashboard() {
     }
   }, [status.connected, status.userId, fetchWidgetStatusOverview]);
 
+  // ตรวจสอบและเลือกเฉพาะ Widget ที่ Active เท่านั้น (หาก Widget ที่เลือกอยู่ถูกปิด ให้เปลี่ยนหรือเคลียร์ออก)
+  useEffect(() => {
+    if (!widgets || widgets.length === 0) return;
+    if (!selectedWidget) {
+      const firstActive = widgets.find(w => getWidgetStatus(w.id).active);
+      if (firstActive) setSelectedWidget(firstActive.id);
+    } else {
+      const currentWs = getWidgetStatus(selectedWidget);
+      if (!currentWs.active) {
+        const nextActive = widgets.find(w => getWidgetStatus(w.id).active);
+        setSelectedWidget(nextActive ? nextActive.id : '');
+      }
+    }
+  }, [widgets, widgetStatusOverview, selectedWidget, getWidgetStatus]);
+
   // ฟัง Real-time Widget Status Events
   useEffect(() => {
     const handleWidgetStatusUpdated = (payload) => {
@@ -245,10 +268,17 @@ function Dashboard() {
         }
         return updated;
       });
+
+      // ถ้า Widget ที่กำลังเลือกอยู่ถูกปิดลง ให้สลับหรือเคลียร์ออกทันที
+      if (!payload.enabled && payload.widgetId === selectedWidget) {
+        if (payload.type === 'global' || (payload.type === 'user' && payload.userId === status.userId)) {
+          setSelectedWidget('');
+        }
+      }
     };
     socket.on('widget_status_updated', handleWidgetStatusUpdated);
     return () => socket.off('widget_status_updated', handleWidgetStatusUpdated);
-  }, [status.userId]);
+  }, [status.userId, selectedWidget]);
 
   // 4. โหลด Schema และ ค่าการตั้งค่าที่บันทึกไว้ (เช่น Reward Name)
   useEffect(() => {
@@ -442,6 +472,12 @@ function Dashboard() {
           ...prev,
           user: { ...prev.user, [widgetId]: newEnabled }
         }));
+        if (!newEnabled && selectedWidget === widgetId) {
+          const nextActive = widgets.find(w => w.id !== widgetId && getWidgetStatus(w.id).active);
+          setSelectedWidget(nextActive ? nextActive.id : '');
+        } else if (newEnabled && !selectedWidget) {
+          setSelectedWidget(widgetId);
+        }
       } else if (data.globallyDisabled) {
         alert('Widget นี้ถูกปิดโดยผู้ดูแลระบบ ไม่สามารถเปิดใช้งานได้ในขณะนี้');
       } else {
@@ -470,6 +506,10 @@ function Dashboard() {
           ...prev,
           global: { ...prev.global, [widgetId]: { enabled: newEnabled, reason: data.status?.reason || '' } }
         }));
+        if (!newEnabled && selectedWidget === widgetId) {
+          const nextActive = widgets.find(w => w.id !== widgetId && getWidgetStatus(w.id).active);
+          setSelectedWidget(nextActive ? nextActive.id : '');
+        }
       } else {
         alert(data.error || 'ไม่สามารถเปลี่ยนสถานะ Widget ได้');
       }
@@ -479,14 +519,6 @@ function Dashboard() {
       setWidgetToggleLoading(prev => ({ ...prev, [widgetId + '_global']: false }));
     }
   };
-
-  // Helper: คำนวณสถานะ Widget จาก overview
-  const getWidgetStatus = useCallback((widgetId) => {
-    const globalInfo = widgetStatusOverview.global[widgetId];
-    const globalEnabled = globalInfo ? globalInfo.enabled !== false : true;
-    const userEnabled = widgetStatusOverview.user[widgetId] !== false;
-    return { globalEnabled, userEnabled, active: globalEnabled && userEnabled, reason: globalInfo?.reason || '' };
-  }, [widgetStatusOverview]);
 
   const handleLogout = async () => {
     const activeToken = token || localStorage.getItem('solocast_user_token');
@@ -1007,13 +1039,30 @@ function Dashboard() {
                         <div
                           key={w.id}
                           className={`sidebar-widget-card ${isSelected ? 'active' : ''} ${!wStatus.active ? 'widget-disabled' : ''}`}
-                          onClick={() => setSelectedWidget(w.id)}
+                          onClick={(e) => {
+                            if (!wStatus.active) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              return;
+                            }
+                            setSelectedWidget(w.id);
+                          }}
                           role="button"
-                          tabIndex={0}
+                          tabIndex={!wStatus.active ? -1 : 0}
+                          title={
+                            !wStatus.globalEnabled
+                              ? `🔒 Widget นี้ถูกปิดปรับปรุงโดยแอดมิน${wStatus.reason ? ` (${wStatus.reason})` : ''} — ไม่สามารถคลิกใช้งานได้`
+                              : (!wStatus.userEnabled ? '⛔ Widget นี้ถูกปิดใช้งานอยู่ — ไม่สามารถคลิกเลือกได้ กรุณาเปิดสวิตช์ก่อน' : `คลิกเพื่อเลือก ${w.name}`)
+                          }
                         >
                           <div className="card-content">
                             <div className="card-title-row">
-                              <span className="card-title" style={{ opacity: !wStatus.active ? 0.5 : 1 }}>{w.name}</span>
+                              <span className="card-title" style={{
+                                opacity: !wStatus.active ? 0.45 : 1,
+                                textDecoration: !wStatus.active ? 'line-through' : 'none'
+                              }}>
+                                {w.name}
+                              </span>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                 {isSelected && (
                                   <span className="card-active-pill">
@@ -1021,13 +1070,21 @@ function Dashboard() {
                                     <span>กำลังเลือก</span>
                                   </span>
                                 )}
-                                {!wStatus.globalEnabled && (
+                                {!wStatus.globalEnabled ? (
                                   <span title={wStatus.reason || 'ปิดปรับปรุงโดยแอดมิน'} style={{
-                                    fontSize: '0.6rem', fontWeight: 700, padding: '1px 6px',
-                                    background: 'rgba(239,68,68,0.15)', color: '#f87171',
-                                    border: '1px solid rgba(239,68,68,0.3)', borderRadius: '4px'
+                                    fontSize: '0.6rem', fontWeight: 800, padding: '2px 6px',
+                                    background: 'rgba(239,68,68,0.18)', color: '#f87171',
+                                    border: '1px solid rgba(239,68,68,0.35)', borderRadius: '4px',
+                                    display: 'inline-flex', alignItems: 'center', gap: '3px'
                                   }}>🔒 แอดมินล็อก</span>
-                                )}
+                                ) : (!wStatus.userEnabled ? (
+                                  <span style={{
+                                    fontSize: '0.6rem', fontWeight: 700, padding: '2px 6px',
+                                    background: 'rgba(100,116,139,0.2)', color: '#94a3b8',
+                                    border: '1px solid rgba(100,116,139,0.3)', borderRadius: '4px',
+                                    display: 'inline-flex', alignItems: 'center', gap: '3px'
+                                  }}>⛔ ปิดใช้งาน</span>
+                                ) : null)}
                               </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.35rem' }}>
@@ -1035,7 +1092,7 @@ function Dashboard() {
                               {/* User Toggle Switch */}
                               <button
                                 type="button"
-                                title={!wStatus.globalEnabled ? 'ถูกล็อกโดยแอดมิน' : (wStatus.userEnabled ? 'คลิกเพื่อปิด Widget นี้' : 'คลิกเพื่อเปิด Widget นี้')}
+                                title={!wStatus.globalEnabled ? (wStatus.reason || 'ถูกล็อกโดยแอดมิน ไม่สามารถเปิดได้') : (wStatus.userEnabled ? 'คลิกเพื่อปิด Widget นี้' : 'คลิกเพื่อเปิด Widget นี้')}
                                 disabled={isUserToggleLoading || !wStatus.globalEnabled}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1046,9 +1103,10 @@ function Dashboard() {
                                   flexShrink: 0,
                                   width: '34px', height: '18px',
                                   borderRadius: '9px',
-                                  background: !wStatus.globalEnabled ? 'rgba(239,68,68,0.2)' : (wStatus.userEnabled ? '#10b981' : 'rgba(255,255,255,0.1)'),
-                                  border: `1px solid ${!wStatus.globalEnabled ? 'rgba(239,68,68,0.4)' : (wStatus.userEnabled ? '#059669' : 'rgba(255,255,255,0.15)')}`,
+                                  background: !wStatus.globalEnabled ? 'rgba(239,68,68,0.18)' : (wStatus.userEnabled ? '#10b981' : 'rgba(255,255,255,0.1)'),
+                                  border: `1px solid ${!wStatus.globalEnabled ? 'rgba(239,68,68,0.35)' : (wStatus.userEnabled ? '#059669' : 'rgba(255,255,255,0.15)')}`,
                                   cursor: !wStatus.globalEnabled ? 'not-allowed' : (isUserToggleLoading ? 'wait' : 'pointer'),
+                                  pointerEvents: !wStatus.globalEnabled ? 'none' : 'auto',
                                   position: 'relative',
                                   transition: 'all 200ms ease',
                                   padding: 0,
@@ -1076,15 +1134,37 @@ function Dashboard() {
                 <hr className="divider" style={{ margin: '1rem 0' }} />
 
                 {/* Section 2: Widget Settings & Customization Form */}
-                {selectedWidget && (
-                  <div className="sidebar-settings-section">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                      <div>
-                        <span className="eyebrow" style={{ margin: '0 0 0.25rem 0' }}>ปรับแต่ง WIDGET</span>
-                        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                          {widgets.find(w => w.id === selectedWidget)?.name}
-                        </h3>
+                {selectedWidget && (() => {
+                  const currentWs = getWidgetStatus(selectedWidget);
+                  if (!currentWs.active) {
+                    return (
+                      <div className="sidebar-settings-section" style={{
+                        marginTop: '1rem',
+                        padding: '1.5rem 1rem',
+                        background: 'rgba(239, 68, 68, 0.05)',
+                        border: '1px solid rgba(239, 68, 68, 0.22)',
+                        borderRadius: 'var(--radius-sm)',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ fontSize: '1.75rem', marginBottom: '0.4rem' }}>🔒</div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f87171', marginBottom: '0.3rem' }}>
+                          Widget นี้ถูกปิดใช้งานอยู่
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                          {!currentWs.globalEnabled ? (currentWs.reason || 'ปิดปรับปรุงระบบโดยผู้ดูแลระบบ') : 'คุณได้ปิดการใช้งาน Widget นี้ไว้ กรุณาเปิดสวิตช์ในรายการเพื่อเริ่มตั้งค่า'}
+                        </div>
                       </div>
+                    );
+                  }
+                  return (
+                    <div className="sidebar-settings-section">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <div>
+                          <span className="eyebrow" style={{ margin: '0 0 0.25rem 0' }}>ปรับแต่ง WIDGET</span>
+                          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            {widgets.find(w => w.id === selectedWidget)?.name}
+                          </h3>
+                        </div>
                       <button
                         onClick={() => handleSaveSettings(fieldData)}
                         className="btn-island accent"
@@ -1172,7 +1252,8 @@ function Dashboard() {
                       {renderSchemaForm()}
                     </div>
                   </div>
-                )}
+                );
+              })()}
               </>
             ) : (
               <>
@@ -1196,9 +1277,40 @@ function Dashboard() {
         {status.connected ? (
           <div className="doppel-shell animate-fade-up" style={{ animationDelay: '200ms' }}>
             <div className="doppel-core">
-              {selectedWidget && (
-                <div>
-                  {/* Live Preview Canvas Box */}
+              {selectedWidget ? (() => {
+                const currentWs = getWidgetStatus(selectedWidget);
+                if (!currentWs.active) {
+                  return (
+                    <div style={{
+                      padding: '3.5rem 2rem',
+                      background: 'rgba(239, 68, 68, 0.04)',
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                      borderRadius: 'var(--radius-md)',
+                      textAlign: 'center',
+                      margin: '1.5rem 0'
+                    }}>
+                      <div style={{
+                        width: '64px', height: '64px', borderRadius: '50%',
+                        background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        margin: '0 auto 1.25rem', color: '#f87171'
+                      }}>
+                        <Ban size={28} />
+                      </div>
+                      <h3 style={{ margin: '0 0 0.5rem 0', color: '#f87171', fontSize: '1.25rem', fontWeight: 700 }}>
+                        Widget "{widgets.find(w => w.id === selectedWidget)?.name}" ถูกปิดใช้งาน
+                      </h3>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', maxWidth: '460px', margin: '0 auto', lineHeight: 1.6 }}>
+                        {!currentWs.globalEnabled
+                          ? (currentWs.reason || 'ผู้ดูแลระบบปิดปรับปรุง Widget นี้ชั่วคราว จึงไม่สามารถแสดงตัวอย่างหรือใช้งานใน OBS ได้')
+                          : 'คุณได้ปิดการใช้งาน Widget นี้ไว้ หากต้องการเปิดใช้งาน กรุณากดเปิดสวิตช์ในแถบรายการด้านซ้าย'}
+                      </p>
+                    </div>
+                  );
+                }
+                return (
+                  <div>
+                    {/* Live Preview Canvas Box */}
                   <div className="live-preview-box">
                     <div className="live-preview-header">
                       <div className="live-preview-title">
@@ -2705,6 +2817,33 @@ function Dashboard() {
                     </div>
                   )}
 
+                  </div>
+                );
+              })() : (
+                <div style={{
+                  padding: '5rem 2rem',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--text-secondary)'
+                }}>
+                  <div style={{
+                    width: '60px', height: '60px', borderRadius: '18px',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginBottom: '1.25rem', color: 'var(--text-muted)'
+                  }}>
+                    <Sliders size={26} />
+                  </div>
+                  <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.15rem', fontWeight: 700 }}>
+                    กรุณาเลือก Widget ที่เปิดใช้งาน
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.875rem', maxWidth: '380px', lineHeight: 1.6 }}>
+                    เลือก Widget จากรายการในแถบด้านซ้ายเพื่อตั้งค่าและใช้งานใน OBS (Widget ที่ปิดอยู่จะไม่สามารถคลิกเลือกได้)
+                  </p>
                 </div>
               )}
             </div>
