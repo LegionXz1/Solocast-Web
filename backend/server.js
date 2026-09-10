@@ -1915,13 +1915,12 @@ app.get('/auth/spotify/callback', async (req, res) => {
     const tokenData = await spotify.exchangeSpotifyCode(code);
     const targetKey = userId || tokenData.spotifyUserId || 'default';
 
-    const existing = spotify.getSpotifyUserToken(undefined) || {};
-    const allTokens = {};
-    // Keep only this user's token (single-streamer setup)
-    allTokens[targetKey] = tokenData;
+    // ✅ Merge with existing tokens — preserve all other users' tokens
+    const existingAll = spotify.getAllSpotifyTokens();
+    const allTokens = { ...existingAll, [targetKey]: tokenData };
     spotify.saveSpotifyTokens(allTokens);
 
-    console.log(`[Spotify] ✅ Connected Spotify account: ${tokenData.spotifyDisplayName} (${tokenData.product})`);
+    console.log(`[Spotify] ✅ Connected Spotify account for user "${targetKey}": ${tokenData.spotifyDisplayName} (${tokenData.product})`);
     const frontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173');
     res.redirect(`${frontendUrl}/dashboard?spotify_connected=1`);
   } catch (err) {
@@ -1933,7 +1932,16 @@ app.get('/auth/spotify/callback', async (req, res) => {
 // DELETE /api/spotify/disconnect — ยกเลิกการเชื่อมต่อ Spotify
 app.delete('/api/spotify/disconnect', checkAdminAuth, (req, res) => {
   try {
-    spotify.saveSpotifyTokens({});
+    const userId = req.user?.userId || req.query.userId || '';
+    if (userId) {
+      // Remove only this user's token
+      const allTokens = spotify.getAllSpotifyTokens();
+      delete allTokens[userId];
+      spotify.saveSpotifyTokens(allTokens);
+    } else {
+      // No userId — clear all (admin global reset)
+      spotify.saveSpotifyTokens({});
+    }
     res.json({ success: true, message: 'Spotify disconnected' });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -83,10 +83,15 @@ export function isSpotifyConfigured() {
 }
 
 export function getSpotifyUserToken(userId) {
+  // Only return this specific user's token — no cross-user fallback
   if (userId && spotifyTokens[userId]) return spotifyTokens[userId];
-  const uids = Object.keys(spotifyTokens);
-  if (uids.length > 0) return spotifyTokens[uids[0]];
+  // If no userId provided (e.g. anonymous overlay), return null
   return null;
+}
+
+/** Return all stored tokens (admin/merge use only) */
+export function getAllSpotifyTokens() {
+  return { ...spotifyTokens };
 }
 
 /**
@@ -220,13 +225,13 @@ export async function refreshSpotifyToken(userId) {
     userToken.refreshToken = data.refresh_token;
   }
 
-  const targetKey = userId && spotifyTokens[userId] ? userId : Object.keys(spotifyTokens)[0];
-  if (targetKey) {
+  const targetKey = userId;
+  if (targetKey && spotifyTokens[targetKey]) {
     spotifyTokens[targetKey] = userToken;
     saveSpotifyTokens(spotifyTokens);
   }
 
-  console.log(`[Spotify] 🔄 Successfully refreshed access token for ${targetKey || 'streamer'}`);
+  console.log(`[Spotify] 🔄 Successfully refreshed access token for user: ${targetKey || '?'}`);
   return userToken.accessToken;
 }
 
