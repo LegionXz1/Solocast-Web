@@ -57,12 +57,11 @@ app.use('/api/admin/', authLimiter);
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
-
 const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
 if (fs.existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
 }
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 // File-based Session Database (บันทึกข้อมูล Session ลงฮาร์ดดิสก์)
 const SESSIONS_FILE = path.join(__dirname, 'data', 'sessions.json');
