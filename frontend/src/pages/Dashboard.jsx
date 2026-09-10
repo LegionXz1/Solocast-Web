@@ -396,10 +396,10 @@ function Dashboard() {
     };
 
     const handleSpotifyNowPlaying = (data) => {
-      if (data) setNowPlaying(data);
+      if (data && (!data.userId || data.userId === status.userId)) setNowPlaying(data);
     };
     const handleSpotifyQueueUpdated = (data) => {
-      if (data && Array.isArray(data.queue)) {
+      if (data && (!data.userId || data.userId === status.userId) && Array.isArray(data.queue)) {
         setSpotifyQueue(data.queue);
       }
     };

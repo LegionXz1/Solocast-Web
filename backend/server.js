@@ -1993,8 +1993,8 @@ app.get('/api/spotify/queue', (req, res) => {
   }
 });
 
-// POST /api/spotify/request — ขอเพลงจาก Dashboard (ไม่ผ่านแชท)
-app.post('/api/spotify/request', checkAdminAuth, async (req, res) => {
+// POST /api/spotify/request — ขอเพลงจาก Dashboard (ผู้ใช้ที่ login แล้วทุกคน)
+app.post('/api/spotify/request', checkUserAuth, async (req, res) => {
   try {
     const { query, requester } = req.body || {};
     if (!query) return res.status(400).json({ error: 'กรุณากรอกชื่อเพลงหรือ Spotify URL' });
@@ -2032,13 +2032,13 @@ app.post('/api/spotify/request', checkAdminAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/spotify/queue/:id — ลบรายการออกจาก Queue
-app.delete('/api/spotify/queue/:id', checkAdminAuth, (req, res) => {
+// DELETE /api/spotify/queue/:id — ลบรายการออกจาก Queue (เจ้าของ Queue เท่านั้น)
+app.delete('/api/spotify/queue/:id', checkUserAuth, (req, res) => {
   try {
     const { id } = req.params;
-    const removed = spotify.removeQueueItem(id);
-    if (!removed) return res.status(404).json({ error: 'ไม่พบรายการนี้ใน Queue' });
     const userId = req.user?.userId || '';
+    const removed = spotify.removeQueueItem(id, userId);
+    if (!removed) return res.status(404).json({ error: 'ไม่พบรายการนี้ใน Queue หรือไม่มีสิทธิ์ลบ' });
     io.to('user_' + userId).emit('spotify_queue_updated', {
       userId,
       queue: spotify.getSongQueueList(userId)
@@ -2049,8 +2049,8 @@ app.delete('/api/spotify/queue/:id', checkAdminAuth, (req, res) => {
   }
 });
 
-// DELETE /api/spotify/queue — ล้าง Queue ทั้งหมด
-app.delete('/api/spotify/queue', checkAdminAuth, (req, res) => {
+// DELETE /api/spotify/queue — ล้าง Queue ของตัวเอง
+app.delete('/api/spotify/queue', checkUserAuth, (req, res) => {
   try {
     const userId = req.user?.userId || '';
     spotify.clearSongQueue(userId || undefined);
@@ -2061,8 +2061,8 @@ app.delete('/api/spotify/queue', checkAdminAuth, (req, res) => {
   }
 });
 
-// POST /api/spotify/skip — ข้ามเพลง (Admin เท่านั้น)
-app.post('/api/spotify/skip', checkAdminAuth, async (req, res) => {
+// POST /api/spotify/skip — ข้ามเพลง (เจ้าของบัญชีนั้นเท่านั้น)
+app.post('/api/spotify/skip', checkUserAuth, async (req, res) => {
   try {
     const userId = req.user?.userId || '';
     const accessToken = await spotify.getValidAccessToken(userId || undefined);

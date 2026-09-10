@@ -435,9 +435,14 @@ export function getSongQueueList(userId, limit = 50) {
   return spotifyQueue.filter(q => q.userId === userId || q.userId === 'default').slice(0, limit);
 }
 
-export function removeQueueItem(itemId) {
+export function removeQueueItem(itemId, userId) {
   const initial = spotifyQueue.length;
-  spotifyQueue = spotifyQueue.filter(q => q.id !== itemId);
+  spotifyQueue = spotifyQueue.filter(q => {
+    if (q.id !== itemId) return true; // ไม่ใช่ item นี้ — เก็บไว้
+    // ถ้าระบุ userId ให้ลบได้เฉพาะ item ที่เป็นของ userId นั้น
+    if (userId && q.userId && q.userId !== userId) return true;
+    return false; // ลบออก
+  });
   if (spotifyQueue.length !== initial) {
     saveSpotifyQueue(spotifyQueue);
     return true;
