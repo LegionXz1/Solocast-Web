@@ -490,36 +490,6 @@ function Dashboard() {
     }
   };
 
-  const handleToggleGlobalWidget = async (widgetId, currentEnabled) => {
-    const newEnabled = !currentEnabled;
-    const reason = newEnabled ? '' : (prompt('เหตุผลในการปิด Widget (ไม่บังคับ):') ?? '');
-    setWidgetToggleLoading(prev => ({ ...prev, [widgetId + '_global']: true }));
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/widgets/${widgetId}/global-status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ enabled: newEnabled, reason })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setWidgetStatusOverview(prev => ({
-          ...prev,
-          global: { ...prev.global, [widgetId]: { enabled: newEnabled, reason: data.status?.reason || '' } }
-        }));
-        if (!newEnabled && selectedWidget === widgetId) {
-          const nextActive = widgets.find(w => w.id !== widgetId && getWidgetStatus(w.id).active);
-          setSelectedWidget(nextActive ? nextActive.id : '');
-        }
-      } else {
-        alert(data.error || 'ไม่สามารถเปลี่ยนสถานะ Widget ได้');
-      }
-    } catch (e) {
-      console.error('Toggle global widget error:', e);
-    } finally {
-      setWidgetToggleLoading(prev => ({ ...prev, [widgetId + '_global']: false }));
-    }
-  };
-
   const handleLogout = async () => {
     const activeToken = token || localStorage.getItem('solocast_user_token');
     if (activeToken) {
@@ -963,13 +933,36 @@ function Dashboard() {
 
   return (
     <div className="dashboard-container">
-      <div className="dashboard-title-bar animate-fade-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+      <div className="dashboard-title-bar animate-fade-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
           <span className="eyebrow" style={{ marginBottom: '0.35rem' }}>LIVE STUDIO DASHBOARD</span>
           <h1 style={{ margin: 0, fontSize: '1.65rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
             แผงควบคุมสตรีมเมอร์
           </h1>
         </div>
+
+        {status.isAdmin && (
+          <button
+            type="button"
+            onClick={() => navigate('/admin?tab=widgets')}
+            className="btn-island"
+            style={{
+              padding: '0.45rem 1rem',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              background: 'rgba(239, 68, 68, 0.1)',
+              color: '#f87171',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              cursor: 'pointer'
+            }}
+            title="ไปที่หน้า Admin เพื่อจัดการเปิด/ปิด Widget ทั้งระบบ"
+          >
+            <span>🛡️ จัดการสถานะเปิด/ปิด Widget (Admin)</span>
+          </button>
+        )}
       </div>
 
       <div className="bento-grid">
@@ -1040,7 +1033,7 @@ function Dashboard() {
                           key={w.id}
                           className={`sidebar-widget-card ${isSelected ? 'active' : ''} ${!wStatus.active ? 'widget-disabled' : ''}`}
                           onClick={(e) => {
-                            if (!wStatus.active) {
+                            if (!wStatus.active && !status.isAdmin) {
                               e.preventDefault();
                               e.stopPropagation();
                               return;
@@ -1071,12 +1064,24 @@ function Dashboard() {
                                   </span>
                                 )}
                                 {!wStatus.globalEnabled ? (
-                                  <span title={wStatus.reason || 'ปิดปรับปรุงโดยแอดมิน'} style={{
-                                    fontSize: '0.6rem', fontWeight: 800, padding: '2px 6px',
-                                    background: 'rgba(239,68,68,0.18)', color: '#f87171',
-                                    border: '1px solid rgba(239,68,68,0.35)', borderRadius: '4px',
-                                    display: 'inline-flex', alignItems: 'center', gap: '3px'
-                                  }}>🔒 แอดมินล็อก</span>
+                                  <span
+                                    title={status.isAdmin ? `คลิกเพื่อไปจัดการเปิด/ปิดที่หน้า Admin${wStatus.reason ? ` (${wStatus.reason})` : ''}` : (wStatus.reason || 'ปิดปรับปรุงโดยแอดมิน')}
+                                    onClick={(e) => {
+                                      if (status.isAdmin) {
+                                        e.stopPropagation();
+                                        navigate('/admin?tab=widgets');
+                                      }
+                                    }}
+                                    style={{
+                                      fontSize: '0.6rem', fontWeight: 800, padding: '2px 6px',
+                                      background: 'rgba(239,68,68,0.18)', color: '#f87171',
+                                      border: '1px solid rgba(239,68,68,0.35)', borderRadius: '4px',
+                                      display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                      cursor: status.isAdmin ? 'pointer' : 'default'
+                                    }}
+                                  >
+                                    🔒 แอดมินล็อก {status.isAdmin && '⚙️'}
+                                  </span>
                                 ) : (!wStatus.userEnabled ? (
                                   <span style={{
                                     fontSize: '0.6rem', fontWeight: 700, padding: '2px 6px',
@@ -1153,6 +1158,28 @@ function Dashboard() {
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                           {!currentWs.globalEnabled ? (currentWs.reason || 'ปิดปรับปรุงระบบโดยผู้ดูแลระบบ') : 'คุณได้ปิดการใช้งาน Widget นี้ไว้ กรุณาเปิดสวิตช์ในรายการเพื่อเริ่มตั้งค่า'}
                         </div>
+                        {status.isAdmin && !currentWs.globalEnabled && (
+                          <button
+                            type="button"
+                            onClick={() => navigate('/admin?tab=widgets')}
+                            style={{
+                              marginTop: '0.85rem',
+                              padding: '0.45rem 1rem',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              background: '#10b981',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: 'var(--radius-xs)',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.35rem'
+                            }}
+                          >
+                            <span>⚙️ ไปปลดล็อก Widget นี้ในหน้า Admin</span>
+                          </button>
+                        )}
                       </div>
                     );
                   }
@@ -1196,56 +1223,6 @@ function Dashboard() {
                       </div>
                     )}
 
-                    {/* Admin Global Widget Lock Toggle */}
-                    {status.isAdmin && (() => {
-                      const ws = getWidgetStatus(selectedWidget);
-                      const isGlobalLoading = widgetToggleLoading[selectedWidget + '_global'];
-                      return (
-                        <div style={{
-                          marginBottom: '1rem',
-                          padding: '0.65rem 0.85rem',
-                          background: ws.globalEnabled ? 'rgba(255,255,255,0.03)' : 'rgba(239,68,68,0.07)',
-                          border: `1px solid ${ws.globalEnabled ? 'rgba(255,255,255,0.07)' : 'rgba(239,68,68,0.25)'}`,
-                          borderRadius: 'var(--radius-xs)'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
-                            <div>
-                              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>
-                                🛡️ Admin — ควบคุมระบบทั้งหมด
-                              </div>
-                              <div style={{ fontSize: '0.78rem', color: ws.globalEnabled ? '#10b981' : '#f87171', fontWeight: 600 }}>
-                                {ws.globalEnabled ? 'เปิดใช้งานสำหรับทุกคน' : `ปิดปรับปรุง${ws.reason ? ` — ${ws.reason}` : ''}`}
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              disabled={isGlobalLoading}
-                              onClick={() => handleToggleGlobalWidget(selectedWidget, ws.globalEnabled)}
-                              style={{
-                                flexShrink: 0,
-                                width: '42px', height: '22px',
-                                borderRadius: '11px',
-                                background: ws.globalEnabled ? '#10b981' : 'rgba(239,68,68,0.3)',
-                                border: `1px solid ${ws.globalEnabled ? '#059669' : 'rgba(239,68,68,0.5)'}`,
-                                cursor: isGlobalLoading ? 'wait' : 'pointer',
-                                position: 'relative',
-                                padding: 0, outline: 'none',
-                                transition: 'all 200ms ease'
-                              }}
-                            >
-                              <div style={{
-                                width: '16px', height: '16px',
-                                borderRadius: '50%',
-                                background: ws.globalEnabled ? '#fff' : '#f87171',
-                                position: 'absolute', top: '2px',
-                                left: ws.globalEnabled ? '22px' : '2px',
-                                transition: 'all 200ms ease'
-                              }} />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })()}
 
                     {/* Schema Customization Form Fields */}
                     <div className="schema-container">

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   CheckCircle2, AlertTriangle, X, ExternalLink, Plus, Trash2, 
-  RotateCw, Loader2, Search, Skull, UserCheck, Layers, Ban, Check, Key, Lock,
+  RotateCw, Loader2, Search, Skull, UserCheck, Layers, Ban, Check, Key, Lock, Unlock,
   LifeBuoy, MessageSquare, Clock, ShieldCheck, MessageCircle, Send, Edit3, Filter
 } from 'lucide-react';
 
@@ -105,6 +105,8 @@ function Admin() {
   const [widgets, setWidgets] = useState([]);
   const [selectedId, setSelectedId] = useState('');
   const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [globalWidgetStatus, setGlobalWidgetStatus] = useState({});
+  const [statusLoading, setStatusLoading] = useState({});
 
   // Form State
   const [formData, setFormData] = useState({
@@ -436,12 +438,62 @@ function Admin() {
     verifyAuth();
   }, []);
 
+  // Fetch Global Widget Status (Admin Control)
+  const fetchGlobalWidgetStatus = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/widgets/status-overview`);
+      if (res.ok) {
+        const data = await res.json();
+        setGlobalWidgetStatus(data.global || {});
+      }
+    } catch (e) {
+      console.error('Error fetching global widget status:', e);
+    }
+  };
+
+  // Toggle Global Widget Status (เปิด/ปิด ปรับปรุงระบบสำหรับทุกคน)
+  const handleToggleGlobalStatus = async (widgetId, currentEnabled) => {
+    const newEnabled = !currentEnabled;
+    let reason = '';
+    if (!newEnabled) {
+      const inputReason = prompt(`ระบุเหตุผลในการสั่งปิดระบบ "${widgetId}" สำหรับทุกคน (ไม่บังคับ):`, 'ปิดปรับปรุงระบบชั่วคราวโดยผู้ดูแลระบบ');
+      if (inputReason === null) return; // ยกเลิกการกด
+      reason = inputReason.trim() || 'ปิดปรับปรุงระบบชั่วคราวโดยผู้ดูแลระบบ';
+    }
+    setStatusLoading(prev => ({ ...prev, [widgetId]: true }));
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/widgets/${widgetId}/global-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify({ enabled: newEnabled, reason })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setGlobalWidgetStatus(prev => ({
+          ...prev,
+          [widgetId]: { enabled: newEnabled, reason }
+        }));
+        showToast(`Widget "${widgetId}" ${newEnabled ? '🟢 เปิดให้ใช้งานแล้ว' : '🔴 ปิดปรับปรุงระบบแล้ว'} สำเร็จ!`, 'success');
+      } else {
+        showToast(data.error || 'ไม่สามารถเปลี่ยนสถานะได้', 'error');
+      }
+    } catch (err) {
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + err.message, 'error');
+    } finally {
+      setStatusLoading(prev => ({ ...prev, [widgetId]: false }));
+    }
+  };
+
   // Fetch all widgets
   const fetchWidgets = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/widgets`);
       const data = await res.json();
       setWidgets(data);
+      fetchGlobalWidgetStatus();
       if (data.length > 0 && !selectedId && !isCreatingNew) {
         loadWidget(data[0].id);
       }
@@ -824,21 +876,64 @@ function Admin() {
             </button>
 
             <div className="admin-sidebar-list">
-              {widgets.map(w => (
-                <div
-                  key={w.id}
-                  className={`admin-widget-item ${selectedId === w.id && !isCreatingNew ? 'active' : ''}`}
-                  onClick={() => loadWidget(w.id)}
-                >
-                  <div className="admin-widget-info">
-                    <h5>{w.name}</h5>
-                    <span>ID: {w.id}</span>
+              {widgets.map(w => {
+                const isGloballyEnabled = globalWidgetStatus[w.id]?.enabled !== false;
+                const isSelected = selectedId === w.id && !isCreatingNew;
+                return (
+                  <div
+                    key={w.id}
+                    className={`admin-widget-item ${isSelected ? 'active' : ''}`}
+                    onClick={() => loadWidget(w.id)}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}
+                  >
+                    <div className="admin-widget-info" style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <h5 style={{ margin: 0 }}>{w.name}</h5>
+                        {isGloballyEnabled ? (
+                          <span style={{
+                            fontSize: '0.62rem', fontWeight: 700, padding: '1px 6px',
+                            background: 'rgba(16,185,129,0.15)', color: '#10b981',
+                            borderRadius: '4px', border: '1px solid rgba(16,185,129,0.3)'
+                          }}>
+                            เปิด
+                          </span>
+                        ) : (
+                          <span style={{
+                            fontSize: '0.62rem', fontWeight: 700, padding: '1px 6px',
+                            background: 'rgba(239,68,68,0.15)', color: '#f87171',
+                            borderRadius: '4px', border: '1px solid rgba(239,68,68,0.3)'
+                          }}>
+                            🔒 ปิด
+                          </span>
+                        )}
+                      </div>
+                      <span>ID: {w.id}</span>
+                    </div>
+                    <button
+                      type="button"
+                      title={isGloballyEnabled ? 'คลิกเพื่อสั่งปิดปรับปรุง Widget นี้' : 'คลิกเพื่อเปิด Widget นี้ให้ทุกคนใช้งาน'}
+                      disabled={statusLoading[w.id]}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleGlobalStatus(w.id, isGloballyEnabled);
+                      }}
+                      style={{
+                        flexShrink: 0,
+                        padding: '3px 8px',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        borderRadius: '4px',
+                        border: `1px solid ${isGloballyEnabled ? 'rgba(239,68,68,0.35)' : 'rgba(16,185,129,0.35)'}`,
+                        background: isGloballyEnabled ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)',
+                        color: isGloballyEnabled ? '#f87171' : '#10b981',
+                        cursor: statusLoading[w.id] ? 'wait' : 'pointer'
+                      }}
+                    >
+                      {statusLoading[w.id] ? '...' : (isGloballyEnabled ? 'ปิด' : 'เปิด')}
+                    </button>
                   </div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                    →
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {widgets.length === 0 && (
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', textAlign: 'center', padding: '1rem 0' }}>
                   ยังไม่มี Widget ในระบบ
@@ -855,6 +950,79 @@ function Admin() {
               {isCreatingNew ? 'สร้าง Widget ใหม่' : `แก้ไข: ${formData.name || formData.id}`}
             </span>
             <h2>{isCreatingNew ? 'เพิ่ม Widget เข้าสู่ระบบ' : 'ตัวจัดการโค้ดและคุณสมบัติ'}</h2>
+
+            {/* Global Status Banner for Admin */}
+            {!isCreatingNew && selectedId && (
+              <div style={{
+                margin: '1rem 0 1.25rem 0',
+                padding: '0.9rem 1.15rem',
+                borderRadius: 'var(--radius-sm)',
+                background: globalWidgetStatus[selectedId]?.enabled !== false ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.09)',
+                border: `1px solid ${globalWidgetStatus[selectedId]?.enabled !== false ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.3)'}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '0.85rem'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{
+                    width: '38px', height: '38px', borderRadius: '10px',
+                    background: globalWidgetStatus[selectedId]?.enabled !== false ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: globalWidgetStatus[selectedId]?.enabled !== false ? '#10b981' : '#f87171',
+                    flexShrink: 0
+                  }}>
+                    {globalWidgetStatus[selectedId]?.enabled !== false ? <Check size={20} strokeWidth={3} /> : <Lock size={20} />}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                      สถานะระบบ: {globalWidgetStatus[selectedId]?.enabled !== false ? '🟢 เปิดให้สตรีมเมอร์ทุกคนใช้งาน' : '🔴 ปิดปรับปรุงระบบ (ล็อกทั้งระบบ)'}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      {globalWidgetStatus[selectedId]?.enabled !== false
+                        ? 'สตรีมเมอร์สามารถเปิดใช้งานและนำลิงก์ไปใส่ใน OBS ได้ตามปกติ'
+                        : `ถูกปิดระบบด้วยเหตุผล: "${globalWidgetStatus[selectedId]?.reason || 'ปิดปรับปรุงระบบชั่วคราวโดยผู้ดูแลระบบ'}"`}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={statusLoading[selectedId]}
+                  onClick={() => handleToggleGlobalStatus(selectedId, globalWidgetStatus[selectedId]?.enabled !== false)}
+                  style={{
+                    padding: '0.5rem 1.15rem',
+                    borderRadius: 'var(--radius-xs)',
+                    fontWeight: 700,
+                    fontSize: '0.82rem',
+                    cursor: statusLoading[selectedId] ? 'wait' : 'pointer',
+                    border: 'none',
+                    background: globalWidgetStatus[selectedId]?.enabled !== false ? '#ef4444' : '#10b981',
+                    color: '#FFFFFF',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    transition: 'all 0.15s ease',
+                    boxShadow: globalWidgetStatus[selectedId]?.enabled !== false ? '0 2px 10px rgba(239,68,68,0.3)' : '0 2px 10px rgba(16,185,129,0.3)'
+                  }}
+                >
+                  {statusLoading[selectedId] ? (
+                    <span>กำลังบันทึก...</span>
+                  ) : globalWidgetStatus[selectedId]?.enabled !== false ? (
+                    <>
+                      <Lock size={15} />
+                      <span>สั่งปิดปรับปรุง Widget นี้</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock size={15} />
+                      <span>ปลดล็อกเปิดให้ใช้งาน</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* Widget Meta Fields */}
             <div className="admin-form-row">
