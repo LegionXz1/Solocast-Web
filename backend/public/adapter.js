@@ -1,15 +1,12 @@
 // Solocast Adapter - StreamElements Compatible Bridge & Real-Time Sync
 
-const socket = io('/');
-
-socket.on('connect', () => {
-  const u = targetUser || window.SolocastTargetUser || '';
-  if (u) {
-    socket.emit('join_channel', u);
-  }
+const socket = io('/', {
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  timeout: 20000
 });
-
-console.log('[Solocast Adapter] Initialized');
 
 // ฟังก์ชันสำหรับดึง Query Parameters จาก URL
 function getUrlParams() {
@@ -34,6 +31,31 @@ function getWidgetId() {
 const currentWidgetId = getWidgetId();
 const initialParams = new URLSearchParams(window.location.search);
 let targetUser = initialParams.get('user') || initialParams.get('channel') || '';
+
+function joinAllUserRooms() {
+  const u = targetUser || window.SolocastTargetUser || '';
+  if (u && socket.connected) {
+    socket.emit('join_user', { userId: u });
+    socket.emit('join_channel', u);
+    console.log('[Solocast Adapter] 🔄 Room membership refreshed for user & channel:', u);
+  }
+}
+
+socket.on('connect', () => {
+  console.log('[Solocast Adapter] 🟢 Socket connected/reconnected:', socket.id);
+  joinAllUserRooms();
+  checkLiveStatus();
+  syncSavedSettings();
+});
+
+socket.on('reconnect', () => {
+  console.log('[Solocast Adapter] 🔄 Socket reconnected, resyncing rooms and settings...');
+  joinAllUserRooms();
+  checkLiveStatus();
+  syncSavedSettings();
+});
+
+console.log('[Solocast Adapter] Initialized');
 
 // จัดการสถานะเปิด/ปิดการทำงานของ Widget Overlay (ทั้งจาก Admin Global Lock และ User Setting)
 const statusStyle = document.createElement('style');
@@ -120,7 +142,7 @@ checkLiveStatus();
 // เข้าร่วมห้องของผู้ใช้
 window.SolocastTargetUser = targetUser;
 if (targetUser) {
-  socket.emit('join_user', { userId: targetUser });
+  joinAllUserRooms();
   console.log('[Solocast Adapter] Joined room for user:', targetUser);
 } else {
   // หากไม่ได้ระบุ user ใน URL ให้พยายามดึง user เริ่มต้นของเซิร์ฟเวอร์
@@ -130,7 +152,7 @@ if (targetUser) {
       if (d.userId) {
         targetUser = d.userId;
         window.SolocastTargetUser = targetUser;
-        socket.emit('join_user', { userId: targetUser });
+        joinAllUserRooms();
         console.log('[Solocast Adapter] Auto-joined room for default user:', targetUser);
         checkLiveStatus();
         syncSavedSettings();
@@ -138,6 +160,15 @@ if (targetUser) {
     })
     .catch(() => {});
 }
+
+// 🛡️ Auto-healer: ตรวจสอบสถานะและความพร้อมของการเชื่อมต่อห้องทุกๆ 30 วินาที
+// ช่วยแก้ปัญหาเวลา OBS พักหน้าจอ (Sleep/Hidden Scene) หรือเครือข่ายกระตุก ทำให้ Widget กลับมาทำงานได้เองอัตโนมัติ
+setInterval(() => {
+  if (socket.connected) {
+    joinAllUserRooms();
+  }
+  checkLiveStatus();
+}, 30000);
 
 // ฟังก์ชันส่งข้อความแชท Twitch ในนามของสตรีมเมอร์เจ้าของช่อง
 window.sendTwitchChat = async function(message) {

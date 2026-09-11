@@ -1871,12 +1871,13 @@ function extractSongRequestQuery(text, customPrefix) {
   // ดักฟังข้อความแชทเพื่อตรวจจับคำสั่ง !so, !shoutout และ !sr / !เพลง (Song Request)
   try {
     el.onChannelChatMessage(userId, userId, async (e) => {
-      const text = (e.messageText || '').trim();
-      console.log(`[Twitch Chat] 💬 <${e.chatterName}> in channel ${userId}: "${text}"`);
+      try {
+        const text = (e.messageText || '').trim();
+        console.log(`[Twitch Chat] 💬 <${e.chatterName}> in channel ${userId}: "${text}"`);
 
-      const parts = text.split(/\s+/);
-      const cmd = parts[0].toLowerCase();
-      const isSoCmd = parts.length >= 2 && (cmd === '!so' || cmd === '!shoutout');
+        const parts = text.split(/\s+/);
+        const cmd = parts[0].toLowerCase();
+        const isSoCmd = parts.length >= 2 && (cmd === '!so' || cmd === '!shoutout');
 
       // ดึงการตั้งค่าของ Spotify SR Widget สำหรับแชนแนลนี้
       let srSettings = widgetSettingsStore['spotify-sr']?.[userId];
@@ -1892,6 +1893,9 @@ function extractSongRequestQuery(text, customPrefix) {
       if (!srSettings) {
         srSettings = widgetSettingsStore['spotify-sr']?.['default'] || {};
       }
+
+      const customPrefix = srSettings.commandPrefix || '!sr';
+      const srMatch = extractSongRequestQuery(text, customPrefix);
 
       // ตรวจสอบคำสั่ง Custom Counter (!count, !กรี๊ด, !death ฯลฯ)
       let counterSettings = widgetSettingsStore['custom-counter']?.[userId];
@@ -2175,11 +2179,14 @@ function extractSongRequestQuery(text, customPrefix) {
         };
         io.to('user_' + userId).emit('onEventReceived', chatEv);
       }
-    });
-    console.log(`✅ [EventSub] Subscribed to chat messages for user ID: ${userId}`);
-  } catch (err) {
-    console.warn(`[EventSub] Chat message listener setup warning for ${userId}:`, err?.message || err);
-  }
+    } catch (chatErr) {
+      console.error(`[Twitch Chat] ❌ Error in message handler for channel ${userId}:`, chatErr);
+    }
+  });
+  console.log(`✅ [EventSub] Subscribed to chat messages for user ID: ${userId}`);
+} catch (err) {
+  console.warn(`[EventSub] Chat message listener setup warning for ${userId}:`, err?.message || err);
+}
 }
 
 io.on('connection', (socket) => {
@@ -2192,8 +2199,14 @@ io.on('connection', (socket) => {
       targetUserId = sessions[payload.token].userId;
     }
     if (targetUserId) {
-      socket.join('user_' + targetUserId);
-      console.log(`Socket ${socket.id} joined room user_${targetUserId}`);
+      const clean = String(targetUserId).trim().toLowerCase().replace('@', '');
+      const allIds = getAssociatedUserIdentifiers(clean);
+      allIds.add(clean);
+      for (const id of allIds) {
+        socket.join('user_' + id);
+        socket.join('channel_' + id);
+      }
+      console.log(`Socket ${socket.id} joined user/channel rooms:`, Array.from(allIds));
     }
   });
 
@@ -2203,8 +2216,13 @@ io.on('connection', (socket) => {
     if (channelName && typeof channelName === 'string') {
       const clean = channelName.trim().toLowerCase().replace('@', '');
       if (clean) {
-        socket.join('channel_' + clean);
-        console.log(`Socket ${socket.id} joined room channel_${clean}`);
+        const allIds = getAssociatedUserIdentifiers(clean);
+        allIds.add(clean);
+        for (const id of allIds) {
+          socket.join('channel_' + id);
+          socket.join('user_' + id);
+        }
+        console.log(`Socket ${socket.id} joined channel/user rooms:`, Array.from(allIds));
       }
     }
   });

@@ -190,7 +190,7 @@
     },
     "148596257": {
       "triggerChannelPoints": "yes",
-      "rewardName": "จุ่มๆๆๆ",
+      "rewardName": "แอลยืดหลัง",
       "cardTitle": "Loyalty Card",
       "fontFamily": "Quicksand",
       "notebookTabText": "NOTES",
@@ -440,11 +440,6 @@
   },
   "custom-counter": {
     "test_user": {
-      "counterTitle": "จำนวนครั้งที่กรี๊ด",
-      "currentCount": 0,
-      "unitText": "ครั้ง"
-    },
-    "default": {
       "counterTitle": "จำนวนครั้งที่กรี๊ด",
       "currentCount": 0,
       "unitText": "ครั้ง"
