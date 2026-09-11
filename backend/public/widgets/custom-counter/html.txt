@@ -6,7 +6,7 @@
     <!-- Header: Icon + Title -->
     <div class="counter-header">
       <div id="counter-icon-box" class="counter-icon-box">
-        <span id="counter-icon" class="counter-icon">👻</span>
+        <span id="counter-icon" class="counter-icon"></span>
       </div>
       <div class="counter-title-wrap">
         <span id="counter-title" class="counter-title">จำนวนครั้งที่กรี๊ด</span>

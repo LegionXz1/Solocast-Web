@@ -639,6 +639,13 @@ function Admin() {
     }
   };
 
+  const handleKeyDownEditor = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      handleSave(e);
+    }
+  };
+
   // Save / Update
   const handleSave = async (e) => {
     if (e) e.preventDefault();
@@ -1482,6 +1489,28 @@ function Admin() {
                   >
                     คัดลอก
                   </button>
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={isLoading}
+                    className="code-action-btn"
+                    title="บันทึกไฟล์นี้ทันที (Ctrl+S)"
+                    style={{
+                      background: 'var(--accent-color, #f59e0b)',
+                      color: '#000000',
+                      fontWeight: 800,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '4px 10px',
+                      borderRadius: '4px',
+                      border: 'none',
+                      cursor: isLoading ? 'wait' : 'pointer'
+                    }}
+                  >
+                    {isLoading ? <Loader2 size={13} className="spin" /> : <Save size={13} />}
+                    <span>{isLoading ? 'กำลังบันทึก...' : 'บันทึก (Ctrl+S)'}</span>
+                  </button>
                 </div>
               </div>
 
@@ -1491,6 +1520,7 @@ function Admin() {
                   placeholder="วางโค้ด HTML ที่นี่..."
                   value={formData.html}
                   onChange={e => setFormData(p => ({ ...p, html: e.target.value }))}
+                  onKeyDown={handleKeyDownEditor}
                 />
               )}
 
@@ -1500,6 +1530,7 @@ function Admin() {
                   placeholder="วางโค้ด CSS ที่นี่..."
                   value={formData.css}
                   onChange={e => setFormData(p => ({ ...p, css: e.target.value }))}
+                  onKeyDown={handleKeyDownEditor}
                 />
               )}
 
@@ -1509,6 +1540,7 @@ function Admin() {
                   placeholder="วางโค้ด JavaScript ที่นี่..."
                   value={formData.js}
                   onChange={e => setFormData(p => ({ ...p, js: e.target.value }))}
+                  onKeyDown={handleKeyDownEditor}
                 />
               )}
 
@@ -1518,8 +1550,83 @@ function Admin() {
                   placeholder="วาง Fields JSON Schema ที่นี่..."
                   value={formData.fields}
                   onChange={e => setFormData(p => ({ ...p, fields: e.target.value }))}
+                  onKeyDown={handleKeyDownEditor}
                 />
               )}
+            </div>
+
+            {/* Bottom Action Bar for Code Editor */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '1rem',
+              marginTop: '1.25rem',
+              marginBottom: '1.5rem',
+              padding: '1.1rem 1.35rem',
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              borderRadius: 'var(--radius-sm, 12px)',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    แก้ไขไฟล์:
+                  </span>
+                  <code style={{
+                    fontSize: '0.85rem',
+                    color: '#f59e0b',
+                    fontWeight: 800,
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(245, 158, 11, 0.3)'
+                  }}>
+                    {activeTab === 'fields' ? 'fields.json' : `${activeTab}.txt`}
+                  </code>
+                </div>
+                <span style={{
+                  fontSize: '0.74rem',
+                  color: 'var(--text-muted)',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  padding: '3px 8px',
+                  borderRadius: '4px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  💡 กด Ctrl+S เพื่อบันทึกได้ทันที
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                {selectedId && !isCreatingNew && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPreviewModal(true)}
+                    className="btn-island"
+                    style={{ padding: '0.65rem 1.25rem', fontSize: '0.85rem' }}
+                  >
+                    <span>ดูตัวอย่างสด (Live Preview)</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isLoading}
+                  className="btn-island accent"
+                  style={{
+                    padding: '0.65rem 1.75rem',
+                    fontSize: '0.9rem',
+                    fontWeight: 800,
+                    boxShadow: '0 4px 16px rgba(245, 158, 11, 0.35)',
+                    cursor: isLoading ? 'wait' : 'pointer'
+                  }}
+                >
+                  {isLoading ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
+                  <span>{isLoading ? 'กำลังบันทึก...' : isCreatingNew ? 'สร้าง Widget ใหม่' : 'บันทึกการเปลี่ยนแปลง'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Danger Zone: Delete Widget */}

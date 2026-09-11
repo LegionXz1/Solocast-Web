@@ -2,7 +2,7 @@
   "counterTitle": {
     "type": "text",
     "label": "ชื่อสถิติ (Counter Title)",
-    "value": "จำนวนครั้งที่กรี๊ด",
+    "value": "ได้ออกประตู",
     "group": "ตั้งค่าทั่วไป (General)"
   },
   "currentCount": {
@@ -28,11 +28,11 @@
     "label": "สกินและธีมแสดงผล (Theme Preset)",
     "value": "minimal-glass",
     "options": {
-      "minimal-glass": "Minimal Glass (กระจกโมเดิร์นคลีน)",
-      "cyberpunk": "Neon Cyberpunk (นีออนเรืองแสง)",
-      "souls": "Souls / Dark Fantasy (ดาร์กโกธิค)",
-      "cute-pastel": "Cute Pastel (พาสเทลน่ารัก)",
-      "arcade": "Retro Arcade (เกมตู้ 8-Bit)"
+      "minimal-glass": "Minimal Glass",
+      "cyberpunk": "Neon Cyberpunk",
+      "souls": "Souls / Dark Fantasy",
+      "cute-pastel": "Cute Pastel",
+      "arcade": "Retro Arcade"
     },
     "group": "รูปแบบและการแสดงผล (Design & Styles)"
   },
@@ -41,16 +41,19 @@
     "label": "ไอคอนกำกับสถิติ (Icon Preset)",
     "value": "ghost",
     "options": {
-      "ghost": "👻 ผี (Horror / Scream)",
-      "skull": "💀 กะโหลก (Death / Fail)",
-      "fire": "🔥 ไฟ (Hype / Streak)",
-      "heart": "❤️ หัวใจ (Life / HP)",
-      "trophy": "🏆 ถ้วยรางวัล (Win / Victory)",
-      "water": "💧 หยดน้ำ (Drink / Hydrate)",
-      "sword": "⚔️ ดาบ (Combat / Battle)",
-      "star": "⭐ ดาว (Star / Points)",
-      "gamepad": "🎮 จอยเกม (Gaming)",
-      "none": "🚫 ไม่แสดงไอคอน"
+      "ghost": "Ghost",
+      "skull": "Skull",
+      "fire": "Flame",
+      "heart": "Heart",
+      "trophy": "Trophy",
+      "water": "Drop",
+      "sword": "Sword",
+      "star": "Star",
+      "gamepad": "Gamepad",
+      "target": "Target",
+      "zap": "Lightning",
+      "alert": "Alert",
+      "none": "None"
     },
     "group": "รูปแบบและการแสดงผล (Design & Styles)"
   },
@@ -145,7 +148,7 @@
   "rewardName": {
     "type": "text",
     "label": "ชื่อรางวัล Channel Points ที่ต้องการผูก",
-    "value": "เพิ่มยอดกรี๊ด",
+    "value": "แต้มได้ออกประตู",
     "group": "Channel Points Integration"
   }
 }

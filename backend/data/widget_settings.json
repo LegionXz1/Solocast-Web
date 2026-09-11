@@ -499,6 +499,29 @@
     }
   },
   "custom-counter": {
+    "148596257": {
+      "counterTitle": "ได้ออกประตู",
+      "currentCount": 130,
+      "unitText": "ครั้ง",
+      "stepAmount": 1,
+      "themePreset": "souls",
+      "iconPreset": "trophy",
+      "customIconUrl": "",
+      "accentColor": "#f09800",
+      "badgeBgColor": "#0f172a",
+      "textColor": "#ffffff",
+      "counterScale": 100,
+      "soundEnabled": false,
+      "soundVolume": 70,
+      "customSoundUrl": "",
+      "enableChatCmd": true,
+      "commandPrefix": "!escape",
+      "chatPermission": "mods",
+      "enableChatReply": false,
+      "chatReplyTemplate": "{user} อัปเดต {title} เป็น {count} {unit} แล้ว!",
+      "triggerChannelPoints": false,
+      "rewardName": "เพิ่มยอดกรี๊ด"
+    },
     "test_user": {
       "counterTitle": "จำนวนครั้งที่กรี๊ด",
       "currentCount": 0,
