@@ -299,6 +299,10 @@ export default function Landing() {
                         src="/dbd-perks-showcase.png"
                         alt="Dead by Daylight Perks Roulette Display"
                         className="perk-showcase-real-img"
+                        loading="lazy"
+                        decoding="async"
+                        width="420"
+                        height="280"
                       />
                     </div>
                   )}
@@ -310,6 +314,10 @@ export default function Landing() {
                         src="/random-killer-showcase.png"
                         alt="Dead by Daylight Random Killer Overlay"
                         className="killer-showcase-real-img"
+                        loading="lazy"
+                        decoding="async"
+                        width="420"
+                        height="280"
                       />
                     </div>
                   )}
@@ -321,6 +329,10 @@ export default function Landing() {
                         src="/twitch-shoutout-showcase.png"
                         alt="Twitch Shoutout Banner Overlay"
                         className="shoutout-showcase-real-img"
+                        loading="lazy"
+                        decoding="async"
+                        width="420"
+                        height="280"
                       />
                     </div>
                   )}
@@ -332,6 +344,10 @@ export default function Landing() {
                         src="/loyalty-card-showcase.png"
                         alt="Twitch Loyalty Stamp Card Overlay"
                         className="loyalty-showcase-real-img"
+                        loading="lazy"
+                        decoding="async"
+                        width="420"
+                        height="280"
                       />
                     </div>
                   )}
@@ -360,7 +376,7 @@ export default function Landing() {
                 <div className="feature-icon-wrapper">
                   <Icon size={22} className="feature-icon" />
                 </div>
-                <h4 className="feature-title">{feat.title}</h4>
+                <h3 className="feature-title">{feat.title}</h3>
                 <p className="feature-desc">{feat.desc}</p>
               </div>
             );
@@ -381,7 +397,7 @@ export default function Landing() {
             {HOW_IT_WORKS.map((st, i) => (
               <div key={i} className="step-card">
                 <span className="step-number">{st.step}</span>
-                <h4 className="step-card-title">{st.title}</h4>
+                <h3 className="step-card-title">{st.title}</h3>
                 <p className="step-card-desc">{st.desc}</p>
               </div>
             ))}

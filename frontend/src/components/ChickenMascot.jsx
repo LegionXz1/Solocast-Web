@@ -31,6 +31,10 @@ export default function ChickenMascot() {
             src="/electric-chicken.png"
             alt="FastChick Electric Chicken Mascot"
             className="electric-chicken-img"
+            width="215"
+            height="215"
+            fetchpriority="high"
+            decoding="async"
             draggable={false}
           />
         </div>
