@@ -20,13 +20,31 @@ const ICON_MAP = {
   none: ''
 };
 
+// Shared Web Audio Context to prevent reaching browser AudioContext limit
+let sharedAudioCtx = null;
+function getAudioContext() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+    if (!sharedAudioCtx) {
+      sharedAudioCtx = new AudioContextClass();
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
+  } catch (e) {
+    return null;
+  }
+}
+
 // Web Audio Synthesizer for instant crisp pop/coin sound without external assets
 function playBeepSound(isPositive) {
   if (!soundEnabled) return;
   try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
 

@@ -484,11 +484,9 @@ function Dashboard() {
         return updated;
       });
 
-      // ถ้า Widget ที่กำลังเลือกอยู่ถูกปิดลง ให้สลับหรือเคลียร์ออกทันที
-      if (!payload.enabled && payload.widgetId === selectedWidget) {
-        if (payload.type === 'global' || (payload.type === 'user' && payload.userId === status.userId)) {
-          setSelectedWidget('');
-        }
+      // ถ้า Widget ที่กำลังเลือกอยู่ถูก Admin ล็อคทั้งระบบ (Global Lock) ให้สลับออก
+      if (!payload.enabled && payload.widgetId === selectedWidget && payload.type === 'global') {
+        setSelectedWidget('');
       }
     };
     const handleAccessChanged = () => {
@@ -501,6 +499,22 @@ function Dashboard() {
       socket.off('widget_access_changed', handleAccessChanged);
     };
   }, [status.userId, selectedWidget, fetchWidgetStatusOverview]);
+
+  // รักษาสถานะห้องของ Socket ให้พร้อมรับอีเวนต์ตลอดเวลา (ทั้งตอนโหลดและตอน Reconnect)
+  useEffect(() => {
+    if (!status.userId) return;
+    const handleConnect = () => {
+      socket.emit('join_user', { userId: status.userId });
+      socket.emit('join_channel', status.username || status.userId);
+    };
+    socket.on('connect', handleConnect);
+    if (socket.connected) {
+      handleConnect();
+    }
+    return () => {
+      socket.off('connect', handleConnect);
+    };
+  }, [status.userId, status.username]);
 
   // 4. โหลด Schema และ ค่าการตั้งค่าที่บันทึกไว้ (เช่น Reward Name)
   useEffect(() => {

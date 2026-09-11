@@ -245,13 +245,18 @@ export async function refreshSpotifyToken(userId) {
  * Get guaranteed valid Access Token
  */
 export async function getValidAccessToken(userId) {
-  const userToken = getSpotifyUserToken(userId);
-  if (!userToken) return null;
+  try {
+    const userToken = getSpotifyUserToken(userId);
+    if (!userToken) return null;
 
-  if (Date.now() >= (userToken.expiresAt || 0)) {
-    return await refreshSpotifyToken(userId);
+    if (Date.now() >= (userToken.expiresAt || 0)) {
+      return await refreshSpotifyToken(userId);
+    }
+    return userToken.accessToken;
+  } catch (err) {
+    console.warn(`[Spotify] ⚠️ Failed to get valid access token for user ${userId}:`, err?.message || err);
+    return null;
   }
-  return userToken.accessToken;
 }
 
 /**

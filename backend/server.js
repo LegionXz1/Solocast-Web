@@ -1704,35 +1704,53 @@ function startEventSub(userId) {
   registeredEventSubUsers.add(uidStr);
   console.log(`✅ [EventSub] Subscribed for Twitch events for user ID: ${uidStr}...`);
 
-  el.onChannelFollow(userId, userId, (e) => {
-    console.log(`New Follower for ${userId}: ${e.userDisplayName}`);
-    const ev = { type: 'follower', userId, data: { name: e.userDisplayName } };
-    io.to('user_' + userId).emit('onEventReceived', ev);
-    io.emit('onEventReceived', ev);
-  });
-
-  el.onChannelSubscription(userId, (e) => {
-    console.log(`New Subscriber for ${userId}: ${e.userDisplayName}`);
-    const ev = { type: 'subscriber', userId, data: { name: e.userDisplayName, tier: e.tier } };
-    io.to('user_' + userId).emit('onEventReceived', ev);
-    io.emit('onEventReceived', ev);
-  });
-
-  el.onChannelRedemptionAdd(userId, async (e) => {
-    let avatar = '';
-    try {
-      const userObj = await e.getUser();
-      avatar = userObj?.profilePictureUrl || '';
-      if (avatar && e.userName) {
-        avatarCache.set(e.userName.toLowerCase(), avatar);
+  try {
+    el.onChannelFollow(userId, userId, (e) => {
+      try {
+        console.log(`New Follower for ${userId}: ${e.userDisplayName}`);
+        const ev = { type: 'follower', userId, data: { name: e.userDisplayName } };
+        io.to('user_' + userId).emit('onEventReceived', ev);
+        io.emit('onEventReceived', ev);
+      } catch (err) {
+        console.error('[EventSub] Error in follow handler:', err);
       }
-    } catch (err) {}
+    });
+  } catch (err) {
+    console.warn(`[EventSub] Follow listener setup warning for ${userId}:`, err?.message || err);
+  }
 
-    if (!avatar && e.userName) {
-      avatar = await getTwitchUserAvatar(e.userName);
-    }
+  try {
+    el.onChannelSubscription(userId, (e) => {
+      try {
+        console.log(`New Subscriber for ${userId}: ${e.userDisplayName}`);
+        const ev = { type: 'subscriber', userId, data: { name: e.userDisplayName, tier: e.tier } };
+        io.to('user_' + userId).emit('onEventReceived', ev);
+        io.emit('onEventReceived', ev);
+      } catch (err) {
+        console.error('[EventSub] Error in sub handler:', err);
+      }
+    });
+  } catch (err) {
+    console.warn(`[EventSub] Subscription listener setup warning for ${userId}:`, err?.message || err);
+  }
 
-    console.log(`[EventSub] 🎁 Redemption received for user ${userId} by ${e.userName}: "${e.rewardTitle}" (avatar: ${avatar ? 'found' : 'none'})`);
+  try {
+    el.onChannelRedemptionAdd(userId, async (e) => {
+      try {
+        let avatar = '';
+        try {
+          const userObj = await e.getUser();
+          avatar = userObj?.profilePictureUrl || '';
+          if (avatar && e.userName) {
+            avatarCache.set(e.userName.toLowerCase(), avatar);
+          }
+        } catch (err) {}
+
+        if (!avatar && e.userName) {
+          avatar = await getTwitchUserAvatar(e.userName);
+        }
+
+        console.log(`[EventSub] 🎁 Redemption received for user ${userId} by ${e.userName}: "${e.rewardTitle}" (avatar: ${avatar ? 'found' : 'none'})`);
     const ev = {
       type: 'redemption',
       userId,
@@ -1787,7 +1805,13 @@ function startEventSub(userId) {
     } catch (cErr) {
       console.warn('[Custom Counter] Redemption check warning:', cErr?.message || cErr);
     }
-  });
+  } catch (rErr) {
+    console.error(`[EventSub] Error in redemption handler for ${userId}:`, rErr);
+  }
+});
+} catch (err) {
+  console.warn(`[EventSub] Redemption listener setup warning for ${userId}:`, err?.message || err);
+}
 
   try {
     el.onChannelShoutoutCreate(userId, userId, (e) => {
