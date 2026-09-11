@@ -263,6 +263,45 @@
       "chatCmdPrefix": "!loyalty",
       "chatMsgTemplate": "{user} checked in {count} times!"
     },
+    "910639047": {
+      "triggerChannelPoints": "yes",
+      "rewardName": "check in",
+      "cardTitle": "Loyalty Card",
+      "fontFamily": "Quicksand",
+      "notebookTabText": "NOTES",
+      "remainingTemplate": "{remaining} more stamp(s) needed to complete your card!",
+      "showRemainingNote": "yes",
+      "checkinText": "Count:",
+      "colorPreset": "lavender",
+      "accentColor": "#8e90f6",
+      "bgColor": "#fffdfa",
+      "stackColor": "#e0e2ff",
+      "borderColor": "#8e90f6",
+      "textColor": "#393a6e",
+      "avatarGlowColor": "#8e90f6",
+      "cardIcon": "Heart",
+      "avatarShape": "circle",
+      "stampShapePreset": "paw",
+      "stampImage": "",
+      "rubberStampImage": "",
+      "cardCornerRadius": 20,
+      "showSpirals": "yes",
+      "stampShape": "circle",
+      "overlayScale": 100,
+      "cardPosition": "bottom-left",
+      "animStyle": "slide",
+      "soundUrl": "",
+      "soundVolume": 80,
+      "stampTotal": 10,
+      "cardWidth": 440,
+      "cardOffset": 36,
+      "enableVisualOverlay": "yes",
+      "displayDuration": 6,
+      "enableChatMsg": "yes",
+      "enableChatCmd": "yes",
+      "chatCmdPrefix": "!loyalty",
+      "chatMsgTemplate": "{user} checked in {count} times!"
+    },
     "1536233139": {
       "triggerChannelPoints": "yes",
       "rewardName": "Check-in",
@@ -397,6 +436,18 @@
       "maxDuration": 7,
       "userCooldown": 60,
       "idleBehavior": "idle_card"
+    }
+  },
+  "custom-counter": {
+    "test_user": {
+      "counterTitle": "จำนวนครั้งที่กรี๊ด",
+      "currentCount": 0,
+      "unitText": "ครั้ง"
+    },
+    "default": {
+      "counterTitle": "จำนวนครั้งที่กรี๊ด",
+      "currentCount": 0,
+      "unitText": "ครั้ง"
     }
   }
 }

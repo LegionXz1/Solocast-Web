@@ -1,0 +1,220 @@
+// Custom Counter Widget - Client Controller
+
+let currentCount = 0;
+let counterTitle = 'จำนวนครั้งที่กรี๊ด';
+let unitText = 'ครั้ง';
+let soundEnabled = true;
+let soundVolume = 70;
+let customSoundUrl = '';
+
+const ICON_MAP = {
+  ghost: '👻',
+  skull: '💀',
+  fire: '🔥',
+  heart: '❤️',
+  trophy: '🏆',
+  water: '💧',
+  sword: '⚔️',
+  star: '⭐',
+  gamepad: '🎮',
+  none: ''
+};
+
+// Web Audio Synthesizer for instant crisp pop/coin sound without external assets
+function playBeepSound(isPositive) {
+  if (!soundEnabled) return;
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    const vol = Math.max(0.01, Math.min(1, soundVolume / 100)) * 0.3;
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+
+    if (isPositive) {
+      // Happy ascending arpeggio chime
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+    } else {
+      // Descending tone
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(380, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+    }
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.26);
+  } catch (e) {
+    console.warn('[Custom Counter] Audio error:', e);
+  }
+}
+
+function playCustomSound(isPositive) {
+  if (!soundEnabled) return;
+  if (customSoundUrl && customSoundUrl.trim()) {
+    try {
+      const audio = new Audio(customSoundUrl.trim());
+      audio.volume = Math.max(0, Math.min(1, soundVolume / 100));
+      audio.play().catch(() => playBeepSound(isPositive));
+      return;
+    } catch (_) {}
+  }
+  playBeepSound(isPositive);
+}
+
+function applySettings(fieldData) {
+  if (!fieldData) return;
+
+  if (fieldData.counterTitle !== undefined) {
+    counterTitle = String(fieldData.counterTitle);
+    const titleEl = document.getElementById('counter-title');
+    if (titleEl) titleEl.textContent = counterTitle;
+  }
+
+  if (fieldData.currentCount !== undefined) {
+    currentCount = Number(fieldData.currentCount) || 0;
+    const valEl = document.getElementById('counter-value');
+    if (valEl) valEl.textContent = currentCount;
+  }
+
+  if (fieldData.unitText !== undefined) {
+    unitText = String(fieldData.unitText);
+    const unitEl = document.getElementById('counter-unit');
+    if (unitEl) unitEl.textContent = unitText;
+  }
+
+  if (fieldData.soundEnabled !== undefined) {
+    soundEnabled = fieldData.soundEnabled === true || fieldData.soundEnabled === 'yes';
+  }
+
+  if (fieldData.soundVolume !== undefined) {
+    soundVolume = Number(fieldData.soundVolume) || 70;
+  }
+
+  if (fieldData.customSoundUrl !== undefined) {
+    customSoundUrl = fieldData.customSoundUrl || '';
+  }
+
+  // Visual & Styles
+  const card = document.getElementById('counter-card');
+  const root = document.getElementById('counter-widget');
+
+  if (fieldData.counterScale !== undefined && root) {
+    const scale = (Number(fieldData.counterScale) || 100) / 100;
+    root.style.setProperty('--counter-scale', scale);
+  }
+
+  if (card) {
+    // Theme Presets
+    const theme = fieldData.themePreset || 'minimal-glass';
+    card.className = 'counter-card theme-' + theme;
+
+    // Colors
+    if (fieldData.accentColor) card.style.setProperty('--counter-accent', fieldData.accentColor);
+    if (fieldData.badgeBgColor) card.style.setProperty('--counter-bg', fieldData.badgeBgColor);
+    if (fieldData.textColor) card.style.setProperty('--counter-text', fieldData.textColor);
+    if (fieldData.accentColor) card.style.setProperty('--counter-border', fieldData.accentColor + '66');
+  }
+
+  // Icon
+  const iconEl = document.getElementById('counter-icon');
+  const iconBox = document.getElementById('counter-icon-box');
+  if (iconEl && iconBox) {
+    if (fieldData.customIconUrl && fieldData.customIconUrl.trim()) {
+      iconEl.innerHTML = `<img src="${fieldData.customIconUrl}" alt="icon" style="width: 24px; height: 24px; object-fit: contain; border-radius: 4px;" />`;
+      iconBox.style.display = 'flex';
+    } else {
+      const iconKey = fieldData.iconPreset || 'ghost';
+      const emoji = ICON_MAP[iconKey] || '👻';
+      if (iconKey === 'none' || !emoji) {
+        iconBox.style.display = 'none';
+      } else {
+        iconBox.style.display = 'flex';
+        iconEl.textContent = emoji;
+      }
+    }
+  }
+}
+
+function updateCounterDisplay(newCount, delta = 0) {
+  const valEl = document.getElementById('counter-value');
+  const iconBox = document.getElementById('counter-icon-box');
+  const deltaEl = document.getElementById('counter-delta');
+
+  currentCount = Number(newCount);
+  if (isNaN(currentCount)) currentCount = 0;
+
+  if (valEl) {
+    valEl.textContent = currentCount;
+    valEl.classList.remove('bump');
+    void valEl.offsetWidth; // Trigger reflow
+    valEl.classList.add('bump');
+    setTimeout(() => valEl.classList.remove('bump'), 300);
+  }
+
+  if (iconBox) {
+    iconBox.classList.remove('pop');
+    void iconBox.offsetWidth;
+    iconBox.classList.add('pop');
+    setTimeout(() => iconBox.classList.remove('pop'), 350);
+  }
+
+  // Animate delta floating tag (+1, -1, etc.)
+  if (deltaEl && delta !== 0) {
+    deltaEl.textContent = delta > 0 ? `+${delta}` : `${delta}`;
+    deltaEl.className = 'counter-delta' + (delta < 0 ? ' negative' : '');
+    deltaEl.classList.remove('float-up');
+    void deltaEl.offsetWidth;
+    deltaEl.classList.add('float-up');
+    setTimeout(() => deltaEl.classList.remove('float-up'), 1200);
+  }
+
+  playCustomSound(delta >= 0);
+}
+
+// StreamElements EventBridge
+window.addEventListener('onWidgetLoad', function (obj) {
+  const detail = obj.detail || {};
+  const fieldData = detail.fieldData || {};
+  applySettings(fieldData);
+  console.log('[Custom Counter] Initialized with settings:', fieldData);
+});
+
+window.addEventListener('onEventReceived', function (obj) {
+  const event = obj.detail || {};
+  if (!event) return;
+
+  if (event.type === 'counter_update' || event.type === 'counter_updated') {
+    const data = event.data || {};
+    if (data.title) {
+      const titleEl = document.getElementById('counter-title');
+      if (titleEl) titleEl.textContent = data.title;
+    }
+    const newCount = data.count !== undefined ? data.count : currentCount;
+    const delta = data.delta !== undefined ? data.delta : (newCount - currentCount);
+    updateCounterDisplay(newCount, delta);
+  } else if (event.type === 'settings_updated') {
+    applySettings(event.data);
+  }
+});
+
+// Direct Socket.io listener via Solocast Adapter
+if (typeof socket !== 'undefined') {
+  socket.on('counter_updated', function (data) {
+    if (!data) return;
+    if (data.title) {
+      const titleEl = document.getElementById('counter-title');
+      if (titleEl) titleEl.textContent = data.title;
+    }
+    const newCount = data.count !== undefined ? data.count : currentCount;
+    const delta = data.delta !== undefined ? data.delta : (newCount - currentCount);
+    updateCounterDisplay(newCount, delta);
+  });
+}

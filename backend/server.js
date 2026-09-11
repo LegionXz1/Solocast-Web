@@ -755,6 +755,89 @@ app.post('/api/widgets/:id/settings', (req, res) => {
   }
 });
 
+// ------------------------------------------------------------
+// 📊 Custom Counter Specific Endpoints
+// ------------------------------------------------------------
+app.get('/api/widgets/custom-counter/data', (req, res) => {
+  try {
+    const user = req.query.user || req.query.channel || 'default';
+    const settings = widgetSettingsStore['custom-counter']?.[user] || widgetSettingsStore['custom-counter']?.['default'] || {};
+    res.json({
+      count: Number(settings.currentCount) || 0,
+      title: settings.counterTitle || 'จำนวนครั้งที่กรี๊ด',
+      unit: settings.unitText || 'ครั้ง',
+      settings
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/widgets/custom-counter/update', (req, res) => {
+  try {
+    const { user, action, delta, value, updatedBy } = req.body || {};
+    const userKey = user || 'default';
+
+    if (!widgetSettingsStore['custom-counter']) {
+      widgetSettingsStore['custom-counter'] = {};
+    }
+    const cs = widgetSettingsStore['custom-counter'][userKey] || {
+      counterTitle: 'จำนวนครั้งที่กรี๊ด',
+      currentCount: 0,
+      unitText: 'ครั้ง'
+    };
+
+    const currentCount = Number(cs.currentCount) || 0;
+    let newCount = currentCount;
+    let computedDelta = 0;
+
+    if (action === 'inc') {
+      const d = Number(delta !== undefined ? delta : (cs.stepAmount || 1));
+      newCount = Math.max(0, currentCount + d);
+      computedDelta = newCount - currentCount;
+    } else if (action === 'dec') {
+      const d = Number(delta !== undefined ? delta : (cs.stepAmount || 1));
+      newCount = Math.max(0, currentCount - d);
+      computedDelta = newCount - currentCount;
+    } else if (action === 'set') {
+      newCount = Math.max(0, Number(value) || 0);
+      computedDelta = newCount - currentCount;
+    } else if (action === 'reset') {
+      newCount = 0;
+      computedDelta = -currentCount;
+    }
+
+    cs.currentCount = newCount;
+    widgetSettingsStore['custom-counter'][userKey] = cs;
+    saveWidgetSettings(widgetSettingsStore);
+
+    const title = cs.counterTitle || 'จำนวนครั้งที่กรี๊ด';
+    const payload = {
+      userId: userKey,
+      widgetId: 'custom-counter',
+      count: newCount,
+      delta: computedDelta,
+      title,
+      updatedBy: updatedBy || 'Dashboard'
+    };
+
+    if (userKey !== 'default') {
+      io.to('user_' + userKey).emit('counter_updated', payload);
+      io.to('user_' + userKey).emit('onEventReceived', {
+        type: 'counter_update',
+        userId: userKey,
+        data: payload
+      });
+    }
+    io.emit('counter_updated', payload);
+
+    console.log(`[Custom Counter] 🔢 User ${userKey} counter updated: ${currentCount} -> ${newCount} (${computedDelta >= 0 ? '+' : ''}${computedDelta}) by ${updatedBy || 'Dashboard'}`);
+    res.json({ success: true, count: newCount, delta: computedDelta, title, user: userKey });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/widgets/:id/live-status — ตรวจสอบสถานะว่า Widget นี้ Active อยู่หรือไม่ (ใช้โดย OBS Overlay)
 app.get('/api/widgets/:id/live-status', (req, res) => {
   const widgetId = req.params.id;
@@ -1668,6 +1751,42 @@ function startEventSub(userId) {
       }
     };
     io.to('user_' + userId).emit('onEventReceived', ev);
+
+    // ตรวจสอบการแลกแต้มสำหรับ Custom Counter (ถ้าเปิดใช้งาน)
+    try {
+      if (isWidgetActiveForUser(userId, 'custom-counter')) {
+        let cs = widgetSettingsStore['custom-counter']?.[userId] || widgetSettingsStore['custom-counter']?.['default'] || {};
+        const isTriggerPoints = cs.triggerChannelPoints === true || cs.triggerChannelPoints === 'yes' || cs.triggerChannelPoints === 'true';
+        const targetReward = (cs.rewardName || 'เพิ่มยอดกรี๊ด').trim().toLowerCase();
+        if (isTriggerPoints && e.rewardTitle && e.rewardTitle.trim().toLowerCase() === targetReward) {
+          const prevCount = Number(cs.currentCount) || 0;
+          const step = Number(cs.stepAmount) || 1;
+          const newCount = prevCount + step;
+          cs.currentCount = newCount;
+          widgetSettingsStore['custom-counter'] = widgetSettingsStore['custom-counter'] || {};
+          widgetSettingsStore['custom-counter'][userId] = cs;
+          saveWidgetSettings(widgetSettingsStore);
+
+          const payload = {
+            userId,
+            widgetId: 'custom-counter',
+            count: newCount,
+            delta: step,
+            title: cs.counterTitle || 'จำนวนครั้งที่กรี๊ด',
+            updatedBy: e.userDisplayName || e.userName
+          };
+          io.to('user_' + userId).emit('counter_updated', payload);
+          io.to('user_' + userId).emit('onEventReceived', {
+            type: 'counter_update',
+            userId,
+            data: payload
+          });
+          console.log(`[Custom Counter] 🎁 Channel Points redemption incremented counter for user ${userId} to ${newCount}`);
+        }
+      }
+    } catch (cErr) {
+      console.warn('[Custom Counter] Redemption check warning:', cErr?.message || cErr);
+    }
   });
 
   try {
@@ -1774,8 +1893,133 @@ function extractSongRequestQuery(text, customPrefix) {
         srSettings = widgetSettingsStore['spotify-sr']?.['default'] || {};
       }
 
-      const customPrefix = srSettings.commandPrefix || '!sr';
-      const srMatch = extractSongRequestQuery(text, customPrefix);
+      // ตรวจสอบคำสั่ง Custom Counter (!count, !กรี๊ด, !death ฯลฯ)
+      let counterSettings = widgetSettingsStore['custom-counter']?.[userId];
+      if (!counterSettings) {
+        const ids = getAssociatedUserIdentifiers(userId);
+        for (const id of ids) {
+          if (widgetSettingsStore['custom-counter']?.[id]) {
+            counterSettings = widgetSettingsStore['custom-counter'][id];
+            break;
+          }
+        }
+      }
+      if (!counterSettings) {
+        counterSettings = widgetSettingsStore['custom-counter']?.['default'] || {};
+      }
+
+      const counterPrefix = (counterSettings.commandPrefix || '!count').trim().toLowerCase();
+      const prefixWithBang = counterPrefix.startsWith('!') ? counterPrefix : '!' + counterPrefix;
+      const prefixWithoutBang = counterPrefix.startsWith('!') ? counterPrefix.slice(1) : counterPrefix;
+      const isCounterCmd = (cmd === prefixWithBang || cmd === prefixWithoutBang);
+
+      if (isCounterCmd) {
+        if (!isWidgetActiveForUser(userId, 'custom-counter')) {
+          console.log(`[Custom Counter] ⚠️ Custom Counter widget is DISABLED for user ${userId}, ignoring chat command`);
+          return;
+        }
+
+        const isModOrBroadcaster = e.chatterId === userId || e.isBroadcaster || e.isMod ||
+          (e.badges && (typeof e.badges.has === 'function' ? (e.badges.has('broadcaster') || e.badges.has('moderator')) : (e.badges.broadcaster || e.badges.moderator)));
+        const permission = counterSettings.chatPermission || 'mods';
+        const hasPermission = permission === 'everyone' || isModOrBroadcaster;
+
+        const chatterName = e.chatterName || 'viewer';
+        const displayName = e.chatterDisplayName || chatterName;
+        const title = counterSettings.counterTitle || 'จำนวนครั้งที่กรี๊ด';
+        const unit = counterSettings.unitText || 'ครั้ง';
+        let currentVal = Number(counterSettings.currentCount) || 0;
+        const step = Number(counterSettings.stepAmount) || 1;
+
+        const subCmd = (parts[1] || '').trim().toLowerCase();
+
+        // 1. ถ้าพิมพ์แค่ !count เพื่อดูยอดปัจจุบัน
+        if (!subCmd) {
+          if (counterSettings.enableChatReply !== false) {
+            try {
+              await apiClient?.asUser(userId, async (ctx) => {
+                await ctx.chat.sendChatMessage(userId, `@${displayName} สถิติปัจจุบัน [${title}]: ${currentVal} ${unit}`);
+              });
+            } catch (_) {}
+          }
+          return;
+        }
+
+        // หากไม่มีสิทธิ์ปรับแก้
+        if (!hasPermission) {
+          console.log(`[Custom Counter] ⛔ User ${displayName} lacks permission to modify counter in channel ${userId}`);
+          return;
+        }
+
+        let newVal = currentVal;
+        let delta = 0;
+
+        if (subCmd === '+' || subCmd.startsWith('+')) {
+          const num = parseInt(subCmd.replace('+', ''), 10);
+          delta = !isNaN(num) && num > 0 ? num : step;
+          newVal = Math.max(0, currentVal + delta);
+        } else if (subCmd === '-' || subCmd.startsWith('-')) {
+          const num = parseInt(subCmd.replace('-', ''), 10);
+          const decAmount = !isNaN(num) && num > 0 ? num : step;
+          delta = -decAmount;
+          newVal = Math.max(0, currentVal - decAmount);
+        } else if (subCmd === 'reset') {
+          newVal = 0;
+          delta = -currentVal;
+        } else if (subCmd === 'set' && parts[2] !== undefined) {
+          const num = parseInt(parts[2], 10);
+          if (!isNaN(num)) {
+            newVal = Math.max(0, num);
+            delta = newVal - currentVal;
+          }
+        } else if (!isNaN(parseInt(subCmd, 10))) {
+          const num = parseInt(subCmd, 10);
+          delta = num;
+          newVal = Math.max(0, currentVal + num);
+        } else {
+          return;
+        }
+
+        counterSettings.currentCount = newVal;
+        widgetSettingsStore['custom-counter'] = widgetSettingsStore['custom-counter'] || {};
+        widgetSettingsStore['custom-counter'][userId] = counterSettings;
+        saveWidgetSettings(widgetSettingsStore);
+
+        const payload = {
+          userId,
+          widgetId: 'custom-counter',
+          count: newVal,
+          delta,
+          title,
+          updatedBy: displayName
+        };
+
+        io.to('user_' + userId).emit('counter_updated', payload);
+        io.to('user_' + userId).emit('onEventReceived', {
+          type: 'counter_update',
+          userId,
+          data: payload
+        });
+        io.emit('counter_updated', payload);
+
+        console.log(`[Custom Counter] 💬 Chat command from ${displayName} updated ${userId}'s counter: ${currentVal} -> ${newVal} (${delta >= 0 ? '+' : ''}${delta})`);
+
+        if (counterSettings.enableChatReply !== false) {
+          try {
+            let replyTpl = counterSettings.chatReplyTemplate || '{user} อัปเดต {title} เป็น {count} {unit} แล้ว!';
+            replyTpl = replyTpl
+              .replace('{user}', `@${displayName}`)
+              .replace('{title}', title)
+              .replace('{count}', newVal)
+              .replace('{unit}', unit)
+              .replace('{delta}', delta >= 0 ? `+${delta}` : `${delta}`);
+            await apiClient?.asUser(userId, async (ctx) => {
+              await ctx.chat.sendChatMessage(userId, replyTpl);
+            });
+          } catch (_) {}
+        }
+        return;
+      }
 
       if (isSoCmd) {
         // ตรวจสอบสถานะว่า Shoutout Widget เปิดใช้งานอยู่หรือไม่

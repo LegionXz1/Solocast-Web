@@ -46,12 +46,24 @@ import {
   Volume2,
   AlertCircle,
   ArrowRight,
-  Power
+  Power,
+  Calculator,
+  Plus,
+  Minus,
+  Hash
 } from 'lucide-react';
 
 const socket = io(WS_BASE);
 
 const WIDGET_META = {
+  'custom-counter': {
+    icon: <Calculator size={20} />,
+    desc: 'ตัวนับสถิติอเนกประสงค์ นับตาย/กรี๊ด/ดื่มน้ำ ควบคุมผ่านเว็บและแชท',
+    gradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
+    pattern: 'chevron',
+    category: 'twitch',
+    tag: 'Custom Counter'
+  },
   'loyalty-card': {
     icon: <Ticket size={20} />,
     desc: 'ระบบการ์ดสะสมแต้มแชทและเช็คอินสตรีม',
@@ -267,7 +279,11 @@ function Dashboard() {
   const [isPreviewCollapsed, setIsPreviewCollapsed] = useState(false);
   const [bgMode, setBgMode] = useState('checker'); // 'checker' | 'dark-solid' | 'green-screen'
   const [shoutoutChannel, setShoutoutChannel] = useState('legionxiz');
-  const hasRollHistory = selectedWidget && selectedWidget !== 'twitch-shoutout' && selectedWidget !== 'spotify-sr';
+  const hasRollHistory = selectedWidget && selectedWidget !== 'twitch-shoutout' && selectedWidget !== 'spotify-sr' && selectedWidget !== 'custom-counter';
+
+  // Custom Counter State
+  const [counterCount, setCounterCount] = useState(0);
+  const [counterCustomInput, setCounterCustomInput] = useState('');
 
   // DBD Perks State & Search
   const [dbdPerksList, setDbdPerksList] = useState({ survivor: [], killer: [] });
@@ -615,6 +631,13 @@ function Dashboard() {
       }
     };
 
+    const handleCounterUpdated = (data) => {
+      if (data && (!data.userId || String(data.userId) === String(status.userId))) {
+        setCounterCount(data.count !== undefined ? data.count : 0);
+        setFieldData(prev => ({ ...prev, currentCount: data.count }));
+      }
+    };
+
     socket.on('onEventReceived', handleEvent);
     socket.on('widget_roll_history_item', handleNewRoll);
     socket.on('widget_roll_history_cleared', handleClearedHistory);
@@ -622,6 +645,7 @@ function Dashboard() {
     socket.on('spotify_now_playing', handleSpotifyNowPlaying);
     socket.on('spotify_queue_updated', handleSpotifyQueueUpdated);
     socket.on('spotify_new_request', handleSpotifyNewRequest);
+    socket.on('counter_updated', handleCounterUpdated);
 
     return () => {
       socket.off('onEventReceived', handleEvent);
@@ -631,8 +655,48 @@ function Dashboard() {
       socket.off('spotify_now_playing', handleSpotifyNowPlaying);
       socket.off('spotify_queue_updated', handleSpotifyQueueUpdated);
       socket.off('spotify_new_request', handleSpotifyNewRequest);
+      socket.off('counter_updated', handleCounterUpdated);
     };
   }, [selectedWidget, status.userId, fetchSpotifyData]);
+
+  // โหลดค่าสถิติเริ่มต้นของ Custom Counter
+  useEffect(() => {
+    if (selectedWidget === 'custom-counter' && status.userId) {
+      fetch(`${API_BASE}/api/widgets/custom-counter/data?user=${encodeURIComponent(status.userId)}`)
+        .then(r => r.json())
+        .then(d => {
+          if (d && d.count !== undefined) {
+            setCounterCount(d.count);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [selectedWidget, status.userId]);
+
+  // ฟังก์ชันปรับค่าตัวนับ Custom Counter (+1, -1, set, reset)
+  const handleCounterUpdate = async (action, delta, value) => {
+    if (!status.userId) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/widgets/custom-counter/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user: status.userId,
+          action,
+          delta,
+          value,
+          updatedBy: status.username || 'Dashboard'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCounterCount(data.count);
+        setFieldData(prev => ({ ...prev, currentCount: data.count }));
+      }
+    } catch (e) {
+      console.error('Error updating counter:', e);
+    }
+  };
 
   // ฟังก์ชันบันทึกการตั้งค่าลง Backend พร้อมส่ง Signal ไปยัง OBS แบบ Real-time
   const handleSaveSettings = async (dataToSave = fieldData) => {
@@ -787,7 +851,8 @@ function Dashboard() {
         timestamp: Date.now()
       };
       socket.emit('spotify_now_playing', mockTrack);
-      setNowPlaying(mockTrack);
+    } else if (selectedWidget === 'custom-counter') {
+      handleCounterUpdate('inc', 1);
     } else {
       handleSimulateRedemption();
     }
@@ -1842,7 +1907,7 @@ function Dashboard() {
                     {/* Section 2: Widget Settings & Customization Form */}
                     {selectedWidget && (() => {
                       const currentWs = getWidgetStatus(selectedWidget);
-                      if (!currentWs.active) {
+                      if (!currentWs.globalEnabled || !currentWs.hasAccess) {
                         return (
                           <div className="sidebar-settings-section" style={{
                             marginTop: '1rem',
@@ -1957,7 +2022,7 @@ function Dashboard() {
                 <div className="doppel-core">
                   {selectedWidget ? (() => {
                     const currentWs = getWidgetStatus(selectedWidget);
-                    if (!currentWs.active) {
+                    if (!currentWs.globalEnabled || !currentWs.hasAccess) {
                       return (
                         <div style={{
                           padding: '3.5rem 2rem',
@@ -2236,6 +2301,226 @@ function Dashboard() {
                         {/* TAB 1: WORKSPACE / BLACKLIST CONTENT */}
                         {(!hasRollHistory || activeTab === 'workspace') && (
                           <>
+                            {/* Custom Counter Live Controller */}
+                            {selectedWidget === 'custom-counter' && (
+                              <div className="custom-counter-control-card" style={{
+                                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(15, 23, 42, 0.6) 100%)',
+                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                borderRadius: '16px',
+                                padding: '1.25rem',
+                                marginBottom: '1.25rem',
+                                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)'
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <div style={{
+                                      width: '38px',
+                                      height: '38px',
+                                      borderRadius: '10px',
+                                      background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      color: '#fff',
+                                      boxShadow: '0 4px 12px rgba(245, 158, 11, 0.35)'
+                                    }}>
+                                      <Calculator size={20} />
+                                    </div>
+                                    <div>
+                                      <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#f8fafc' }}>
+                                        แผงควบคุมสถิติ Real-Time (Live Counter Controller)
+                                      </h4>
+                                      <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                                        คลิกเพื่อปรับค่า หรือส่งคำสั่งแชทเพื่อซิงค์ขึ้น OBS Studio ทันที
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    background: 'rgba(245, 158, 11, 0.15)',
+                                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                                    borderRadius: '9999px',
+                                    padding: '0.3rem 0.85rem'
+                                  }}>
+                                    <span style={{ fontSize: '0.78rem', color: '#f59e0b', fontWeight: 700 }}>คำสั่งแชท:</span>
+                                    <code style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 800 }}>{fieldData.commandPrefix || '!count'}</code>
+                                  </div>
+                                </div>
+
+                                {/* Counter Big Display & Quick Stepper */}
+                                <div style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                                  gap: '1rem',
+                                  background: 'rgba(0, 0, 0, 0.3)',
+                                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                                  borderRadius: '12px',
+                                  padding: '1.2rem',
+                                  alignItems: 'center'
+                                }}>
+                                  {/* Big Value Box */}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <div style={{
+                                      minWidth: '100px',
+                                      textAlign: 'center',
+                                      padding: '0.6rem 1rem',
+                                      background: 'rgba(245, 158, 11, 0.12)',
+                                      border: '2px solid #f59e0b',
+                                      borderRadius: '12px',
+                                      boxShadow: '0 0 20px rgba(245, 158, 11, 0.25)'
+                                    }}>
+                                      <div style={{ fontSize: '2.4rem', fontWeight: 900, color: '#f59e0b', lineHeight: 1 }}>
+                                        {counterCount}
+                                      </div>
+                                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8' }}>
+                                        {fieldData.unitText || 'ครั้ง'}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.2rem' }}>
+                                        {fieldData.counterTitle || 'จำนวนครั้งที่กรี๊ด'}
+                                      </div>
+                                      <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                                        อัปเดตล่าสุดผ่าน Dashboard หรือ Twitch Chat
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Action Buttons */}
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                                      <button
+                                        type="button"
+                                        className="btn-island"
+                                        onClick={() => handleCounterUpdate('dec', 5)}
+                                        title="ลดลง 5"
+                                        style={{ padding: '0.45rem 0.85rem', fontWeight: 700, fontSize: '0.85rem', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+                                      >
+                                        -5
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="btn-island"
+                                        onClick={() => handleCounterUpdate('dec', 1)}
+                                        title="ลดลง 1"
+                                        style={{ padding: '0.45rem 0.85rem', fontWeight: 700, fontSize: '0.85rem', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+                                      >
+                                        -1
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="btn-island"
+                                        onClick={() => handleCounterUpdate('inc', 1)}
+                                        title="เพิ่มขึ้น 1"
+                                        style={{ padding: '0.45rem 1.15rem', fontWeight: 800, fontSize: '0.9rem', background: '#10b981', color: '#fff', border: 'none', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)' }}
+                                      >
+                                        +1 เพิ่มแต้ม
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="btn-island"
+                                        onClick={() => handleCounterUpdate('inc', 5)}
+                                        title="เพิ่มขึ้น 5"
+                                        style={{ padding: '0.45rem 0.85rem', fontWeight: 700, fontSize: '0.85rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)' }}
+                                      >
+                                        +5
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="btn-island"
+                                        onClick={() => {
+                                          if (window.confirm('คุณต้องการรีเซ็ตตัวนับนี้เป็น 0 ใช่หรือไม่?')) {
+                                            handleCounterUpdate('reset');
+                                          }
+                                        }}
+                                        title="รีเซ็ตตัวนับเป็น 0"
+                                        style={{ padding: '0.45rem 0.75rem', fontWeight: 600, fontSize: '0.78rem', background: 'rgba(255, 255, 255, 0.06)', color: '#94a3b8', border: '1px solid rgba(255, 255, 255, 0.15)' }}
+                                      >
+                                        <RotateCw size={12} style={{ marginRight: '3px' }} /> รีเซ็ต
+                                      </button>
+                                    </div>
+
+                                    {/* Set Specific Value */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        placeholder="กำหนดค่า เช่น 10"
+                                        value={counterCustomInput}
+                                        onChange={e => setCounterCustomInput(e.target.value)}
+                                        onKeyDown={e => {
+                                          if (e.key === 'Enter' && counterCustomInput !== '') {
+                                            handleCounterUpdate('set', undefined, Number(counterCustomInput));
+                                            setCounterCustomInput('');
+                                          }
+                                        }}
+                                        style={{
+                                          padding: '0.35rem 0.65rem',
+                                          background: 'rgba(0, 0, 0, 0.4)',
+                                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                                          borderRadius: '6px',
+                                          color: '#fff',
+                                          fontSize: '0.8rem',
+                                          width: '130px'
+                                        }}
+                                      />
+                                      <button
+                                        type="button"
+                                        className="btn-island"
+                                        onClick={() => {
+                                          if (counterCustomInput !== '') {
+                                            handleCounterUpdate('set', undefined, Number(counterCustomInput));
+                                            setCounterCustomInput('');
+                                          }
+                                        }}
+                                        style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem', fontWeight: 600 }}
+                                      >
+                                        ตั้งค่าตัวเลข
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Chat Command Cheatsheet with 1-click copy */}
+                                <div style={{
+                                  marginTop: '0.85rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.5rem',
+                                  flexWrap: 'wrap',
+                                  fontSize: '0.75rem',
+                                  color: '#94a3b8'
+                                }}>
+                                  <span style={{ fontWeight: 700, color: '#f8fafc' }}>คำสั่งแชทด่วน (คลิกเพื่อคัดลอก):</span>
+                                  {[`${fieldData.commandPrefix || '!count'} +1`, `${fieldData.commandPrefix || '!count'} -1`, `${fieldData.commandPrefix || '!count'} set 10`, `${fieldData.commandPrefix || '!count'} reset`].map(cmd => (
+                                    <button
+                                      key={cmd}
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(cmd);
+                                        alert(`คัดลอกคำสั่ง "${cmd}" เรียบร้อย! นำไปพิมพ์ในแชท Twitch ได้เลย`);
+                                      }}
+                                      style={{
+                                        background: 'rgba(255, 255, 255, 0.06)',
+                                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                                        borderRadius: '4px',
+                                        color: '#cbd5e1',
+                                        padding: '2px 7px',
+                                        fontFamily: 'monospace',
+                                        cursor: 'pointer',
+                                        fontSize: '0.75rem'
+                                      }}
+                                      title="คลิกเพื่อคัดลอกคำสั่ง"
+                                    >
+                                      {cmd}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
                             {/* DBD Perks Searchable Blacklist / Exclude Section */}
                             {selectedWidget === 'dbd-perks' && (() => {
                               const currentRole = fieldData.role || 'survivor';

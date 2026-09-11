@@ -1,0 +1,346 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@600;800;900&family=Outfit:wght@600;800;900&family=Press+Start+2P&family=Quicksand:wght@600;700;800&display=swap');
+
+:root {
+  --counter-accent: #f59e0b;
+  --counter-bg: rgba(15, 23, 42, 0.9);
+  --counter-text: #ffffff;
+  --counter-border: rgba(245, 158, 11, 0.4);
+  --counter-scale: 1;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: transparent;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.counter-widget-root {
+  transform: scale(var(--counter-scale));
+  transform-origin: left center;
+  transition: transform 0.25s ease;
+  user-select: none;
+}
+
+/* ============================================================
+   Base Counter Card
+   ============================================================ */
+.counter-card {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0.85rem 1.65rem 0.85rem 1.15rem;
+  border-radius: 20px;
+  background: var(--counter-bg);
+  border: 1.5px solid var(--counter-border);
+  box-shadow: 0 10px 32px -4px rgba(0, 0, 0, 0.5), 0 0 24px -4px rgba(245, 158, 11, 0.25);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.counter-glow-bg {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at center, rgba(245, 158, 11, 0.15) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+/* Header: Icon + Title */
+.counter-header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.counter-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  font-size: 1.4rem;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  flex-shrink: 0;
+}
+
+.counter-icon-box.pop {
+  transform: scale(1.25) rotate(-6deg);
+}
+
+.counter-title-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.counter-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--counter-text);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Value Display & Unit */
+.counter-value-container {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.counter-value-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.counter-value {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-size: 2.35rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--counter-accent);
+  text-shadow: 0 0 16px rgba(245, 158, 11, 0.5), 0 2px 4px rgba(0, 0, 0, 0.5);
+  display: inline-block;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease;
+}
+
+.counter-value.bump {
+  transform: scale(1.28);
+  color: #ffffff;
+  text-shadow: 0 0 24px rgba(255, 255, 255, 0.9), 0 0 36px var(--counter-accent);
+}
+
+.counter-delta {
+  position: absolute;
+  top: -14px;
+  right: -24px;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #34d399;
+  text-shadow: 0 0 8px rgba(52, 211, 153, 0.8);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(0);
+}
+
+.counter-delta.float-up {
+  animation: deltaFloat 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.counter-delta.negative {
+  color: #f87171;
+  text-shadow: 0 0 8px rgba(248, 113, 113, 0.8);
+}
+
+@keyframes deltaFloat {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1.1);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-20px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-32px) scale(0.9);
+  }
+}
+
+.counter-unit {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.counter-accent-line {
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--counter-accent), transparent);
+  opacity: 0.8;
+}
+
+/* ============================================================
+   THEME 1: Minimal Glass
+   ============================================================ */
+.theme-minimal-glass {
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.theme-minimal-glass .counter-icon-box {
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* ============================================================
+   THEME 2: Neon Cyberpunk
+   ============================================================ */
+.theme-cyberpunk {
+  border-radius: 4px;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  background: rgba(10, 10, 18, 0.94);
+  border: 2px solid #06b6d4;
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.4), inset 0 0 14px rgba(6, 182, 212, 0.2);
+}
+
+.theme-cyberpunk .counter-title {
+  font-family: 'Outfit', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #38bdf8;
+}
+
+.theme-cyberpunk .counter-icon-box {
+  border-radius: 4px;
+  border-color: #06b6d4;
+  background: rgba(6, 182, 212, 0.15);
+}
+
+.theme-cyberpunk .counter-value {
+  color: #facc15;
+  text-shadow: 0 0 14px #facc15, 0 0 28px #ca8a04;
+}
+
+/* ============================================================
+   THEME 3: Souls / Dark Fantasy
+   ============================================================ */
+.theme-souls {
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(30, 20, 20, 0.95) 0%, rgba(15, 10, 10, 0.98) 100%);
+  border: 2px solid #b45309;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 24px rgba(180, 83, 9, 0.35);
+}
+
+.theme-souls .counter-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #fbbf24;
+  text-transform: uppercase;
+}
+
+.theme-souls .counter-icon-box {
+  background: rgba(180, 83, 9, 0.2);
+  border-color: #d97706;
+  border-radius: 8px;
+}
+
+.theme-souls .counter-value {
+  font-family: 'Cinzel', serif;
+  color: #ef4444;
+  text-shadow: 0 0 18px rgba(239, 68, 68, 0.6), 0 0 30px rgba(185, 28, 28, 0.4);
+}
+
+/* ============================================================
+   THEME 4: Cute Pastel
+   ============================================================ */
+.theme-cute-pastel {
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(255, 241, 242, 0.95) 0%, rgba(253, 230, 236, 0.95) 100%);
+  border: 2px solid #f472b6;
+  box-shadow: 0 10px 24px rgba(244, 114, 182, 0.25);
+}
+
+.theme-cute-pastel .counter-title {
+  font-family: 'Quicksand', sans-serif;
+  color: #831843;
+  font-weight: 800;
+}
+
+.theme-cute-pastel .counter-icon-box {
+  background: #fbcfe8;
+  border-color: #f472b6;
+  border-radius: 20px;
+}
+
+.theme-cute-pastel .counter-value {
+  font-family: 'Quicksand', sans-serif;
+  color: #db2777;
+  text-shadow: 0 2px 8px rgba(219, 39, 119, 0.3);
+}
+
+.theme-cute-pastel .counter-unit {
+  color: #9d174d;
+}
+
+.theme-cute-pastel .counter-value-container {
+  border-left-color: rgba(244, 114, 182, 0.3);
+}
+
+/* ============================================================
+   THEME 5: Retro Arcade (8-Bit)
+   ============================================================ */
+.theme-arcade {
+  border-radius: 0;
+  background: #000000;
+  border: 4px solid #22c55e;
+  box-shadow: 6px 6px 0px #15803d;
+  image-rendering: pixelated;
+}
+
+.theme-arcade .counter-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: #4ade80;
+}
+
+.theme-arcade .counter-icon-box {
+  border-radius: 0;
+  border: 2px solid #22c55e;
+  background: #052e16;
+}
+
+.theme-arcade .counter-value {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 1.7rem;
+  color: #facc15;
+  text-shadow: 3px 3px 0px #854d0e;
+}
+
+.theme-arcade .counter-unit {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.62rem;
+  color: #22c55e;
+}
+
+.theme-arcade .counter-value-container {
+  border-left: 3px solid #22c55e;
+}

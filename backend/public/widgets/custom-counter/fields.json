@@ -1,0 +1,151 @@
+{
+  "counterTitle": {
+    "type": "text",
+    "label": "ชื่อสถิติ (Counter Title)",
+    "value": "จำนวนครั้งที่กรี๊ด",
+    "group": "ตั้งค่าทั่วไป (General)"
+  },
+  "currentCount": {
+    "type": "number",
+    "label": "ตัวเลขปัจจุบัน (Current Count)",
+    "value": 0,
+    "group": "ตั้งค่าทั่วไป (General)"
+  },
+  "unitText": {
+    "type": "text",
+    "label": "หน่วยนับ (Unit / Suffix)",
+    "value": "ครั้ง",
+    "group": "ตั้งค่าทั่วไป (General)"
+  },
+  "stepAmount": {
+    "type": "number",
+    "label": "จำนวนที่เพิ่ม/ลดต่อครั้ง (Step Amount)",
+    "value": 1,
+    "group": "ตั้งค่าทั่วไป (General)"
+  },
+  "themePreset": {
+    "type": "dropdown",
+    "label": "สกินและธีมแสดงผล (Theme Preset)",
+    "value": "minimal-glass",
+    "options": {
+      "minimal-glass": "Minimal Glass (กระจกโมเดิร์นคลีน)",
+      "cyberpunk": "Neon Cyberpunk (นีออนเรืองแสง)",
+      "souls": "Souls / Dark Fantasy (ดาร์กโกธิค)",
+      "cute-pastel": "Cute Pastel (พาสเทลน่ารัก)",
+      "arcade": "Retro Arcade (เกมตู้ 8-Bit)"
+    },
+    "group": "รูปแบบและการแสดงผล (Design & Styles)"
+  },
+  "iconPreset": {
+    "type": "dropdown",
+    "label": "ไอคอนกำกับสถิติ (Icon Preset)",
+    "value": "ghost",
+    "options": {
+      "ghost": "👻 ผี (Horror / Scream)",
+      "skull": "💀 กะโหลก (Death / Fail)",
+      "fire": "🔥 ไฟ (Hype / Streak)",
+      "heart": "❤️ หัวใจ (Life / HP)",
+      "trophy": "🏆 ถ้วยรางวัล (Win / Victory)",
+      "water": "💧 หยดน้ำ (Drink / Hydrate)",
+      "sword": "⚔️ ดาบ (Combat / Battle)",
+      "star": "⭐ ดาว (Star / Points)",
+      "gamepad": "🎮 จอยเกม (Gaming)",
+      "none": "🚫 ไม่แสดงไอคอน"
+    },
+    "group": "รูปแบบและการแสดงผล (Design & Styles)"
+  },
+  "customIconUrl": {
+    "type": "image-input",
+    "label": "URL รูปภาพไอคอนกำหนดเอง (เว้นว่างไว้เพื่อใช้ไอคอน Preset)",
+    "value": "",
+    "group": "รูปแบบและการแสดงผล (Design & Styles)"
+  },
+  "accentColor": {
+    "type": "colorpicker",
+    "label": "สีเน้นหลัก (Accent Color)",
+    "value": "#f59e0b",
+    "group": "รูปแบบและการแสดงผล (Design & Styles)"
+  },
+  "badgeBgColor": {
+    "type": "colorpicker",
+    "label": "สีพื้นหลังการ์ด (Background Color)",
+    "value": "#0f172a",
+    "group": "รูปแบบและการแสดงผล (Design & Styles)"
+  },
+  "textColor": {
+    "type": "colorpicker",
+    "label": "สีข้อความ (Text Color)",
+    "value": "#ffffff",
+    "group": "รูปแบบและการแสดงผล (Design & Styles)"
+  },
+  "counterScale": {
+    "type": "number",
+    "label": "ขนาดขยาย Overlay (%)",
+    "value": 100,
+    "group": "รูปแบบและการแสดงผล (Design & Styles)"
+  },
+  "soundEnabled": {
+    "type": "checkbox",
+    "label": "เปิดเสียงเอฟเฟกต์เมื่อตัวเลขเปลี่ยน (Play sound on count)",
+    "value": true,
+    "group": "เสียงเอฟเฟกต์ (Audio)"
+  },
+  "soundVolume": {
+    "type": "number",
+    "label": "ระดับเสียง (0 - 100)",
+    "value": 70,
+    "group": "เสียงเอฟเฟกต์ (Audio)"
+  },
+  "customSoundUrl": {
+    "type": "text",
+    "label": "ลิงก์ไฟล์เสียงกำหนดเอง (MP3 / WAV URL)",
+    "value": "",
+    "group": "เสียงเอฟเฟกต์ (Audio)"
+  },
+  "enableChatCmd": {
+    "type": "checkbox",
+    "label": "เปิดรับคำสั่งผ่าน Twitch Chat (Enable Chat Commands)",
+    "value": true,
+    "group": "Twitch Chat Commands"
+  },
+  "commandPrefix": {
+    "type": "text",
+    "label": "คำสั่งแชทหลัก (Command Prefix)",
+    "value": "!count",
+    "group": "Twitch Chat Commands"
+  },
+  "chatPermission": {
+    "type": "dropdown",
+    "label": "ผู้มีสิทธิ์ใช้คำสั่งปรับค่า (Chat Permission)",
+    "value": "mods",
+    "options": {
+      "mods": "สตรีมเมอร์และม็อดเท่านั้น (Broadcaster & Mods)",
+      "everyone": "ทุกคนในแชท (Everyone)"
+    },
+    "group": "Twitch Chat Commands"
+  },
+  "enableChatReply": {
+    "type": "checkbox",
+    "label": "ให้บอทส่งข้อความสรุปแต้มลงในแชท (Send Chat Reply)",
+    "value": true,
+    "group": "Twitch Chat Commands"
+  },
+  "chatReplyTemplate": {
+    "type": "text",
+    "label": "รูปแบบข้อความตอบกลับในแชท",
+    "value": "{user} อัปเดต {title} เป็น {count} {unit} แล้ว!",
+    "group": "Twitch Chat Commands"
+  },
+  "triggerChannelPoints": {
+    "type": "checkbox",
+    "label": "เปิดใช้งานแลกแต้ม Channel Points เพื่อนับเพิ่ม +1",
+    "value": false,
+    "group": "Channel Points Integration"
+  },
+  "rewardName": {
+    "type": "text",
+    "label": "ชื่อรางวัล Channel Points ที่ต้องการผูก",
+    "value": "เพิ่มยอดกรี๊ด",
+    "group": "Channel Points Integration"
+  }
+}
