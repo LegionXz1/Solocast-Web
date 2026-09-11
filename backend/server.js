@@ -1594,13 +1594,24 @@ app.get('/auth/twitch/callback', async (req, res) => {
     startEventSub(userId);
 
     // Redirect กลับไปหน้า Dashboard พร้อม Session Token
-    const frontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173');
+    const frontendUrl = getFrontendUrl(req);
     res.redirect(`${frontendUrl}/dashboard?auth_token=${sessionToken}`);
   } catch (error) {
     console.error("Auth Error:", error);
     res.send("Authentication failed. Please check console.");
   }
 });
+
+// ดึง Base URL ของ Frontend ให้ถูกต้องอัตโนมัติ (บน Production ใช้ relative path เพื่ออยู่บนโดเมนเดียวกัน)
+function getFrontendUrl(req) {
+  if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
+  if (process.env.NODE_ENV === 'production') return '';
+  const host = req ? (req.get('host') || '') : '';
+  if (host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+    return '';
+  }
+  return 'http://localhost:5173';
+}
 
 // ตรวจสอบและลงทะเบียนผู้ใช้เข้า authProvider แบบไดนามิก (กรณีโทเค็นเพิ่งซิงค์มาจาก MongoDB หรือรีเฟรชใหม่)
 function ensureUserInAuthProvider(userId) {
@@ -2645,7 +2656,7 @@ app.get('/auth/spotify/callback', async (req, res) => {
     spotify.saveSpotifyTokens(allTokens);
 
     console.log(`[Spotify] ✅ Connected Spotify account for user "${targetKey}": ${tokenData.spotifyDisplayName} (${tokenData.product})`);
-    const frontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173');
+    const frontendUrl = getFrontendUrl(req);
     res.redirect(`${frontendUrl}/dashboard?spotify_connected=1`);
   } catch (err) {
     console.error('[Spotify] OAuth callback error:', err);
