@@ -101,7 +101,10 @@ async function checkLiveStatus() {
   if (!currentWidgetId) return;
   try {
     const u = targetUser || window.SolocastTargetUser || '';
-    const res = await fetch(`/api/widgets/${currentWidgetId}/live-status?user=${encodeURIComponent(u)}`);
+    const ch = initialParams.get('channel') || initialParams.get('username') || '';
+    const query = new URLSearchParams({ user: u });
+    if (ch) query.set('channel', ch);
+    const res = await fetch(`/api/widgets/${currentWidgetId}/live-status?${query.toString()}`);
     if (res.ok) {
       const data = await res.json();
       applyOverlayVisibility(data.active, data.reason);
@@ -505,6 +508,7 @@ socket.on('onEventReceived', (event) => {
 // 🎵 Spotify Now Playing & Requests Bridge
 socket.on('spotify_now_playing', (data) => {
   if (!isWidgetActive) return;
+  if (targetUser && data?.userId && String(data.userId) !== String(targetUser)) return;
   const seEvent = new CustomEvent('onEventReceived', {
     detail: {
       type: 'spotify_now_playing',
@@ -517,6 +521,7 @@ socket.on('spotify_now_playing', (data) => {
 
 socket.on('spotify_new_request', (data) => {
   if (!isWidgetActive) return;
+  if (targetUser && data?.userId && String(data.userId) !== String(targetUser)) return;
   const seEvent = new CustomEvent('onEventReceived', {
     detail: {
       type: 'spotify_new_request',

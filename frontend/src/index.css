@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* ==========================================================================
    NEURAL TECH DESIGN SYSTEM
@@ -133,13 +133,21 @@ html {
   padding: 0;
 }
 
+button, input, select, textarea {
+  font-family: inherit;
+}
+
 body {
-  font-family: 'Prompt', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Sukhumvit Set', 'Thonburi', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Sukhumvit Set', 'Inter', 'Anuphan', 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  letter-spacing: -0.012em;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background: var(--bg-gradient, var(--bg-color));
   background-attachment: fixed;
   color: var(--text-primary);
   min-height: 100vh;
-  -webkit-font-smoothing: antialiased;
   padding: 0;
   margin: 0;
   position: relative;

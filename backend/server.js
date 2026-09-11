@@ -98,17 +98,55 @@ function saveSessions(sessionsData) {
 
 const sessions = loadSessions();
 
+// ค้นหาตัวตนและชื่อที่เกี่ยวข้องทั้งหมดของผู้ใช้ (userId, username, displayName) จาก Sessions
+function getAssociatedUserIdentifiers(input) {
+  const set = new Set();
+  if (!input) return set;
+  const clean = String(input).trim().toLowerCase().replace(/^@/, '');
+  if (!clean) return set;
+  set.add(clean);
+
+  for (const sess of Object.values(sessions)) {
+    if (!sess) continue;
+    const sUid = String(sess.userId || '').trim().toLowerCase();
+    const sUname = String(sess.username || '').trim().toLowerCase();
+    const sDisplay = String(sess.displayName || '').trim().toLowerCase();
+
+    if (clean === sUid || clean === sUname || clean === sDisplay) {
+      if (sUid) set.add(sUid);
+      if (sUname) set.add(sUname);
+      if (sDisplay) set.add(sDisplay);
+    }
+  }
+
+  return set;
+}
+
 function isUserAdmin(userId, username) {
-  if (!userId) return false;
+  if (!userId && !username) return false;
+  const ids = new Set([
+    ...getAssociatedUserIdentifiers(userId),
+    ...getAssociatedUserIdentifiers(username)
+  ]);
+
   // 1. Matches Broadcaster TWITCH_USER_ID
-  if (process.env.TWITCH_USER_ID && String(userId) === String(process.env.TWITCH_USER_ID)) {
+  if (process.env.TWITCH_USER_ID && ids.has(String(process.env.TWITCH_USER_ID).trim().toLowerCase())) {
     return true;
   }
   // 2. Matches ADMIN_TWITCH_USERS whitelist
   if (process.env.ADMIN_TWITCH_USERS) {
-    const list = process.env.ADMIN_TWITCH_USERS.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-    if (list.includes(String(userId).toLowerCase())) return true;
-    if (username && list.includes(String(username).toLowerCase())) return true;
+    const list = process.env.ADMIN_TWITCH_USERS.split(',').map(s => s.trim().toLowerCase().replace(/^@/, '')).filter(Boolean);
+    for (const a of list) {
+      if (ids.has(a)) return true;
+    }
+  }
+  // 3. Matches session isAdmin
+  for (const sess of Object.values(sessions)) {
+    if (sess && sess.isAdmin) {
+      const sUid = String(sess.userId || '').toLowerCase();
+      const sUname = String(sess.username || '').toLowerCase();
+      if (ids.has(sUid) || ids.has(sUname)) return true;
+    }
   }
   return false;
 }
@@ -299,20 +337,34 @@ function isUserAllowedForWidget(userId, username, widgetId) {
   const allowed = Array.isArray(status.allowedUsers) ? status.allowedUsers : [];
   if (allowed.length === 0) return false;
 
-  const uId = String(userId || '').trim().toLowerCase();
-  const uName = String(username || '').trim().toLowerCase();
+  // รวบรวม identifiers ทั้งหมดของผู้ใช้คนนี้ (ทั้ง numeric ID, username, displayName)
+  const userIdentifiers = new Set([
+    ...getAssociatedUserIdentifiers(userId),
+    ...getAssociatedUserIdentifiers(username)
+  ]);
 
   return allowed.some(item => {
-    const target = String(item || '').trim().toLowerCase();
-    return (uId && target === uId) || (uName && target === uName);
+    const target = String(item || '').trim().toLowerCase().replace(/^@/, '');
+    if (!target) return false;
+    if (userIdentifiers.has(target)) return true;
+
+    // เผื่อ Admin ใส่ username แต่ user ส่ง ID มา (หรือกลับกัน) ให้ขยาย target identifiers ด้วย
+    const targetIdentifiers = getAssociatedUserIdentifiers(target);
+    for (const tid of targetIdentifiers) {
+      if (userIdentifiers.has(tid)) return true;
+    }
+    return false;
   });
 }
 
 function isWidgetUserEnabled(userId, widgetId) {
   if (!widgetId) return true;
-  const u = userId || 'default';
-  if (userWidgetStatus[u] && userWidgetStatus[u][widgetId] === false) {
-    return false;
+  const ids = getAssociatedUserIdentifiers(userId);
+  ids.add(String(userId || 'default').trim().toLowerCase());
+  for (const id of ids) {
+    if (userWidgetStatus[id] && userWidgetStatus[id][widgetId] === false) {
+      return false;
+    }
   }
   return true;
 }
@@ -676,7 +728,7 @@ app.post('/api/widgets/:id/settings', (req, res) => {
 app.get('/api/widgets/:id/live-status', (req, res) => {
   const widgetId = req.params.id;
   const user = req.query.user || req.query.channel || 'default';
-  const channel = req.query.channel || '';
+  const channel = req.query.channel || req.query.username || '';
   const globalEnabled = isWidgetGloballyEnabled(widgetId);
   const userAllowed = isUserAllowedForWidget(user, channel, widgetId);
   const userEnabled = isWidgetUserEnabled(user, widgetId);
@@ -1621,7 +1673,9 @@ function startEventSub(userId) {
       const parts = text.split(/\s+/);
       const cmd = parts[0].toLowerCase();
       const isSoCmd = parts.length >= 2 && (cmd === '!so' || cmd === '!shoutout');
-      const isSrCmd = cmd === '!sr';
+      const srSettings = widgetSettingsStore['spotify-sr']?.[userId] || {};
+      const customPrefix = (srSettings.commandPrefix || '!sr').trim().toLowerCase();
+      const isSrCmd = cmd === '!sr' || (customPrefix && cmd === customPrefix);
 
       if (isSoCmd) {
         // ตรวจสอบสถานะว่า Shoutout Widget เปิดใช้งานอยู่หรือไม่
@@ -1664,11 +1718,12 @@ function startEventSub(userId) {
 
         const query = parts.slice(1).join(' ').trim();
 
-        // ถ้าพิมพ์แค่ !sr โดยไม่มีชื่อเพลง
+        // ถ้าพิมพ์แค่คำสั่งขอเพลงโดยไม่มีชื่อเพลง
         if (!query) {
           try {
+            const prefixDisplay = srSettings.commandPrefix || '!sr';
             await apiClient?.asUser(userId, async (ctx) => {
-              await ctx.chat.sendChatMessage(userId, `@${displayName} วิธีขอเพลง: พิมพ์ !sr <ชื่อเพลง หรือ ลิงก์ Spotify> 🎵`);
+              await ctx.chat.sendChatMessage(userId, `@${displayName} วิธีขอเพลง: พิมพ์ ${prefixDisplay} <ชื่อเพลง หรือ ลิงก์ Spotify> 🎵`);
             });
           } catch (_) {}
           return;
@@ -1686,9 +1741,8 @@ function startEventSub(userId) {
         }
 
         try {
-          // ตรวจสอบ Cooldown
-          const srSettings = widgetSettingsStore['spotify-sr']?.[userId] || {};
-          const cooldownSec = parseInt(srSettings.cooldownSeconds ?? 60);
+          // ตรวจสอบ Cooldown (ดึงได้ทั้ง userCooldown และ cooldownSeconds)
+          const cooldownSec = parseInt(srSettings.userCooldown ?? srSettings.cooldownSeconds ?? 60);
           const remaining = spotify.checkUserCooldown(userId, chatterName, cooldownSec);
           if (remaining > 0) {
             // บอก cooldown ในแชท
@@ -2143,17 +2197,18 @@ app.get('/auth/spotify/callback', async (req, res) => {
   }
 });
 
-// DELETE /api/spotify/disconnect — ยกเลิกการเชื่อมต่อ Spotify
-app.delete('/api/spotify/disconnect', checkAdminAuth, (req, res) => {
+// DELETE /api/spotify/disconnect — ยกเลิกการเชื่อมต่อ Spotify (ผู้ใช้ทั่วไปตัดของตนเองได้, Admin ตัดทั้งหมดได้)
+app.delete('/api/spotify/disconnect', checkUserAuth, (req, res) => {
   try {
-    const userId = req.user?.userId || req.query.userId || '';
+    const isGlobalReset = req.query.all === '1' && req.user?.isAdmin;
+    const userId = isGlobalReset ? '' : (req.user?.userId || req.query.userId || '');
     if (userId) {
       // Remove only this user's token
       const allTokens = spotify.getAllSpotifyTokens();
       delete allTokens[userId];
       spotify.saveSpotifyTokens(allTokens);
-    } else {
-      // No userId — clear all (admin global reset)
+    } else if (isGlobalReset) {
+      // Admin global reset only
       spotify.saveSpotifyTokens({});
     }
     res.json({ success: true, message: 'Spotify disconnected' });
@@ -2352,24 +2407,31 @@ server.listen(PORT, async () => {
   await initDatabase();
   await hydrateFromMongo();
 
-  // 🎵 Spotify Now Playing — Poll & Broadcast every 15 seconds
+  // 🎵 Spotify Now Playing — Poll & Broadcast every 15 seconds (รองรับ Multi-user)
   if (spotify.isSpotifyConfigured()) {
     setInterval(async () => {
       try {
-        const token = spotify.getSpotifyUserToken(undefined);
-        if (!token) return;
-        const uid = token.spotifyUserId || 'default';
-        const accessToken = await spotify.getValidAccessToken(undefined);
-        if (!accessToken) return;
-        const current = await spotify.getCurrentlyPlaying(accessToken);
-        if (current) {
-          io.emit('spotify_now_playing', { ...current, timestamp: Date.now() });
+        const allTokens = spotify.getAllSpotifyTokens();
+        for (const [userId, userToken] of Object.entries(allTokens)) {
+          if (!userToken || !userToken.refreshToken) continue;
+          try {
+            const accessToken = await spotify.getValidAccessToken(userId);
+            if (!accessToken) continue;
+            const current = await spotify.getCurrentlyPlaying(accessToken);
+            if (current) {
+              const payload = { ...current, userId, timestamp: Date.now() };
+              io.to('user_' + userId).emit('spotify_now_playing', payload);
+              io.emit('spotify_now_playing', payload);
+            }
+          } catch (_) {
+            // Ignore individual user polling errors
+          }
         }
       } catch (e) {
-        // Silently ignore polling errors
+        // Silently ignore polling loop errors
       }
     }, 15000);
-    console.log('🎵 [Spotify] Now Playing polling started (15s interval)');
+    console.log('🎵 [Spotify] Now Playing multi-user polling started (15s interval)');
   }
 });
 

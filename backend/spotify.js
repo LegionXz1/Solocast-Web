@@ -83,9 +83,16 @@ export function isSpotifyConfigured() {
 }
 
 export function getSpotifyUserToken(userId) {
-  // Only return this specific user's token — no cross-user fallback
-  if (userId && spotifyTokens[userId]) return spotifyTokens[userId];
-  // If no userId provided (e.g. anonymous overlay), return null
+  if (!userId) return null;
+  // 1. Direct exact key match
+  if (spotifyTokens[userId]) return spotifyTokens[userId];
+  // 2. Case-insensitive or spotifyUserId/displayName match
+  const lower = String(userId).toLowerCase();
+  for (const [key, token] of Object.entries(spotifyTokens)) {
+    if (key.toLowerCase() === lower) return token;
+    if (token.spotifyUserId && token.spotifyUserId.toLowerCase() === lower) return token;
+    if (token.spotifyDisplayName && token.spotifyDisplayName.toLowerCase() === lower) return token;
+  }
   return null;
 }
 

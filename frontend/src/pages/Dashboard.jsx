@@ -969,7 +969,7 @@ function Dashboard() {
     // ลิงก์ Browser Source ของ OBS จะคงที่ถาวร ไม่ต้องมี Query parameters ของการตั้งค่า
     // เพราะระบบจะซิงค์การตั้งค่าล่าสุดผ่าน Database & WebSocket แบบเรียลไทม์อัตโนมัติ
     widgetUrl = `${API_BASE}/widgets/${selectedWidget}/index.html?${params.toString()}`;
-    previewUrl = `${API_BASE}/widgets/${selectedWidget}/index.html?user=${encodeURIComponent(status.userId || '')}&preview=1&_k=${previewKey}`;
+    previewUrl = `${API_BASE}/widgets/${selectedWidget}/index.html?user=${encodeURIComponent(status.userId || '')}&channel=${encodeURIComponent(status.username || '')}&preview=1&_k=${previewKey}`;
   }
 
   const handleCopyUrl = () => {
