@@ -1751,6 +1751,188 @@ app.get('/api/twitch/avatar/:username', async (req, res) => {
   }
 });
 
+/**
+ * ฟังก์ชันประมวลผลคำขอเพลง Spotify (ใช้ร่วมกันทั้งจากแชท !sr และจาก Channel Points แลกแต้ม)
+ */
+async function processSpotifySongRequest({ userId, displayName, chatterName, query, source = 'chat', channelRewardName = '' }) {
+  if (!userId) return { success: false, error: 'Missing userId' };
+
+  if (!isWidgetActiveForUser(userId, 'spotify-sr')) {
+    console.log(`[Spotify SR] 🔇 Spotify SR widget is DISABLED or not allowed for user ${userId}, ignoring SR request`);
+    return { success: false, error: 'WIDGET_DISABLED' };
+  }
+
+  // ดึง settings ของ spotify-sr
+  let srSettings = widgetSettingsStore['spotify-sr']?.[userId];
+  if (!srSettings) {
+    const ids = getAssociatedUserIdentifiers(userId);
+    for (const id of ids) {
+      if (widgetSettingsStore['spotify-sr']?.[id]) {
+        srSettings = widgetSettingsStore['spotify-sr'][id];
+        break;
+      }
+    }
+  }
+  if (!srSettings) {
+    srSettings = widgetSettingsStore['spotify-sr']?.['default'] || {};
+  }
+
+  // ตรวจสอบ query ถ้าผู้ใช้ใส่ prefix !sr หรือ !เพลง ติดมา ให้ตัดออก
+  let cleanQuery = (query || '').trim();
+  if (cleanQuery.toLowerCase().startsWith('!sr ')) {
+    cleanQuery = cleanQuery.slice(4).trim();
+  } else if (cleanQuery.toLowerCase().startsWith('!เพลง ')) {
+    cleanQuery = cleanQuery.slice(6).trim();
+  }
+
+  if (!cleanQuery) {
+    if (source === 'channel_points') {
+      try {
+        await apiClient?.asUser(userId, async (ctx) => {
+          await ctx.chat.sendChatMessage(userId, `@${displayName} คุณแลกแต้มขอเพลง "${channelRewardName || 'ขอเพลง'}" สำเร็จ แต่ไม่ได้ระบุชื่อเพลงหรือลิงก์ Spotify 🎵 (อย่าลืมเปิด "Require Viewer to Enter Text" ใน Twitch Reward นะ)`);
+        });
+      } catch (_) {}
+    } else {
+      const customPrefix = srSettings.commandPrefix || '!sr';
+      try {
+        await apiClient?.asUser(userId, async (ctx) => {
+          await ctx.chat.sendChatMessage(userId, `@${displayName} วิธีขอเพลง: พิมพ์ ${customPrefix} <ชื่อเพลง หรือ ลิงก์ Spotify> 🎵`);
+        });
+      } catch (_) {}
+    }
+    return { success: false, error: 'NO_QUERY' };
+  }
+
+  if (!spotify.isSpotifyConfigured()) {
+    console.warn(`[Spotify SR] ⚠️ Spotify Client ID / Secret is missing in .env`);
+    return { success: false, error: 'SPOTIFY_NOT_CONFIGURED' };
+  }
+
+  try {
+    // ตรวจสอบ Cooldown เฉพาะกรณีขอผ่านแชทธรรมดา (ถ้าแลกแต้มไม่ติดคูลดาวน์แชท)
+    if (source === 'chat') {
+      const cooldownSec = parseInt(srSettings.userCooldown ?? srSettings.cooldownSeconds ?? 60, 10);
+      const remaining = spotify.checkUserCooldown(userId, chatterName, cooldownSec);
+      if (remaining > 0) {
+        try {
+          await apiClient?.asUser(userId, async (ctx) => {
+            await ctx.chat.sendChatMessage(userId, `@${displayName} โปรดรอ ${remaining} วินาทีก่อนขอเพลงอีกครั้ง! ⏳`);
+          });
+        } catch (_) {}
+        return { success: false, error: 'COOLDOWN', remaining };
+      }
+    }
+
+    // ดึง Access Token ของ Spotify
+    const accessToken = await spotify.getValidAccessToken(userId);
+    if (!accessToken) {
+      console.warn(`[Spotify SR] ⚠️ User ${userId} has no valid Spotify access token`);
+      try {
+        await apiClient?.asUser(userId, async (ctx) => {
+          await ctx.chat.sendChatMessage(userId, `@${displayName} สตรีมเมอร์ยังไม่ได้เชื่อมต่อ Spotify ใน Dashboard ก่อนนะ 🎵`);
+        });
+      } catch (_) {}
+      return { success: false, error: 'NO_SPOTIFY_TOKEN' };
+    }
+
+    // ค้นหาเพลงบน Spotify
+    const track = await spotify.searchSpotifyTrack(cleanQuery, accessToken);
+    if (!track) {
+      try {
+        await apiClient?.asUser(userId, async (ctx) => {
+          await ctx.chat.sendChatMessage(userId, `@${displayName} ไม่พบเพลง "${cleanQuery}" ใน Spotify ลองพิมพ์ชื่อเพลงหรือชื่อศิลปินให้ชัดเจนขึ้นนะ 🔍`);
+        });
+      } catch (_) {}
+      return { success: false, error: 'TRACK_NOT_FOUND' };
+    }
+
+    // ตรวจสอบความยาวเพลงสูงสุด (maxDuration ในหน่วยนาที)
+    const maxMinutes = parseInt(srSettings.maxDuration || 7, 10);
+    if (maxMinutes > 0 && track.durationMs > maxMinutes * 60 * 1000) {
+      try {
+        await apiClient?.asUser(userId, async (ctx) => {
+          await ctx.chat.sendChatMessage(userId, `@${displayName} ขออภัย เพลง "${track.name}" มีความยาวเกินที่กำหนด (สูงสุดไม่เกิน ${maxMinutes} นาที) ⏳`);
+        });
+      } catch (_) {}
+      return { success: false, error: 'EXCEEDS_MAX_DURATION' };
+    }
+
+    // พยายามเพิ่มเพลงเข้า Spotify Player Queue
+    let addedToSpotifyDevice = true;
+    let spotifyDeviceWarning = '';
+    try {
+      await spotify.addTrackToSpotifyQueue(track.uri, accessToken);
+    } catch (deviceErr) {
+      addedToSpotifyDevice = false;
+      if (deviceErr.message === 'NO_ACTIVE_DEVICE') {
+        spotifyDeviceWarning = ' (⚠️ อย่าลืมเปิด Spotify และกดเล่นเพลงบนเครื่องด้วยนะ)';
+      } else if (deviceErr.message === 'PREMIUM_REQUIRED') {
+        spotifyDeviceWarning = ' (⚠️ ต้องใช้บัญชี Spotify Premium ถึงจะเล่นเพลงต่อเนื่องอัตโนมัติได้)';
+      }
+    }
+
+    // บันทึกลง Song Request Queue ของ Solocast
+    if (source === 'chat') {
+      spotify.recordUserCooldown(userId, chatterName);
+    }
+    const queueItem = spotify.addToSongQueue(userId, displayName, track, source);
+
+    // ส่ง Real-time update ไปยัง Dashboard และ Widget Overlay
+    const updatedQueue = spotify.getSongQueueList(userId);
+    io.to('user_' + userId).emit('spotify_queue_updated', {
+      userId,
+      queue: updatedQueue
+    });
+    io.emit('spotify_queue_updated', {
+      userId,
+      queue: updatedQueue
+    });
+    io.to('user_' + userId).emit('spotify_new_request', {
+      userId,
+      track,
+      requester: displayName,
+      source
+    });
+    io.emit('spotify_new_request', {
+      userId,
+      track,
+      requester: displayName,
+      source
+    });
+    io.to('user_' + userId).emit('onEventReceived', {
+      type: 'spotify_new_request',
+      userId,
+      data: { track, requester: displayName, source }
+    });
+    io.emit('onEventReceived', {
+      type: 'spotify_new_request',
+      userId,
+      data: { track, requester: displayName, source }
+    });
+
+    // ตอบกลับในแชท
+    const trackName = track.name;
+    const artists = track.artists;
+    const prefixIcon = source === 'channel_points' ? '🎁 [แลกแต้ม]' : '🎵';
+    try {
+      await apiClient?.asUser(userId, async (ctx) => {
+        await ctx.chat.sendChatMessage(userId, `${prefixIcon} @${displayName} เพิ่มเพลง "${trackName}" โดย ${artists} เข้าคิวเรียบร้อย!${spotifyDeviceWarning}`);
+      });
+    } catch (_) {}
+
+    console.log(`[Spotify SR] 🎵 (${source}) ${displayName} requested: "${trackName}" by ${artists} (device queued: ${addedToSpotifyDevice})`);
+    return { success: true, track, queueItem };
+  } catch (srErr) {
+    console.error(`[Spotify SR] ❌ Error processing song request for ${chatterName}:`, srErr?.message || srErr);
+    try {
+      await apiClient?.asUser(userId, async (ctx) => {
+        await ctx.chat.sendChatMessage(userId, `@${displayName} ไม่สามารถขอเพลงได้: ${srErr.message}`);
+      });
+    } catch (_) {}
+    return { success: false, error: srErr.message };
+  }
+}
+
 function initEventSubListener() {
   if (!eventSubListener && apiClient) {
     eventSubListener = new EventSubWsListener({ apiClient });
@@ -1876,6 +2058,50 @@ function startEventSub(userId) {
       }
     } catch (cErr) {
       console.warn('[Custom Counter] Redemption check warning:', cErr?.message || cErr);
+    }
+
+    // ตรวจสอบการแลกแต้มสำหรับ Spotify Song Request (ถ้าเปิดใช้งาน)
+    try {
+      if (isWidgetActiveForUser(userId, 'spotify-sr') && spotify.isSpotifyConfigured()) {
+        let srSettings = widgetSettingsStore['spotify-sr']?.[userId];
+        if (!srSettings) {
+          const ids = getAssociatedUserIdentifiers(userId);
+          for (const id of ids) {
+            if (widgetSettingsStore['spotify-sr']?.[id]) {
+              srSettings = widgetSettingsStore['spotify-sr'][id];
+              break;
+            }
+          }
+        }
+        if (!srSettings) {
+          srSettings = widgetSettingsStore['spotify-sr']?.['default'] || {};
+        }
+
+        const targetRewardName = (srSettings.channelPointsReward || 'ขอเพลง').trim().toLowerCase();
+        const incomingReward = (e.rewardTitle || '').trim().toLowerCase();
+
+        // ตรวจสอบชื่อ Reward: ตรงกัน หรือมีคำว่า targetRewardName หรือมีคำว่า "ขอเพลง" / "song request" / "spotify"
+        const isRewardMatch = incomingReward === targetRewardName ||
+                              incomingReward.includes(targetRewardName) ||
+                              (targetRewardName.length >= 2 && targetRewardName.includes(incomingReward)) ||
+                              incomingReward.includes('ขอเพลง') ||
+                              incomingReward.includes('song request') ||
+                              incomingReward.includes('spotify');
+
+        if (isRewardMatch) {
+          console.log(`[Spotify SR] 🎁 Spotify Channel Points redemption detected for ${userId} by ${e.userName}: "${e.rewardTitle}" (input: "${e.input}")`);
+          await processSpotifySongRequest({
+            userId,
+            displayName: e.userDisplayName || e.userName,
+            chatterName: e.userName,
+            query: e.input,
+            source: 'channel_points',
+            channelRewardName: e.rewardTitle
+          });
+        }
+      }
+    } catch (sErr) {
+      console.warn('[Spotify SR] Redemption check warning:', sErr?.message || sErr);
     }
   } catch (rErr) {
     console.error(`[EventSub] Error in redemption handler for ${userId}:`, rErr);
@@ -2146,122 +2372,13 @@ function extractSongRequestQuery(text, customPrefix) {
         io.to('user_' + userId).emit('onEventReceived', soEv);
       } else if (srMatch) {
         // คำสั่งขอเพลงจาก Spotify (รองรับทั้ง !sr, !เพลง, เพลง ตามที่สตรีมเมอร์ตั้งค่าไว้)
-        const chatterName = e.chatterName || 'viewer';
-        const displayName = e.chatterDisplayName || chatterName;
-
-        // ตรวจสอบสถานะว่า Spotify SR Widget เปิดใช้งานอยู่หรือไม่ (ถ้าไม่มีสิทธิ์ หรือปิดอยู่ ให้เงียบสนิท ไม่ส่งข้อความไปทับ Nightbot)
-        if (!isWidgetActiveForUser(userId, 'spotify-sr')) {
-          console.log(`[Spotify SR] 🔇 Spotify SR widget is DISABLED or not allowed for user ${userId}, ignoring SR command silently`);
-          return;
-        }
-
-        const query = srMatch.query;
-
-        // ถ้าพิมพ์แค่คำสั่งขอเพลงโดยไม่มีชื่อเพลง
-        if (!query) {
-          try {
-            const prefixDisplay = srMatch.prefix || customPrefix || '!sr';
-            await apiClient?.asUser(userId, async (ctx) => {
-              await ctx.chat.sendChatMessage(userId, `@${displayName} วิธีขอเพลง: พิมพ์ ${prefixDisplay} <ชื่อเพลง หรือ ลิงก์ Spotify> 🎵`);
-            });
-          } catch (_) {}
-          return;
-        }
-
-        // ตรวจสอบว่าตั้งค่า Spotify Client ID ใน .env หรือยัง (ถ้ายังไม่ตั้งค่า ให้ข้ามไปเงียบๆ)
-        if (!spotify.isSpotifyConfigured()) {
-          console.warn(`[Spotify SR] ⚠️ Spotify Client ID / Secret is missing in .env, ignoring !sr silently`);
-          return;
-        }
-
-        try {
-          // ตรวจสอบ Cooldown (ดึงได้ทั้ง userCooldown และ cooldownSeconds)
-          const cooldownSec = parseInt(srSettings.userCooldown ?? srSettings.cooldownSeconds ?? 60);
-          const remaining = spotify.checkUserCooldown(userId, chatterName, cooldownSec);
-          if (remaining > 0) {
-            // บอก cooldown ในแชท
-            try {
-              await apiClient?.asUser(userId, async (ctx) => {
-                await ctx.chat.sendChatMessage(userId, `@${displayName} โปรดรอ ${remaining} วินาทีก่อนขอเพลงอีกครั้ง! ⏳`);
-              });
-            } catch (_) {}
-            return;
-          }
-
-          // ดึง Access Token ของ Spotify
-          const accessToken = await spotify.getValidAccessToken(userId);
-          if (!accessToken) {
-            try {
-              await apiClient?.asUser(userId, async (ctx) => {
-                await ctx.chat.sendChatMessage(userId, `@${displayName} สตรีมเมอร์ยังไม่ได้เชื่อมต่อ Spotify กรุณากดปุ่ม "เชื่อมต่อกับ Spotify" ใน Dashboard ก่อนนะ 🎵`);
-              });
-            } catch (_) {}
-            return;
-          }
-
-          // ค้นหาเพลงบน Spotify
-          const track = await spotify.searchSpotifyTrack(query, accessToken);
-          if (!track) {
-            try {
-              await apiClient?.asUser(userId, async (ctx) => {
-                await ctx.chat.sendChatMessage(userId, `@${displayName} ไม่พบเพลง "${query}" ใน Spotify ลองพิมพ์ชื่อเพลงหรือชื่อศิลปินให้ชัดเจนขึ้นนะ 🔍`);
-              });
-            } catch (_) {}
-            return;
-          }
-
-          // พยายามเพิ่มเพลงเข้า Spotify Player Queue
-          let addedToSpotifyDevice = true;
-          let spotifyDeviceWarning = '';
-          try {
-            await spotify.addTrackToSpotifyQueue(track.uri, accessToken);
-          } catch (deviceErr) {
-            addedToSpotifyDevice = false;
-            if (deviceErr.message === 'NO_ACTIVE_DEVICE') {
-              spotifyDeviceWarning = ' (⚠️ อย่าลืมเปิด Spotify และกดเล่นเพลงบนคอมหรือมือถือด้วยนะ)';
-            } else if (deviceErr.message === 'PREMIUM_REQUIRED') {
-              spotifyDeviceWarning = ' (⚠️ ต้องใช้บัญชี Spotify Premium ถึงจะเล่นเพลงต่อเนื่องอัตโนมัติได้)';
-            }
-          }
-
-          // บันทึกลง Song Request Queue ของ Solocast เสมอ (เพื่อให้ขึ้นใน Dashboard และ OBS)
-          spotify.recordUserCooldown(userId, chatterName);
-          const queueItem = spotify.addToSongQueue(userId, displayName, track, 'chat');
-
-          // ส่ง Real-time update ไปยัง Dashboard และ Widget Overlay
-          const updatedQueue = spotify.getSongQueueList(userId);
-          io.to('user_' + userId).emit('spotify_queue_updated', {
-            userId,
-            queue: updatedQueue
-          });
-          io.emit('spotify_queue_updated', {
-            userId,
-            queue: updatedQueue
-          });
-          io.emit('spotify_new_request', {
-            userId,
-            track,
-            requester: displayName
-          });
-
-          // ตอบกลับในแชท
-          const trackName = track.name;
-          const artists = track.artists;
-          try {
-            await apiClient?.asUser(userId, async (ctx) => {
-              await ctx.chat.sendChatMessage(userId, `🎵 @${displayName} เพิ่ม "${trackName}" โดย ${artists} เข้า Queue เรียบร้อย!${spotifyDeviceWarning}`);
-            });
-          } catch (_) {}
-
-          console.log(`[Spotify SR] 🎵 ${displayName} requested: "${trackName}" by ${artists} (device queued: ${addedToSpotifyDevice})`);
-        } catch (srErr) {
-          console.error(`[Spotify SR] ❌ Error processing !sr from ${chatterName}:`, srErr?.message || srErr);
-          try {
-            await apiClient?.asUser(userId, async (ctx) => {
-              await ctx.chat.sendChatMessage(userId, `@${displayName} ไม่สามารถขอเพลงได้: ${srErr.message}`);
-            });
-          } catch (_) {}
-        }
+        await processSpotifySongRequest({
+          userId,
+          displayName: e.chatterDisplayName || e.chatterName || 'viewer',
+          chatterName: e.chatterName || 'viewer',
+          query: srMatch.query,
+          source: 'chat'
+        });
       } else {
         // ส่งข้อความแชททั่วไปเข้าห้อง Socket เผื่อ Widget อื่นใช้งาน
         const chatEv = {
@@ -2323,13 +2440,32 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('test_event', (payload) => {
+  socket.on('test_event', async (payload) => {
     if (payload?.userId) {
       // ส่งเฉพาะห้องของผู้ใช้คนนี้เท่านั้น ไม่กวนจอของผู้ใช้อื่น
       io.to('user_' + payload.userId).emit('onEventReceived', payload);
     } else {
       io.emit('onEventReceived', payload);
     }
+
+    // รองรับการทดสอบแลกแต้มขอเพลง Spotify จาก Dashboard
+    try {
+      if (payload?.type === 'redemption' && payload?.data?.input && payload?.userId) {
+        const rewardTitle = (payload.data.rewardTitle || '').trim().toLowerCase();
+        let srSettings = widgetSettingsStore['spotify-sr']?.[payload.userId] || widgetSettingsStore['spotify-sr']?.['default'] || {};
+        const targetReward = (srSettings.channelPointsReward || 'ขอเพลง').trim().toLowerCase();
+        if (rewardTitle === targetReward || rewardTitle.includes(targetReward) || rewardTitle.includes('ขอเพลง') || rewardTitle.includes('spotify')) {
+          await processSpotifySongRequest({
+            userId: payload.userId,
+            displayName: payload.data.userDisplayName || payload.data.name || 'TestViewer',
+            chatterName: payload.data.userName || 'testviewer',
+            query: payload.data.input,
+            source: 'channel_points',
+            channelRewardName: payload.data.rewardTitle
+          });
+        }
+      }
+    } catch (_) {}
   });
 
   socket.on('simulate_shoutout', (payload) => {

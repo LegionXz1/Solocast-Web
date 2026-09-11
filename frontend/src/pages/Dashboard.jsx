@@ -850,6 +850,15 @@ function Dashboard() {
         timestamp: Date.now()
       };
       socket.emit('spotify_now_playing', mockTrack);
+      socket.emit('test_event', {
+        userId: status.userId,
+        type: 'spotify_new_request',
+        data: {
+          track: mockTrack.track,
+          requester: status.username || 'ChatViewer',
+          source: 'channel_points'
+        }
+      });
     } else if (selectedWidget === 'custom-counter') {
       handleCounterUpdate('inc', 1);
     } else {
