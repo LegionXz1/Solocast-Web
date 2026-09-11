@@ -51,6 +51,17 @@ export default function Navbar() {
         {/* Brand */}
         <div className="navbar-brand-group">
           <Link to="/" className="navbar-logo" onClick={() => setIsMobileMenuOpen(false)}>
+            <img
+              src="/electric-chicken.webp"
+              alt="FastChick Mascot"
+              className="navbar-mascot-img"
+              style={{
+                width: '28px',
+                height: '28px',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 2px 5px rgba(245, 158, 11, 0.35))'
+              }}
+            />
             <span className="navbar-logo-text">FastChick</span>
             <span className="navbar-logo-badge">by LegionX</span>
           </Link>
