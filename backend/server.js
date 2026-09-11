@@ -1565,6 +1565,7 @@ app.get('/auth/twitch', (req, res) => {
   const authUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(currentRedirectUri)}&response_type=code&scope=${encodeURIComponent(scopes)}`;
   res.redirect(authUrl);
 });
+app.get('/api/auth/twitch', (req, res) => res.redirect('/auth/twitch'));
 
 // 2. รับ Token กลับมาจาก Twitch
 app.get('/auth/twitch/callback', async (req, res) => {

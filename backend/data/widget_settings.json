@@ -131,6 +131,47 @@
       "spinDuration": 5,
       "hideAfter": 8,
       "excludedKillers": []
+    },
+    "785915826": {
+      "rewardName": "Random Killer",
+      "enableChat": true,
+      "chatTemplate": "[Roll] {username} rolled -> {killer}",
+      "enableVisualOverlay": true,
+      "showHeader": true,
+      "showTargetUser": true,
+      "showDividerText": true,
+      "showKillerName": true,
+      "showSubtitle": true,
+      "showScanEffects": true,
+      "photoSize": 480,
+      "headerText": "Killer Roulette",
+      "dividerText": "The Entity Chooses",
+      "spinSubtitle": "analyzing biological threat",
+      "chosenSubtitle": "SUBJECT IDENTIFIED",
+      "headerFontSize": 34,
+      "targetFontSize": 24,
+      "dividerFontSize": 20,
+      "resultNameFontSize": 56,
+      "subtitleFontSize": 20,
+      "accentColor": "#c9a84c",
+      "headerColor": "#c9a84c",
+      "targetColor": "#f3f4f6",
+      "dividerColor": "#c9a84c",
+      "resultNameColor": "#f5d07a",
+      "bloodColor": "#ef4444",
+      "strokeSize": 2,
+      "strokeColor": "#000000",
+      "headerStrokeColor": "#000000",
+      "targetStrokeColor": "#000000",
+      "dividerStrokeColor": "#000000",
+      "resultNameStrokeColor": "#000000",
+      "subtitleStrokeColor": "#000000",
+      "spinDuration": 5,
+      "hideAfter": 8,
+      "excludedKillers": [
+        "The Oni",
+        "The Plague"
+      ]
     }
   },
   "twitch-shoutout": {
@@ -403,25 +444,26 @@
       "iconScale": 140
     },
     "785915826": {
-      "role": "survivor",
+      "role": "killer",
       "perkCount": 4,
       "showUserPill": true,
       "showPerkName": true,
       "showCharacterName": true,
-      "iconScale": 94,
+      "iconScale": 104,
       "displayDuration": 10,
       "rewardName": "สุ่มเปิร์ค DBD",
       "enableChat": true,
       "chatTemplate": "[DBD] {username} สุ่มเปิร์ค ({role}): {perks}",
       "soundVolume": 60,
       "enableVisualOverlay": true,
-      "showDiamondBg": true
+      "showDiamondBg": true,
+      "excludedPerks": []
     }
   },
   "spotify-sr": {
     "141845798": {
       "theme": "minimal",
-      "accentColor": "#b9541d",
+      "accentColor": "#1db94c",
       "showVisualizer": true,
       "showProgressBar": true,
       "showRequester": true,

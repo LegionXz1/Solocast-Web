@@ -252,9 +252,9 @@ function Dashboard() {
   const [favorites, setFavorites] = useState(() => {
     try {
       const saved = localStorage.getItem('solocast_fav_overlays');
-      return saved ? JSON.parse(saved) : [];
+      return saved ? JSON.parse(saved) : ['loyalty-card', 'spotify-sr'];
     } catch {
-      return [];
+      return ['loyalty-card', 'spotify-sr'];
     }
   });
   const [overlayTab, setOverlayTab] = useState('all'); // 'all' | 'twitch' | 'spotify' | 'game' | 'favorites'
@@ -432,29 +432,14 @@ function Dashboard() {
     }
   }, [status.connected, status.userId, fetchWidgetStatusOverview]);
 
-  // ตรวจสอบ Widget ที่เลือกตาม URL หรือเปลี่ยนเมื่อ Widget ที่เลือกอยู่ถูกปิดโดย Admin หรือหมดสิทธิ์
+  // ตรวจสอบ Widget ที่เลือกตาม URL
   useEffect(() => {
     if (!widgets || widgets.length === 0) return;
     const urlWidget = new URLSearchParams(window.location.search).get('widget');
     if (urlWidget && widgets.some(w => w.id === urlWidget)) {
-      const ws = getWidgetStatus(urlWidget);
-      const isAvailable = (ws.globalEnabled && ws.hasAccess) || status.isAdmin;
-      if (isAvailable) {
-        setSelectedWidget(urlWidget);
-        return;
-      }
+      setSelectedWidget(urlWidget);
     }
-    if (selectedWidget) {
-      const currentWs = getWidgetStatus(selectedWidget);
-      const isAvailable = (currentWs.globalEnabled && currentWs.hasAccess) || status.isAdmin;
-      if (!isAvailable) {
-        setSelectedWidget('');
-        const url = new URL(window.location);
-        url.searchParams.delete('widget');
-        window.history.replaceState({}, '', url.toString());
-      }
-    }
-  }, [widgets, widgetStatusOverview, selectedWidget, getWidgetStatus, status.isAdmin]);
+  }, [widgets]);
 
   // Sync state กับ browser Back/Forward (popstate)
   useEffect(() => {
@@ -1069,17 +1054,6 @@ function Dashboard() {
   };
 
   const handleOpenWidget = (widgetId) => {
-    const ws = getWidgetStatus(widgetId);
-    if (!ws.hasAccess && !status.isAdmin) {
-      alert(`คุณไม่ได้รับสิทธิ์ให้ใช้งาน Widget นี้ (สงวนสิทธิ์เฉพาะผู้ใช้ที่ได้รับอนุญาตจาก Admin)`);
-      return;
-    }
-    if (!ws.active && !status.isAdmin) {
-      if (!ws.globalEnabled) {
-        alert(`Widget นี้ถูกปิดปรับปรุงโดยแอดมินชั่วคราว: ${ws.reason || 'กรุณารอการเปิดใช้งาน'}`);
-        return;
-      }
-    }
     setSelectedWidget(widgetId);
     const url = new URL(window.location);
     url.searchParams.set('widget', widgetId);
@@ -1392,7 +1366,7 @@ function Dashboard() {
                 </div>
               ) : (
                 <a
-                  href={`${API_BASE}/api/auth/twitch`}
+                  href={`${API_BASE}/auth/twitch`}
                   className="my-overlays-btn-primary"
                   style={{ textDecoration: 'none' }}
                 >
@@ -1829,40 +1803,55 @@ function Dashboard() {
                 );
               })()}
 
-              <button
-                type="button"
-                onClick={handleTriggerPreview}
-                className="btn-island accent"
-                title="ทดสอบส่งผลการสุ่ม / แสดงผลทันที"
-                style={{
-                  padding: '0.48rem 1.15rem',
-                  fontSize: '0.84rem',
-                  fontWeight: 700,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.45rem'
-                }}
-              >
-                <Play size={14} />
-                <span>ทดสอบสตรีม</span>
-              </button>
+              {(() => {
+                const curWs = getWidgetStatus(selectedWidget);
+                const isDis = !curWs.active;
+                return (
+                  <>
+                    <button
+                      type="button"
+                      onClick={!isDis ? handleTriggerPreview : undefined}
+                      disabled={isDis}
+                      className="btn-island accent"
+                      title={isDis ? 'กรุณาเปิดใช้งาน Widget ก่อนทดสอบ' : 'ทดสอบส่งผลการสุ่ม / แสดงผลทันที'}
+                      style={{
+                        padding: '0.48rem 1.15rem',
+                        fontSize: '0.84rem',
+                        fontWeight: 700,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                        opacity: isDis ? 0.4 : 1,
+                        cursor: isDis ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      <Play size={14} />
+                      <span>ทดสอบสตรีม</span>
+                    </button>
 
-              <button
-                type="button"
-                onClick={handleCopyUrl}
-                className="btn-island primary"
-                style={{
-                  padding: '0.48rem 1.15rem',
-                  fontSize: '0.84rem',
-                  fontWeight: 700,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.45rem'
-                }}
-              >
-                {copiedUrl ? <Check size={14} /> : <Copy size={14} />}
-                <span>{copiedUrl ? 'คัดลอก OBS แล้ว!' : 'คัดลอก OBS Link'}</span>
-              </button>
+                    <button
+                      type="button"
+                      onClick={!isDis ? handleCopyUrl : undefined}
+                      disabled={isDis}
+                      className="btn-island primary"
+                      title={isDis ? 'กรุณาเปิดใช้งาน Widget ก่อนคัดลอก OBS Link' : 'คัดลอก OBS Link'}
+                      style={{
+                        padding: '0.48rem 1.15rem',
+                        fontSize: '0.84rem',
+                        fontWeight: 700,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                        opacity: isDis ? 0.4 : 1,
+                        cursor: isDis ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {copiedUrl ? <Check size={14} /> : <Copy size={14} />}
+                      <span>{copiedUrl ? 'คัดลอก OBS แล้ว!' : 'คัดลอก OBS Link'}</span>
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
@@ -1921,43 +1910,60 @@ function Dashboard() {
                     {/* Section 2: Widget Settings & Customization Form */}
                     {selectedWidget && (() => {
                       const currentWs = getWidgetStatus(selectedWidget);
-                      if (!currentWs.globalEnabled || !currentWs.hasAccess) {
+                      if (!currentWs.active) {
                         return (
                           <div className="sidebar-settings-section" style={{
                             marginTop: '1rem',
-                            padding: '1.5rem 1rem',
-                            background: 'rgba(239, 68, 68, 0.05)',
-                            border: '1px solid rgba(239, 68, 68, 0.22)',
-                            borderRadius: 'var(--radius-sm)',
+                            padding: '2.25rem 1.25rem',
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px dashed var(--border-primary)',
+                            borderRadius: 'var(--radius-md)',
                             textAlign: 'center'
                           }}>
-                            <div style={{ fontSize: '1.75rem', marginBottom: '0.4rem' }}>🔒</div>
-                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f87171', marginBottom: '0.3rem' }}>
+                            <div style={{
+                              width: '50px',
+                              height: '50px',
+                              borderRadius: '50%',
+                              background: 'rgba(245, 158, 11, 0.12)',
+                              border: '1px solid rgba(245, 158, 11, 0.3)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              margin: '0 auto 1.1rem',
+                              color: '#f59e0b'
+                            }}>
+                              <Power size={24} />
+                            </div>
+                            <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                               Widget นี้ถูกปิดใช้งานอยู่
-                            </div>
-                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                              {!currentWs.globalEnabled ? (currentWs.reason || 'ปิดปรับปรุงระบบโดยผู้ดูแลระบบ') : 'คุณได้ปิดการใช้งาน Widget นี้ไว้ กรุณาเปิดสวิตช์ในรายการเพื่อเริ่มตั้งค่า'}
-                            </div>
-                            {status.isAdmin && !currentWs.globalEnabled && (
+                            </h4>
+                            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 1.5rem 0' }}>
+                              {!currentWs.globalEnabled
+                                ? (currentWs.reason || 'ผู้ดูแลระบบปิดปรับปรุง Widget นี้ชั่วคราว จึงไม่สามารถเปิดใช้งานหรือตั้งค่าได้')
+                                : !currentWs.hasAccess
+                                ? 'สงวนสิทธิ์เฉพาะผู้ใช้ที่ได้รับอนุญาตจาก Admin'
+                                : 'กรุณาเปิดใช้งาน Widget ก่อน เพื่อเริ่มปรับแต่งการตั้งค่า'}
+                            </p>
+                            {currentWs.globalEnabled && currentWs.hasAccess && (
                               <button
                                 type="button"
-                                onClick={() => navigate('/admin?tab=widgets')}
+                                onClick={() => handleToggleUserWidget(selectedWidget, currentWs.userEnabled)}
+                                disabled={widgetToggleLoading[selectedWidget + '_user']}
+                                className="btn-island accent"
                                 style={{
-                                  marginTop: '0.85rem',
-                                  padding: '0.45rem 1rem',
-                                  fontSize: '0.78rem',
+                                  width: '100%',
+                                  padding: '0.7rem 1rem',
+                                  fontSize: '0.88rem',
                                   fontWeight: 700,
-                                  background: '#10b981',
-                                  color: '#fff',
-                                  border: 'none',
-                                  borderRadius: 'var(--radius-xs)',
-                                  cursor: 'pointer',
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: '0.35rem'
+                                  justifyContent: 'center',
+                                  gap: '0.5rem',
+                                  boxShadow: '0 4px 14px rgba(245, 158, 11, 0.25)'
                                 }}
                               >
-                                <span>⚙️ ไปปลดล็อก Widget นี้ในหน้า Admin</span>
+                                {widgetToggleLoading[selectedWidget + '_user'] ? <Loader2 size={15} className="spin" /> : <Power size={15} />}
+                                <span>เปิดใช้งาน Widget ทันที</span>
                               </button>
                             )}
                           </div>
@@ -2036,32 +2042,54 @@ function Dashboard() {
                 <div className="doppel-core">
                   {selectedWidget ? (() => {
                     const currentWs = getWidgetStatus(selectedWidget);
-                    if (!currentWs.globalEnabled || !currentWs.hasAccess) {
+                    if (!currentWs.active) {
                       return (
                         <div style={{
-                          padding: '3.5rem 2rem',
-                          background: 'rgba(239, 68, 68, 0.04)',
-                          border: '1px solid rgba(239, 68, 68, 0.2)',
+                          padding: '4.5rem 2rem',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: '1px dashed var(--border-primary)',
                           borderRadius: 'var(--radius-md)',
                           textAlign: 'center',
-                          margin: '1.5rem 0'
+                          margin: '1rem 0'
                         }}>
                           <div style={{
-                            width: '64px', height: '64px', borderRadius: '50%',
-                            background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                            width: '68px', height: '68px', borderRadius: '50%',
+                            background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            margin: '0 auto 1.25rem', color: '#f87171'
+                            margin: '0 auto 1.25rem', color: '#f59e0b'
                           }}>
-                            <Ban size={28} />
+                            <Power size={30} />
                           </div>
-                          <h3 style={{ margin: '0 0 0.5rem 0', color: '#f87171', fontSize: '1.25rem', fontWeight: 700 }}>
-                            Widget "{widgets.find(w => w.id === selectedWidget)?.name}" ถูกปิดใช้งาน
+                          <h3 style={{ margin: '0 0 0.6rem 0', color: 'var(--text-primary)', fontSize: '1.3rem', fontWeight: 700 }}>
+                            Widget "{widgets.find(w => w.id === selectedWidget)?.name || selectedWidget}" ปิดใช้งานอยู่
                           </h3>
-                          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', maxWidth: '460px', margin: '0 auto', lineHeight: 1.6 }}>
+                          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '480px', margin: '0 auto 1.75rem', lineHeight: 1.6 }}>
                             {!currentWs.globalEnabled
-                              ? (currentWs.reason || 'ผู้ดูแลระบบปิดปรับปรุง Widget นี้ชั่วคราว จึงไม่สามารถแสดงตัวอย่างหรือใช้งานใน OBS ได้')
-                              : 'คุณได้ปิดการใช้งาน Widget นี้ไว้ หากต้องการเปิดใช้งาน กรุณากดเปิดสวิตช์ในแถบรายการด้านซ้าย'}
+                              ? (currentWs.reason || 'ผู้ดูแลระบบปิดปรับปรุง Widget นี้ชั่วคราว จึงไม่สามารถแสดงผลหรือใช้งานใน OBS ได้')
+                              : !currentWs.hasAccess
+                              ? 'คุณไม่ได้รับสิทธิ์ให้ใช้งาน Widget นี้ (สงวนสิทธิ์เฉพาะผู้ใช้ที่ได้รับอนุญาตจาก Admin)'
+                              : 'Widget นี้ถูกปิดการทำงานไว้ จึงไม่มีการตั้งค่าและไม่มีการแสดงผลใน OBS Studio กรุณาเปิดใช้งานก่อนเพื่อเริ่มตั้งค่า'}
                           </p>
+                          {currentWs.globalEnabled && currentWs.hasAccess && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleUserWidget(selectedWidget, currentWs.userEnabled)}
+                              disabled={widgetToggleLoading[selectedWidget + '_user']}
+                              className="btn-island accent"
+                              style={{
+                                padding: '0.7rem 2rem',
+                                fontSize: '0.92rem',
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.6rem',
+                                boxShadow: '0 4px 16px rgba(245, 158, 11, 0.25)'
+                              }}
+                            >
+                              {widgetToggleLoading[selectedWidget + '_user'] ? <Loader2 size={16} className="spin" /> : <Power size={16} />}
+                              <span>เปิดใช้งาน Widget</span>
+                            </button>
+                          )}
                         </div>
                       );
                     }
