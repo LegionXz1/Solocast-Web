@@ -600,11 +600,16 @@ function Dashboard() {
     };
 
     const handleSpotifyNowPlaying = (data) => {
-      if (data && (!data.userId || data.userId === status.userId)) setNowPlaying(data);
+      if (data && (!data.userId || String(data.userId) === String(status.userId))) setNowPlaying(data);
     };
     const handleSpotifyQueueUpdated = (data) => {
-      if (data && (!data.userId || data.userId === status.userId) && Array.isArray(data.queue)) {
+      if (data && (!data.userId || String(data.userId) === String(status.userId)) && Array.isArray(data.queue)) {
         setSpotifyQueue(data.queue);
+      }
+    };
+    const handleSpotifyNewRequest = (data) => {
+      if (data && (!data.userId || String(data.userId) === String(status.userId))) {
+        fetchSpotifyData();
       }
     };
 
@@ -614,6 +619,7 @@ function Dashboard() {
     socket.on('dbd_perks_updated', handleDbdPerksUpdated);
     socket.on('spotify_now_playing', handleSpotifyNowPlaying);
     socket.on('spotify_queue_updated', handleSpotifyQueueUpdated);
+    socket.on('spotify_new_request', handleSpotifyNewRequest);
 
     return () => {
       socket.off('onEventReceived', handleEvent);
@@ -622,8 +628,9 @@ function Dashboard() {
       socket.off('dbd_perks_updated', handleDbdPerksUpdated);
       socket.off('spotify_now_playing', handleSpotifyNowPlaying);
       socket.off('spotify_queue_updated', handleSpotifyQueueUpdated);
+      socket.off('spotify_new_request', handleSpotifyNewRequest);
     };
-  }, [selectedWidget, status.userId]);
+  }, [selectedWidget, status.userId, fetchSpotifyData]);
 
   // ฟังก์ชันบันทึกการตั้งค่าลง Backend พร้อมส่ง Signal ไปยัง OBS แบบ Real-time
   const handleSaveSettings = async (dataToSave = fieldData) => {

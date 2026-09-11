@@ -1785,9 +1785,14 @@ function startEventSub(userId) {
           const queueItem = spotify.addToSongQueue(userId, displayName, track, 'chat');
 
           // ส่ง Real-time update ไปยัง Dashboard และ Widget Overlay
+          const updatedQueue = spotify.getSongQueueList(userId);
           io.to('user_' + userId).emit('spotify_queue_updated', {
             userId,
-            queue: spotify.getSongQueueList(userId)
+            queue: updatedQueue
+          });
+          io.emit('spotify_queue_updated', {
+            userId,
+            queue: updatedQueue
           });
           io.emit('spotify_new_request', {
             userId,
@@ -2261,9 +2266,14 @@ app.post('/api/spotify/request', checkUserAuth, async (req, res) => {
     await spotify.addTrackToSpotifyQueue(track.uri, accessToken);
     const queueItem = spotify.addToSongQueue(userId, requester || req.user?.username || 'Dashboard', track, 'dashboard');
 
+    const updatedQueue = spotify.getSongQueueList(userId);
     io.to('user_' + userId).emit('spotify_queue_updated', {
       userId,
-      queue: spotify.getSongQueueList(userId)
+      queue: updatedQueue
+    });
+    io.emit('spotify_queue_updated', {
+      userId,
+      queue: updatedQueue
     });
     io.emit('spotify_new_request', {
       userId,
