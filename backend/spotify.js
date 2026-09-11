@@ -438,8 +438,7 @@ export function addToSongQueue(userId, requester, track, source = 'chat') {
 
 export function getSongQueueList(userId, limit = 50) {
   if (!userId) return spotifyQueue.slice(0, limit);
-  const uid = String(userId).trim().toLowerCase();
-  return spotifyQueue.filter(q => String(q.userId || '').trim().toLowerCase() === uid || q.userId === 'default').slice(0, limit);
+  return spotifyQueue.filter(q => q.userId === userId || q.userId === 'default').slice(0, limit);
 }
 
 export function removeQueueItem(itemId, userId) {

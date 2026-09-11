@@ -1,0 +1,409 @@
+let killers = [
+  { name: "The Trapper",   img: "https://deadbydaylight.com/static/0a16e1db54f6c959580370679235eefb/7f738/DBD_Killer_Trapper_only_335b9655b2.webp" },
+  { name: "The Wraith",    img: "https://deadbydaylight.com/static/8dd6b13f4343ca2e6b072f91b0f30308/04af3/DBD_Killer_Wraith_only_23c19dc579.webp" },
+  { name: "The Hillbilly", img: "https://deadbydaylight.com/static/b2296c4b7485cabc0b79cc205fc14b13/60045/DBD_Killer_Hillbilly_only_e3d5fe3977.webp" }
+];
+
+let REWARD_NAME     = 'Random Killer';
+let JWT_TOKEN       = '';
+let CHANNEL_ID      = '';
+let CHAT_TEMPLATE   = '☠ {username} rolled → {killer} ☠';
+let ENABLE_CHAT     = true;
+let SPIN_SUBTITLE   = 'analyzing biological threat';
+let CHOSEN_SUBTITLE = 'SUBJECT IDENTIFIED';
+let SPIN_DURATION   = 5;
+let HIDE_AFTER      = 8;
+let SPIN_SOUND      = '';
+let WIN_SOUND       = '';
+let SOUND_VOLUME    = 0.5;
+
+// Visibility toggles
+let enableVisualOverlayState = true;
+let showHeaderState      = true;
+let showTargetUserState  = true;
+let showDividerTextState = true;
+let showKillerNameState  = true;
+let showSubtitleState    = true;
+let showScanEffectsState = true;
+
+const DATABASE_API_URL = 'https://gist.githubusercontent.com/legionxz1/3b5f957373bd5e604e16feb68769b89a/raw/new_killers.json';
+
+let hideTimeout   = null;
+let cycleInterval = null;
+let _masterKillersList = null;
+let _excludedKillersList = [];
+
+function _filterActiveKillers() {
+  if (!_masterKillersList || !_masterKillersList.length) {
+    if (killers && killers.length > 0) _masterKillersList = [...killers];
+    else return;
+  }
+  const f = _masterKillersList.filter(k => !_excludedKillersList.includes(k.name) && !_excludedKillersList.includes(k.id));
+  killers = f.length > 0 ? f : _masterKillersList;
+  console.log('[RandomKiller] Active killers:', killers.length, '(excluded:', _excludedKillersList.length, ')');
+}
+
+function applyFieldData(fd) {
+  if (!fd) return;
+
+  if (fd.excludedKillers !== undefined) {
+    _excludedKillersList = Array.isArray(fd.excludedKillers) ? fd.excludedKillers : [];
+    _filterActiveKillers();
+  }
+
+  if (fd.rewardName) REWARD_NAME = fd.rewardName.trim();
+  if (fd.jwtToken) JWT_TOKEN = fd.jwtToken.trim();
+  if (fd.chatTemplate) CHAT_TEMPLATE = fd.chatTemplate;
+  if (fd.enableChat !== undefined) {
+    ENABLE_CHAT = (fd.enableChat === true || '' + fd.enableChat === 'true' || fd.enableChat === 1 || '' + fd.enableChat === '1');
+  }
+  if (fd.spinSubtitle) SPIN_SUBTITLE = fd.spinSubtitle;
+  if (fd.chosenSubtitle) CHOSEN_SUBTITLE = fd.chosenSubtitle;
+  if (fd.spinDuration) SPIN_DURATION = parseInt(fd.spinDuration);
+  if (fd.hideAfter) HIDE_AFTER = parseInt(fd.hideAfter);
+  if (fd.spinSound) SPIN_SOUND = fd.spinSound;
+  if (fd.winSound) WIN_SOUND = fd.winSound;
+  if (fd.soundVolume !== undefined) SOUND_VOLUME = parseFloat(fd.soundVolume) / 100;
+
+  // Texts
+  if (fd.headerText) {
+    const el = document.getElementById('header-text');
+    if (el) el.innerText = fd.headerText;
+  }
+  if (fd.dividerText) {
+    const el = document.getElementById('divider-text');
+    if (el) el.innerText = fd.dividerText;
+  }
+  const sub = document.getElementById('result-subtitle');
+  if (sub) sub.innerText = SPIN_SUBTITLE;
+
+  // ── Visibility Toggles ──
+  if (fd.enableVisualOverlay !== undefined) {
+    enableVisualOverlayState = (fd.enableVisualOverlay === true || '' + fd.enableVisualOverlay === 'true' || fd.enableVisualOverlay === 1 || '' + fd.enableVisualOverlay === '1');
+  }
+  if (fd.showHeader !== undefined) {
+    showHeaderState = (fd.showHeader === true || '' + fd.showHeader === 'true' || fd.showHeader === 1 || '' + fd.showHeader === '1');
+  }
+  if (fd.showTargetUser !== undefined) {
+    showTargetUserState = (fd.showTargetUser === true || '' + fd.showTargetUser === 'true' || fd.showTargetUser === 1 || '' + fd.showTargetUser === '1');
+  }
+  if (fd.showDividerText !== undefined) {
+    showDividerTextState = (fd.showDividerText === true || '' + fd.showDividerText === 'true' || fd.showDividerText === 1 || '' + fd.showDividerText === '1');
+  }
+  if (fd.showKillerName !== undefined) {
+    showKillerNameState = (fd.showKillerName === true || '' + fd.showKillerName === 'true' || fd.showKillerName === 1 || '' + fd.showKillerName === '1');
+  }
+  if (fd.showSubtitle !== undefined) {
+    showSubtitleState = (fd.showSubtitle === true || '' + fd.showSubtitle === 'true' || fd.showSubtitle === 1 || '' + fd.showSubtitle === '1');
+  }
+  if (fd.showScanEffects !== undefined) {
+    showScanEffectsState = (fd.showScanEffects === true || '' + fd.showScanEffects === 'true' || fd.showScanEffects === 1 || '' + fd.showScanEffects === '1');
+  }
+
+  // Apply Header elements visibility
+  const headerTitleEl = document.getElementById('header-text');
+  if (headerTitleEl) headerTitleEl.classList.toggle('hidden', !showHeaderState);
+
+  const targetUserEl = document.getElementById('dossier-target-box');
+  if (targetUserEl) targetUserEl.classList.toggle('hidden', !showTargetUserState);
+
+  const headerBoxEl = document.getElementById('dossier-header-box');
+  if (headerBoxEl) headerBoxEl.classList.toggle('hidden', !showHeaderState && !showTargetUserState);
+
+  // Apply Info elements visibility
+  const dividerTextEl = document.getElementById('divider-text');
+  if (dividerTextEl) dividerTextEl.classList.toggle('hidden', !showDividerTextState);
+
+  const killerNameEl = document.getElementById('result-name');
+  if (killerNameEl) killerNameEl.classList.toggle('hidden', !showKillerNameState);
+
+  const subtitleEl = document.getElementById('result-subtitle');
+  if (subtitleEl) subtitleEl.classList.toggle('hidden', !showSubtitleState);
+
+  const infoBoxEl = document.getElementById('dossier-info-box');
+  if (infoBoxEl) infoBoxEl.classList.toggle('hidden', !showDividerTextState && !showKillerNameState && !showSubtitleState);
+
+  // Apply Scanline & Corner Brackets visibility
+  document.querySelectorAll('.corner-bracket, .scan-line').forEach(el => {
+    el.classList.toggle('hidden', !showScanEffectsState);
+  });
+
+  // Toggle Minimal Mode on Container
+  const isMinimalMode = (!showHeaderState && !showTargetUserState) && (!showDividerTextState && !showKillerNameState && !showSubtitleState);
+  const container = document.getElementById('dossier-container');
+  if (container) {
+    container.classList.toggle('minimal-mode', isMinimalMode);
+  }
+
+  // Custom Photo Size
+  if (fd.photoSize) {
+    document.documentElement.style.setProperty('--photo-size', fd.photoSize + 'px');
+  }
+
+  // Font Sizes
+  if (fd.headerFontSize)     document.documentElement.style.setProperty('--header-font-size',   fd.headerFontSize + 'px');
+  if (fd.targetFontSize)     document.documentElement.style.setProperty('--target-font-size',   fd.targetFontSize + 'px');
+  if (fd.dividerFontSize)    document.documentElement.style.setProperty('--divider-font-size',  fd.dividerFontSize + 'px');
+  if (fd.resultNameFontSize) document.documentElement.style.setProperty('--result-font-size',   fd.resultNameFontSize + 'px');
+  if (fd.subtitleFontSize)   document.documentElement.style.setProperty('--subtitle-font-size', fd.subtitleFontSize + 'px');
+
+  // Colors
+  if (fd.accentColor)     document.documentElement.style.setProperty('--gold',               fd.accentColor);
+  if (fd.headerColor)     document.documentElement.style.setProperty('--header-color',       fd.headerColor);
+  if (fd.targetColor)     document.documentElement.style.setProperty('--target-color',       fd.targetColor);
+  if (fd.dividerColor)    document.documentElement.style.setProperty('--divider-color',      fd.dividerColor);
+  if (fd.resultNameColor) document.documentElement.style.setProperty('--result-color',       fd.resultNameColor);
+  if (fd.subtitleColor)   document.documentElement.style.setProperty('--subtitle-color',     fd.subtitleColor);
+  if (fd.bloodColor)      document.documentElement.style.setProperty('--blood-bright',       fd.bloodColor);
+
+  // Strokes
+  if (fd.strokeSize !== undefined) document.documentElement.style.setProperty('--stroke-size', fd.strokeSize + 'px');
+  if (fd.strokeColor)              document.documentElement.style.setProperty('--stroke-color', fd.strokeColor);
+  if (fd.headerStrokeColor)        document.documentElement.style.setProperty('--header-stroke-color', fd.headerStrokeColor);
+  if (fd.targetStrokeColor)        document.documentElement.style.setProperty('--target-stroke-color', fd.targetStrokeColor);
+  if (fd.dividerStrokeColor)       document.documentElement.style.setProperty('--divider-stroke-color', fd.dividerStrokeColor);
+  if (fd.resultNameStrokeColor)    document.documentElement.style.setProperty('--result-stroke-color', fd.resultNameStrokeColor);
+  if (fd.subtitleStrokeColor)      document.documentElement.style.setProperty('--subtitle-stroke-color', fd.subtitleStrokeColor);
+}
+
+window.addEventListener('onWidgetChange', (obj) => {
+  if (obj && obj.detail) {
+    applyFieldData(obj.detail.fieldData || obj.detail);
+  }
+});
+
+window.addEventListener('onWidgetLoad', async (obj) => {
+  if (obj && obj.detail && obj.detail.fieldData) {
+    applyFieldData(obj.detail.fieldData);
+  }
+  if (obj && obj.detail && obj.detail.channel && obj.detail.channel.id) {
+    CHANNEL_ID = obj.detail.channel.id;
+  }
+
+  if (DATABASE_API_URL !== '') {
+    let fetchedKillers = null;
+
+    try {
+      const cachedKillers = sessionStorage.getItem('se_killers_db_cache');
+      const cachedTime = sessionStorage.getItem('se_killers_db_time');
+      if (cachedKillers && cachedTime && (Date.now() - parseInt(cachedTime, 10)) < 15 * 60 * 1000) {
+        fetchedKillers = JSON.parse(cachedKillers);
+      }
+    } catch (_) {}
+
+    if (!fetchedKillers) {
+      try {
+        const res = await fetch(DATABASE_API_URL + '?_t=' + Date.now());
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            fetchedKillers = data;
+          } else if (data && data.files && data.files['killers.json']) {
+            fetchedKillers = JSON.parse(data.files['killers.json'].content);
+          }
+          if (fetchedKillers) {
+            try {
+              sessionStorage.setItem('se_killers_db_cache', JSON.stringify(fetchedKillers));
+              sessionStorage.setItem('se_killers_db_time', Date.now().toString());
+            } catch (_) {}
+          }
+        }
+      } catch (err) {
+        console.error('[RandomKiller] ❌ Database fetch error:', err);
+      }
+    }
+
+    if (!fetchedKillers) {
+      try {
+        const lkRes = await fetch('/api/widgets/random-killer/killers');
+        if (lkRes.ok) {
+          const lkData = await lkRes.json();
+          if (Array.isArray(lkData) && lkData.length > 0) fetchedKillers = lkData;
+        }
+      } catch (_) {}
+    }
+
+    if (!fetchedKillers) {
+      try {
+        const backup = sessionStorage.getItem('se_killers_db_cache');
+        if (backup) fetchedKillers = JSON.parse(backup);
+      } catch (_) {}
+    }
+
+    if (fetchedKillers && Array.isArray(fetchedKillers) && fetchedKillers.length > 0) {
+      killers = fetchedKillers;
+      _masterKillersList = [...fetchedKillers];
+      _filterActiveKillers();
+      console.log('[RandomKiller] ✅ Loaded Database with ' + killers.length + ' killers');
+    }
+  }
+});
+
+window.addEventListener('onEventReceived', (obj) => {
+  try {
+    const data = obj?.detail;
+    if (!data) return;
+
+    let isRedemptionEvent = false;
+    let eventObj = null;
+
+    if (data.listener === 'redemption-latest') {
+      isRedemptionEvent = true;
+      eventObj = data.event || {};
+    } else if (data.listener === 'event' && data.event && (data.event.type === 'channelPointsRedemption' || data.event.type === 'redemption')) {
+      isRedemptionEvent = true;
+      eventObj = data.event.data || data.event || {};
+    }
+
+    if (isRedemptionEvent && eventObj) {
+      const rawReward = (
+        eventObj.redemption ||
+        eventObj.rewardTitle ||
+        eventObj.title ||
+        (eventObj.reward && (eventObj.reward.title || eventObj.reward.name)) ||
+        (eventObj.data && (eventObj.data.redemption || eventObj.data.title || eventObj.data.rewardTitle)) ||
+        ''
+      ).toString().trim();
+
+      const username = (
+        eventObj.displayName ||
+        eventObj.username ||
+        eventObj.name ||
+        (eventObj.data && (eventObj.data.displayName || eventObj.data.username)) ||
+        'ผู้โชคร้าย'
+      ).toString().trim();
+
+      console.log('[Dossier] Event Received - Raw Reward:', rawReward, '| Expected Reward:', REWARD_NAME);
+
+      if (rawReward !== '' && REWARD_NAME !== '' && rawReward.toLowerCase() === REWARD_NAME.toLowerCase()) {
+        const picked = killers[Math.floor(Math.random() * killers.length)];
+        if (!enableVisualOverlayState) {
+          console.log('[Dossier] 💬 Chat-Only Mode active: Bypassing visual overlay on stream.');
+          sendChat(username, picked.name);
+          if (window.recordRollHistory) {
+            window.recordRollHistory({
+              user: window.SolocastTargetUser || '',
+              killerName: picked.name,
+              killerImg: picked.img,
+              username: username,
+              timestamp: new Date().toISOString()
+            });
+          }
+        } else {
+          showDossier(username, picked.name, picked.img);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[Dossier] Event error:', e);
+  }
+});
+
+function showDossier(username, finalKillerName, finalKillerImg) {
+  clearTimeout(hideTimeout);
+  clearInterval(cycleInterval);
+
+  const container = document.getElementById('dossier-container');
+  const photoFrame = document.querySelector('.photo-frame');
+  const photoImg = document.getElementById('dossier-photo');
+  const resultName = document.getElementById('result-name');
+  const resultSub = document.getElementById('result-subtitle');
+
+  const userEl = document.getElementById('user-name');
+  if (userEl) userEl.innerText = username;
+
+  photoFrame.classList.remove('revealed');
+  photoFrame.classList.add('scanning');
+
+  resultName.classList.remove('revealed');
+  resultName.innerText = 'SEARCHING...';
+
+  resultSub.classList.remove('revealed');
+  resultSub.innerText = SPIN_SUBTITLE;
+
+  container.classList.add('show');
+  playAudio(SPIN_SOUND);
+
+  let cycleIdx = 0;
+  cycleInterval = setInterval(() => {
+    if (killers.length > 0) {
+      const temp = killers[cycleIdx % killers.length];
+      photoImg.src = temp.img;
+      resultName.innerText = temp.name.toUpperCase();
+      cycleIdx++;
+    }
+  }, 85);
+
+  hideTimeout = setTimeout(() => {
+    clearInterval(cycleInterval);
+
+    photoImg.src = finalKillerImg;
+    photoFrame.classList.remove('scanning');
+    photoFrame.classList.add('revealed');
+
+    resultName.innerText = finalKillerName.toUpperCase();
+    resultName.classList.add('revealed');
+
+    resultSub.innerText = CHOSEN_SUBTITLE;
+    resultSub.classList.add('revealed');
+
+    playAudio(WIN_SOUND);
+    sendChat(username, finalKillerName);
+
+    if (window.recordRollHistory) {
+      window.recordRollHistory({
+        username: username,
+        killer: finalKillerName,
+        killerImg: finalKillerImg,
+        rewardTitle: REWARD_NAME,
+        timestamp: Date.now()
+      });
+    }
+
+    hideTimeout = setTimeout(() => {
+      container.classList.remove('show');
+      setTimeout(() => {
+        photoFrame.classList.remove('revealed');
+        resultName.classList.remove('revealed');
+        resultSub.classList.remove('revealed');
+      }, 600);
+    }, HIDE_AFTER * 1000);
+  }, SPIN_DURATION * 1000);
+}
+
+function playAudio(src) {
+  if (!src) return;
+  try {
+    const audio = new Audio(src);
+    audio.volume = SOUND_VOLUME;
+    audio.play().catch(e => console.warn('[Dossier] Audio play prevented:', e));
+  } catch (_) {}
+}
+
+async function sendChat(username, killerName) {
+  if (ENABLE_CHAT === false) {
+    console.log('[Dossier] 🔇 Twitch Chat is disabled in settings.');
+    return;
+  }
+  const chatMsg = (CHAT_TEMPLATE || '☠ {username} rolled → {killer} ☠')
+    .replace(/{username}/g, username)
+    .replace(/{killer}/g, killerName);
+  console.log('[Dossier] 🤖 Sending Twitch Chat message:', chatMsg);
+
+  if (window.sendTwitchChat) {
+    await window.sendTwitchChat(chatMsg);
+  } else {
+    try {
+      await fetch('/api/chat/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user: window.SolocastTargetUser || '',
+          message: chatMsg
+        })
+      });
+    } catch (e) {
+      console.error('[Dossier] Failed to send chat message:', e);
+    }
+  }
+}

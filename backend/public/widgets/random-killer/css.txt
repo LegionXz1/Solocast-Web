@@ -1,0 +1,254 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&family=Share+Tech+Mono&family=Sarabun:wght@300;400;600&display=swap');
+
+:root {
+  --gold: #c9a84c;
+  --gold-bright: #f5d07a;
+  --blood: #b91c1c;
+  --blood-bright: #ef4444;
+  --paper-dark: transparent;
+  --border-gold: rgba(201,168,76,0.35);
+  --text-bright: #f3f4f6;
+  --text-muted: #9ca3af;
+  --dossier-width: clamp(850px, 60vw, 1550px);
+  --photo-size: clamp(380px, 27vw, 680px);
+  --panel-padding: clamp(24px, 3vh, 50px);
+  --header-font-size: clamp(24px, 1.8vw, 44px);
+  --header-color: var(--gold);
+  --target-font-size: clamp(18px, 1.3vw, 32px);
+  --target-color: var(--text-bright);
+  --divider-font-size: clamp(16px, 1.1vw, 26px);
+  --divider-color: var(--gold);
+  --result-font-size: clamp(38px, 3.2vw, 76px);
+  --result-color: var(--gold-bright);
+  --subtitle-font-size: clamp(16px, 1.1vw, 26px);
+  --subtitle-color: var(--blood-bright);
+  --stroke-size: 2px;
+  --stroke-color: #000000;
+  --header-stroke-color: var(--stroke-color);
+  --target-stroke-color: var(--stroke-color);
+  --divider-stroke-color: var(--stroke-color);
+  --result-stroke-color: var(--stroke-color);
+  --subtitle-stroke-color: var(--stroke-color);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: transparent;
+  font-family: 'Cinzel', serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#dossier-container {
+  width: var(--dossier-width);
+  opacity: 0;
+  transform: translateY(40px) scale(0.96);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+#dossier-container.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+#dossier-container.minimal-mode {
+  width: auto !important;
+}
+
+#dossier-container.minimal-mode .dossier-body {
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+.dossier-card {
+  position: relative;
+  background: transparent;
+  border: none;
+}
+
+.dossier-body {
+  padding: var(--panel-padding);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(18px, 2vh, 36px);
+  position: relative;
+  overflow: hidden;
+}
+
+.dossier-header {
+  text-align: center;
+  width: 100%;
+  border-bottom: none;
+  padding-bottom: clamp(10px, 1vh, 18px);
+}
+
+.dossier-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 800;
+  font-size: var(--header-font-size);
+  letter-spacing: clamp(5px, 0.5vw, 10px);
+  color: var(--header-color);
+  text-transform: uppercase;
+  -webkit-text-stroke: var(--stroke-size) var(--header-stroke-color);
+  paint-order: stroke fill;
+  text-shadow: 0 0 18px rgba(201,168,76,0.5), 0 2px 4px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,1);
+}
+
+.dossier-target {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: var(--target-font-size);
+  color: var(--text-muted);
+  letter-spacing: 3px;
+  margin-top: 6px;
+  -webkit-text-stroke: var(--stroke-size) var(--target-stroke-color);
+  paint-order: stroke fill;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+}
+
+.dossier-target #user-name {
+  color: var(--target-color);
+  font-weight: 600;
+  -webkit-text-stroke: var(--stroke-size) var(--target-stroke-color);
+  paint-order: stroke fill;
+  text-shadow: 0 0 12px rgba(243,244,246,0.6), 0 2px 4px rgba(0,0,0,0.9);
+}
+
+.photo-frame {
+  position: relative;
+  width: var(--photo-size);
+  height: var(--photo-size);
+  border: none;
+  background: transparent;
+  padding: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+  filter: grayscale(20%) contrast(1.1);
+  transition: filter 0.4s ease, transform 0.4s ease;
+}
+
+.photo-frame.revealed img {
+  filter: grayscale(0%) contrast(1.15) drop-shadow(0 0 28px rgba(201,168,76,0.65));
+  transform: scale(1.03);
+}
+
+.scan-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, transparent, var(--blood-bright), transparent);
+  box-shadow: 0 0 18px var(--blood-bright);
+  z-index: 10;
+  opacity: 0;
+}
+
+.photo-frame.scanning .scan-line {
+  opacity: 1;
+  animation: scanAnim 1.4s linear infinite alternate;
+}
+
+@keyframes scanAnim {
+  0%   { top: 0%; }
+  100% { top: 95%; }
+}
+
+.corner-bracket {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-color: var(--gold);
+  border-style: solid;
+  z-index: 5;
+}
+
+.corner-bracket.tl { top: 2px; left: 2px; border-width: 3px 0 0 3px; }
+.corner-bracket.tr { top: 2px; right: 2px; border-width: 3px 3px 0 0; }
+.corner-bracket.bl { bottom: 2px; left: 2px; border-width: 0 0 3px 3px; }
+.corner-bracket.br { bottom: 2px; right: 2px; border-width: 0 3px 3px 0; }
+
+.dossier-info {
+  text-align: center;
+  width: 100%;
+}
+
+.info-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: var(--divider-font-size);
+  color: var(--divider-color);
+  letter-spacing: 4px;
+  opacity: 0.75;
+  margin-bottom: 6px;
+  -webkit-text-stroke: var(--stroke-size) var(--divider-stroke-color);
+  paint-order: stroke fill;
+  text-shadow: 0 0 12px rgba(201,168,76,0.5), 0 2px 4px rgba(0,0,0,0.9);
+}
+
+.subject-name {
+  font-family: 'Cinzel', serif;
+  font-weight: 900;
+  font-size: var(--result-font-size);
+  line-height: 1.25;
+  letter-spacing: clamp(4px, 0.4vw, 10px);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  transition: color 0.4s ease, text-shadow 0.4s ease;
+  word-break: break-word;
+  max-width: 95%;
+  margin: 0 auto;
+  -webkit-text-stroke: var(--stroke-size) var(--result-stroke-color);
+  paint-order: stroke fill;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.8);
+}
+
+.subject-name.revealed {
+  color: var(--result-color);
+  text-shadow: 0 0 35px rgba(245,208,122,0.8), 0 0 70px rgba(201,168,76,0.4), 0 3px 6px rgba(0,0,0,0.9), 0 0 10px #000;
+  animation: namePop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes namePop {
+  0%   { transform: scale(0.9); opacity: 0.5; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+.subject-status {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: var(--subtitle-font-size);
+  color: rgba(156,163,175,0.6);
+  letter-spacing: 3px;
+  margin-top: 6px;
+  text-transform: uppercase;
+  -webkit-text-stroke: var(--stroke-size) var(--subtitle-stroke-color);
+  paint-order: stroke fill;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+}
+
+.subject-status.revealed {
+  color: var(--subtitle-color);
+  text-shadow: 0 0 14px rgba(239,68,68,0.6), 0 2px 4px rgba(0,0,0,0.9);
+}

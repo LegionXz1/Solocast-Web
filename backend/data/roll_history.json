@@ -78,6 +78,38 @@
     ],
     "148596257": [
       {
+        "id": "roll_1789131429863_flduz",
+        "timestamp": "2026-09-11T12:57:09.857Z",
+        "user": "148596257",
+        "killerName": "The Onryō",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K27_TheOnryo_Portrait.png?50d2b8",
+        "username": "LegionXIZ"
+      },
+      {
+        "id": "roll_1789130905841_eqnui",
+        "timestamp": 1789130905819,
+        "username": "LegionXIZ",
+        "killer": "The Ghoul",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K39_TheGhoul_Portrait.png?fbb95c",
+        "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
+      },
+      {
+        "id": "roll_1789130905824_xkfga",
+        "timestamp": 1789130905818,
+        "username": "LegionXIZ",
+        "killer": "The Singularity",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K32_TheSingularity_Portrait.png?3d6300",
+        "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
+      },
+      {
+        "id": "roll_1789130893268_o7azy",
+        "timestamp": 1789130893263,
+        "username": "LegionXIZ",
+        "killer": "The Demogorgon",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K17_TheDemogorgon_Portrait.png?20c7d0",
+        "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
+      },
+      {
         "id": "roll_1789080123257_al4fn",
         "timestamp": 1789080123250,
         "username": "LegionXIZ",
@@ -189,7 +221,8 @@
         "killerImg": "https://deadbydaylight.wiki.gg/images/K31_TheSkullMerchant_Portrait.png?91edf3",
         "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
       }
-    ]
+    ],
+    "776638139": []
   },
   "loyalty-card": {
     "137653755": [
@@ -221,6 +254,17 @@
         "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png",
         "rewardTitle": "จุ่มๆๆๆ",
         "result": "เช็คอินครั้งที่ 16"
+      }
+    ],
+    "785915826": [
+      {
+        "id": "roll_1789123307958_vlqob",
+        "timestamp": 1789123310423,
+        "username": "wa_wawiwa",
+        "count": 1,
+        "avatar": "/api/twitch/avatar/wa_wawiwa",
+        "rewardTitle": "Check-in",
+        "result": "เช็คอินครั้งที่ 1"
       }
     ]
   },
@@ -734,6 +778,48 @@
       }
     ],
     "148596257": [
+      {
+        "id": "roll_1789123199208_w5k80",
+        "timestamp": 1789123201654,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "distortion",
+            "name": "Distortion",
+            "role": "survivor",
+            "character": "Jeff",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_distortion.png/96px-IconPerks_distortion.png?60a80b",
+            "description": "Start the Trial with 1 Token . Whenever the Killer attempts to read your Aura , Distortion automatically consumes -1 Token to trigger the following effects for 8 / 10 / 12 seconds : Blocks your Aura from being read. Suppresses the creation of your Scratch Marks . Distortion recharges +1 Token every 15 seconds of being chased by the Killer, and can hold 2 Tokens . Distortion does not trigger its effects while in the Dying State ."
+          },
+          {
+            "id": "bond",
+            "name": "Bond",
+            "role": "survivor",
+            "character": "Dwight",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_bond.png/96px-IconPerks_bond.png?9a53ad",
+            "description": "Unlocks potential in your Aura-reading ability: The Auras of all other Survivors are revealed to you within 20 / 28 / 36 metres . \"We have to work as a team, I need you to survive so that I can survive!\" — Dwight Fairfield"
+          },
+          {
+            "id": "dramaturgy",
+            "name": "Dramaturgy",
+            "role": "survivor",
+            "character": "Nicolas",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_dramaturgy.png/96px-IconPerks_dramaturgy.png?4ea20a",
+            "description": "\"When people bring you on to their project, they do so because of the unexpected magic you bring to your performance.\" Whenever you are at full health, Dramaturgy activates. While active, press the Active Ability button while running to run with knees high for 0.5 seconds before benefitting from the following primary effect: Grants a +25 Haste Status Effect for 2 seconds . Afterwards, Dramaturgy triggers any one of the following secondary effects, but never the same one twice in a row: Grants a second instance of the primary Haste Status Effect . Inflicts the Exposed Status Effect for 12 seconds . Causes you to scream. Grants a randomly selected Rare Item pre-equipped with a random selection of Add-ons . This causes you to automatically drop any previously held Item . Dramaturgy cannot be used while Exhausted . Dramaturgy causes the Exhausted Status Effect for 60 / 50 / 40 seconds . \"Take the part. It's a good movie, he says. What's the worst that can happen?\" — Nicolas Cage"
+          },
+          {
+            "id": "iron-will",
+            "name": "Iron Will",
+            "role": "survivor",
+            "character": "Jake",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_ironWill.png/96px-IconPerks_ironWill.png?65bc91",
+            "description": "\"You are able to concentrate and enter a meditative-like state to numb some pain.\" While injured, you benefit from the following effects: Reduces the volume of Grunts of Pain by 80 / 90 / 100 &#37; . Iron Will cannot be used while Exhausted , but does not cause the Status Effect ."
+          }
+        ],
+        "result": "Distortion | Bond | Dramaturgy | Iron Will",
+        "avatar": "/api/twitch/avatar/LegionXIZ"
+      },
       {
         "id": "roll_1789051403201_uh7yd",
         "timestamp": 1789051403142,
@@ -2172,6 +2258,7 @@
         "result": "Hex: Retribution | Discordance | Dark Arrogance | Corrupt Intervention",
         "avatar": "/api/twitch/avatar/LegionXIZ"
       }
-    ]
+    ],
+    "776638139": []
   }
 }

@@ -3239,10 +3239,10 @@ function Dashboard() {
                                     <Info size={15} style={{ color: '#1DB954' }} /> วิธีใช้งานสำหรับผู้ชมในช่อง Twitch
                                   </div>
                                   <ul style={{ margin: '0.4rem 0 0 1.25rem', padding: 0 }}>
-                                    <li>ผู้ชมพิมพ์ <code>!sr &lt;ชื่อเพลง หรือ ลิงก์ Spotify&gt;</code> ใน Twitch Chat ได้ตลอดเวลา</li>
+                                    <li>ผู้ชมพิมพ์ <code>{(fieldData.commandPrefix ? (fieldData.commandPrefix.startsWith('!') ? fieldData.commandPrefix : '!' + fieldData.commandPrefix) : '!sr')} &lt;ชื่อเพลง หรือ ลิงก์ Spotify&gt;</code> หรือ <code>!sr &lt;ชื่อเพลง&gt;</code> ใน Twitch Chat ได้ตลอดเวลา</li>
                                     <li>ระบบจะค้นหาเพลงที่ดีที่สุดบน Spotify แล้วใส่เข้าคิวของสตรีมเมอร์ให้อัตโนมัติ</li>
                                     <li>หากเปิด Spotify อยู่บนคอมพิวเตอร์หรือโทรศัพท์ เพลงจะเล่นตามคิวต่อเนื่อง</li>
-                                    <li>สามารถปรับแต่งธีม (Glassmorphism, Cyberpunk, Vinyl), คูลดาวน์ และสี ได้จากแถบด้านซ้าย</li>
+                                    <li>สามารถเปลี่ยนคำสั่งขอเพลง (เช่น !เพลง, !song, !ขอเพลง) หรือปรับแต่งธีม, คูลดาวน์ และสี ได้จากแถบด้านซ้าย</li>
                                   </ul>
                                 </div>
                               </div>

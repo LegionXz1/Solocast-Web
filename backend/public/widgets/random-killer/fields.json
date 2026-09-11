@@ -1,7 +1,7 @@
 {
   "rewardName": {
     "type": "text",
-    "label": "Reward Name",
+    "label": "ชื่อรางวัล Channel Points (Reward Name)",
     "value": "Random Killer",
     "group": "Twitch & Bot Settings"
   },
@@ -13,31 +13,82 @@
   },
   "chatTemplate": {
     "type": "text",
-    "label": "Twitch Chat Message Template",
+    "label": "ข้อความส่งลงแชท (Twitch Chat Template)",
     "value": "[Roll] {username} rolled -> {killer}",
     "group": "Twitch & Bot Settings"
   },
+  "enableVisualOverlay": {
+    "type": "checkbox",
+    "label": "แสดงกราฟิก Pop-up บนจอ OBS (Show Visual Overlay on Stream)",
+    "value": true,
+    "group": "Display Settings (สไตล์และการแสดงผล)"
+  },
+  "showHeader": {
+    "type": "checkbox",
+    "label": "แสดงส่วนหัว (Show Header Title)",
+    "value": true,
+    "group": "Display Settings (สไตล์และการแสดงผล)"
+  },
+  "showTargetUser": {
+    "type": "checkbox",
+    "label": "แสดงชื่อผู้ชมที่แลกแต้ม (Show Target / Username)",
+    "value": true,
+    "group": "Display Settings (สไตล์และการแสดงผล)"
+  },
+  "showDividerText": {
+    "type": "checkbox",
+    "label": "แสดงข้อความคั่น (Show Divider Text)",
+    "value": true,
+    "group": "Display Settings (สไตล์และการแสดงผล)"
+  },
+  "showKillerName": {
+    "type": "checkbox",
+    "label": "แสดงชื่อคิลเลอร์ (Show Killer Name)",
+    "value": true,
+    "group": "Display Settings (สไตล์และการแสดงผล)"
+  },
+  "showSubtitle": {
+    "type": "checkbox",
+    "label": "แสดงข้อความสถานะย่อย (Show Subtitle)",
+    "value": true,
+    "group": "Display Settings (สไตล์และการแสดงผล)"
+  },
+  "showScanEffects": {
+    "type": "checkbox",
+    "label": "แสดงเส้นเลเซอร์และขอบมุมสแกน (Show Scanline & Corner Brackets)",
+    "value": true,
+    "group": "Display Settings (สไตล์และการแสดงผล)"
+  },
+  "photoSize": {
+    "type": "slider",
+    "label": "ขนาดรูปภาพคิลเลอร์ (Photo Size px)",
+    "value": 480,
+    "min": 180,
+    "max": 900,
+    "step": 10,
+    "group": "Display Settings (สไตล์และการแสดงผล)"
+  },
   "headerText": {
     "type": "text",
-    "label": "Header Title",
+    "label": "ข้อความส่วนหัว (Header Title)",
     "value": "Killer Roulette",
     "group": "Texts"
   },
   "dividerText": {
     "type": "text",
-    "label": "Divider Text",
+    "label": "ข้อความคั่น (Divider Text)",
     "value": "The Entity Chooses",
     "group": "Texts"
   },
   "spinSubtitle": {
     "type": "text",
-    "label": "Searching Subtitle",
+    "label": "ข้อความขณะกำลังสุ่ม (Searching Subtitle)",
     "value": "analyzing biological threat",
     "group": "Texts"
   },
   "chosenSubtitle": {
     "type": "text",
-    "label": "Revealed Subtitle",
+    "label": "ข้อความเมื่อสุ่มเสร็จ (Revealed Subtitle)",
     "value": "SUBJECT IDENTIFIED",
     "group": "Texts"
   },

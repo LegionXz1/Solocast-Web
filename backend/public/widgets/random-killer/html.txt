@@ -1,0 +1,23 @@
+<div id="dossier-container">
+  <div class="dossier-card">
+    <div class="dossier-body">
+      <div class="dossier-header" id="dossier-header-box">
+        <div class="dossier-title" id="header-text">KILLER ROULETTE</div>
+        <div class="dossier-target" id="dossier-target-box">TARGET: <span id="user-name">Username</span></div>
+      </div>
+      <div class="photo-frame">
+        <div class="corner-bracket tl"></div>
+        <div class="corner-bracket tr"></div>
+        <div class="corner-bracket bl"></div>
+        <div class="corner-bracket br"></div>
+        <div class="scan-line" id="scan-line"></div>
+        <img id="dossier-photo" src="" alt="Killer Subject" />
+      </div>
+      <div class="dossier-info" id="dossier-info-box">
+        <div class="info-label" id="divider-text">The Entity Chooses</div>
+        <div class="subject-name" id="result-name">SEARCHING...</div>
+        <div class="subject-status" id="result-subtitle">analyzing biological threat</div>
+      </div>
+    </div>
+  </div>
+</div>

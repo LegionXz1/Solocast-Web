@@ -1664,7 +1664,61 @@ function startEventSub(userId) {
     console.warn(`[EventSub] Shoutout listener setup warning for ${userId}:`, err?.message || err);
   }
 
-  // ดักฟังข้อความแชทเพื่อตรวจจับคำสั่ง !so, !shoutout และ !sr (Song Request)
+// ตรวจจับคำสั่ง Song Request ยืดหยุ่น รองรับทั้ง prefix ที่ตั้งค่าไว้ (เช่น !เพลง หรือ เพลง) และค่าเริ่มต้น (!sr, sr)
+function extractSongRequestQuery(text, customPrefix) {
+  if (!text) return null;
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  // รวบรวม prefix ที่เป็นไปได้ทั้งหมด (ทั้งมี ! และไม่มี !)
+  const prefixSet = new Set(['!sr', 'sr']);
+  if (customPrefix) {
+    const cp = customPrefix.trim();
+    if (cp) {
+      prefixSet.add(cp);
+      if (cp.startsWith('!')) {
+        prefixSet.add(cp.slice(1));
+      } else {
+        prefixSet.add('!' + cp);
+      }
+    }
+  }
+
+  // เรียงลำดับจากยาวไปสั้น เพื่อให้ match prefix ที่ยาวที่สุดก่อน
+  const prefixes = Array.from(prefixSet).sort((a, b) => b.length - a.length);
+
+  for (const p of prefixes) {
+    const pLower = p.toLowerCase();
+    const textLower = trimmed.toLowerCase();
+
+    // 1. ตรงกันเป๊ะ (ผู้ใช้พิมพ์แค่คำสั่ง เช่น "!เพลง" หรือ "!sr" โดยไม่ใส่ชื่อเพลง)
+    if (textLower === pLower) {
+      return { isMatch: true, query: '', prefix: p };
+    }
+
+    // 2. มีวรรคคั่น (เช่น "!เพลง เฉยเมย" หรือ "เพลง เฉยเมย")
+    if (textLower.startsWith(pLower + ' ') || textLower.startsWith(pLower + '　')) {
+      return {
+        isMatch: true,
+        query: trimmed.slice(p.length).trim(),
+        prefix: p
+      };
+    }
+
+    // 3. ภาษาไทยที่พิมพ์ติดกันโดยไม่เคาะวรรค (เฉพาะ prefix ที่ยาวกว่า 2 ตัวอักษร เช่น "!เพลงเฉยเมย")
+    if (p.length >= 2 && textLower.startsWith(pLower)) {
+      return {
+        isMatch: true,
+        query: trimmed.slice(p.length).trim(),
+        prefix: p
+      };
+    }
+  }
+
+  return null;
+}
+
+  // ดักฟังข้อความแชทเพื่อตรวจจับคำสั่ง !so, !shoutout และ !sr / !เพลง (Song Request)
   try {
     el.onChannelChatMessage(userId, userId, async (e) => {
       const text = (e.messageText || '').trim();
@@ -1673,9 +1727,24 @@ function startEventSub(userId) {
       const parts = text.split(/\s+/);
       const cmd = parts[0].toLowerCase();
       const isSoCmd = parts.length >= 2 && (cmd === '!so' || cmd === '!shoutout');
-      const srSettings = widgetSettingsStore['spotify-sr']?.[userId] || {};
-      const customPrefix = (srSettings.commandPrefix || '!sr').trim().toLowerCase();
-      const isSrCmd = cmd === '!sr' || (customPrefix && cmd === customPrefix);
+
+      // ดึงการตั้งค่าของ Spotify SR Widget สำหรับแชนแนลนี้
+      let srSettings = widgetSettingsStore['spotify-sr']?.[userId];
+      if (!srSettings) {
+        const ids = getAssociatedUserIdentifiers(userId);
+        for (const id of ids) {
+          if (widgetSettingsStore['spotify-sr']?.[id]) {
+            srSettings = widgetSettingsStore['spotify-sr'][id];
+            break;
+          }
+        }
+      }
+      if (!srSettings) {
+        srSettings = widgetSettingsStore['spotify-sr']?.['default'] || {};
+      }
+
+      const customPrefix = srSettings.commandPrefix || '!sr';
+      const srMatch = extractSongRequestQuery(text, customPrefix);
 
       if (isSoCmd) {
         // ตรวจสอบสถานะว่า Shoutout Widget เปิดใช้งานอยู่หรือไม่
@@ -1700,23 +1769,23 @@ function startEventSub(userId) {
           }
         };
         io.to('user_' + userId).emit('onEventReceived', soEv);
-      } else if (isSrCmd) {
-        // คำสั่ง !sr <ชื่อเพลง / Spotify URL> — ขอเพลงจาก Spotify
+      } else if (srMatch) {
+        // คำสั่งขอเพลงจาก Spotify (รองรับทั้ง !sr, !เพลง, เพลง ตามที่สตรีมเมอร์ตั้งค่าไว้)
         const chatterName = e.chatterName || 'viewer';
         const displayName = e.chatterDisplayName || chatterName;
 
         // ตรวจสอบสถานะว่า Spotify SR Widget เปิดใช้งานอยู่หรือไม่ (ถ้าไม่มีสิทธิ์ หรือปิดอยู่ ให้เงียบสนิท ไม่ส่งข้อความไปทับ Nightbot)
         if (!isWidgetActiveForUser(userId, 'spotify-sr')) {
-          console.log(`[Spotify SR] 🔇 Spotify SR widget is DISABLED or not allowed for user ${userId}, ignoring !sr silently`);
+          console.log(`[Spotify SR] 🔇 Spotify SR widget is DISABLED or not allowed for user ${userId}, ignoring SR command silently`);
           return;
         }
 
-        const query = parts.slice(1).join(' ').trim();
+        const query = srMatch.query;
 
         // ถ้าพิมพ์แค่คำสั่งขอเพลงโดยไม่มีชื่อเพลง
         if (!query) {
           try {
-            const prefixDisplay = srSettings.commandPrefix || '!sr';
+            const prefixDisplay = srMatch.prefix || customPrefix || '!sr';
             await apiClient?.asUser(userId, async (ctx) => {
               await ctx.chat.sendChatMessage(userId, `@${displayName} วิธีขอเพลง: พิมพ์ ${prefixDisplay} <ชื่อเพลง หรือ ลิงก์ Spotify> 🎵`);
             });
@@ -2343,6 +2412,11 @@ async function hydrateFromMongo() {
 
     const mongoSettings = await syncStore('widget_settings', widgetSettingsStore);
     Object.assign(widgetSettingsStore, mongoSettings);
+    try {
+      const dir = path.dirname(WIDGET_SETTINGS_FILE);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(WIDGET_SETTINGS_FILE, JSON.stringify(widgetSettingsStore, null, 2), 'utf8');
+    } catch (_) {}
 
     const mongoRolls = await syncStore('roll_history', rollHistoryStore);
     Object.assign(rollHistoryStore, mongoRolls);
@@ -2406,6 +2480,22 @@ server.listen(PORT, async () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
   await initDatabase();
   await hydrateFromMongo();
+
+  // 🔄 Sync Widget Settings & Statuses from MongoDB periodically every 15s
+  setInterval(async () => {
+    try {
+      if (isDbConnected()) {
+        const mongoSettings = await syncStore('widget_settings', widgetSettingsStore);
+        Object.assign(widgetSettingsStore, mongoSettings);
+
+        const mongoGlobalStatus = await syncStore('global_widget_status', globalWidgetStatus);
+        Object.assign(globalWidgetStatus, mongoGlobalStatus);
+
+        const mongoUserStatus = await syncStore('user_widget_status', userWidgetStatus);
+        Object.assign(userWidgetStatus, mongoUserStatus);
+      }
+    } catch (_) {}
+  }, 15000);
 
   // 🎵 Spotify Now Playing — Poll & Broadcast every 15 seconds (รองรับ Multi-user)
   if (spotify.isSpotifyConfigured()) {
