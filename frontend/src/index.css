@@ -1,50 +1,56 @@
 /* ==========================================================================
-   NEURAL TECH DESIGN SYSTEM
-   Palette: Neural Dark (#0F1726), Neural Blue (#2B70F7), Neural Gray (#8E9BAE)
+   AWSMCOLOR DESIGN SYSTEM
+   Palette:
+     - Charcoal Dark: #222222
+     - Flame Orange: #FD5825
+     - Warm Cream: #F7EFE5
+     - Teal Turquoise: #3FABAF
    ========================================================================== */
 
 :root {
-  /* Neural Dark Surface Hierarchy */
-  --bg-color: #080C14;
-  --bg-primary: #080C14;
-  --bg-gradient: linear-gradient(145deg, #0D1829 0%, #080C14 40%, #0A0F1E 70%, #060810 100%);
-  --surface-1: #0F1726;
-  --surface-2: #162035;
-  --surface-3: #1E2B44;
-  --surface-hover: #263654;
-  --surface-input: #0B101C;
-  --modal-bg: rgba(8, 12, 20, 0.88);
+  /* Charcoal & Warm Dark Hierarchy */
+  --bg-color: #1A1A1A;
+  --bg-primary: #1A1A1A;
+  --bg-gradient: radial-gradient(circle at 50% -10%, #2A2421 0%, #222222 40%, #1A1A1A 80%, #141414 100%);
+  --surface-1: #222222;
+  --surface-2: #2B2B2B;
+  --surface-3: #363636;
+  --surface-hover: #404040;
+  --surface-input: #171717;
+  --modal-bg: rgba(26, 26, 26, 0.94);
 
-  /* Neural Gray & Crisp High-Contrast Typography */
-  --text-primary: #F8FAFC;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
+  /* Warm Cream & High-Contrast Typography */
+  --text-primary: #F7EFE5;
+  --text-secondary: #C8BFB5;
+  --text-muted: #8E857C;
 
-  /* Neural Gray Subtle Borders */
-  --border-primary: rgba(148, 163, 184, 0.14);
-  --border-secondary: rgba(148, 163, 184, 0.28);
-  --border-subtle: rgba(148, 163, 184, 0.07);
-  --border-focus: #2B70F7;
+  /* Warm Charcoal Subtle Borders */
+  --border-primary: rgba(247, 239, 229, 0.12);
+  --border-secondary: rgba(247, 239, 229, 0.24);
+  --border-subtle: rgba(247, 239, 229, 0.06);
+  --border-focus: #FD5825;
 
-  /* Neural Blue Accent & Glow */
-  --accent-color: #2B70F7;
-  --accent-hover: #1D5FD8;
-  --accent-surface: rgba(43, 112, 247, 0.14);
+  /* Flame Orange Accent & Glow */
+  --accent-color: #FD5825;
+  --accent-hover: #FF6F3D;
+  --accent-surface: rgba(253, 88, 37, 0.14);
   --accent-contrast: #FFFFFF;
-  --accent-glow: rgba(43, 112, 247, 0.35);
+  --accent-glow: rgba(253, 88, 37, 0.35);
 
   /* Palette Constants */
-  --neural-blue: #2B70F7;
-  --neural-blue-light: #5B93FF;
-  --neural-blue-glow: rgba(43, 112, 247, 0.35);
-  --neural-gray: #8E9BAE;
-  --neural-dark: #0F1726;
+  --neural-blue: #FD5825;
+  --neural-blue-light: #FF7E54;
+  --neural-blue-glow: rgba(253, 88, 37, 0.35);
+  --neural-gray: #C8BFB5;
+  --neural-dark: #222222;
+  --teal-accent: #3FABAF;
+  --teal-surface: rgba(63, 171, 175, 0.14);
 
   /* Semantic Status Indicators */
-  --apple-blue: #2B70F7;
+  --apple-blue: #3FABAF;
   --apple-green: #10B981;
   --apple-red: #F43F5E;
-  --apple-amber: #F59E0B;
+  --apple-amber: #FD5825;
   --dbd-purple: #8B5CF6;
 
   --success-color: #10B981;
@@ -70,39 +76,39 @@
 }
 
 [data-theme="light"] {
-  /* Neural Light Mode — High Contrast */
-  --bg-color: #EEF3FA;
-  --bg-primary: #EEF3FA;
-  --bg-gradient: linear-gradient(145deg, #DDEEFF 0%, #EEF3FA 35%, #F4F7FB 65%, #FFFFFF 100%);
+  /* Warm Cream Light Mode */
+  --bg-color: #F7EFE5;
+  --bg-primary: #F7EFE5;
+  --bg-gradient: linear-gradient(180deg, #FAF4ED 0%, #F7EFE5 45%, #EFE5D8 100%);
   --surface-1: #FFFFFF;
-  --surface-2: #F4F7FB;
-  --surface-3: #E2E8F0;
-  --surface-hover: #E0E7F0;
+  --surface-2: #EFE6DC;
+  --surface-3: #E3D7CB;
+  --surface-hover: #D7C9BA;
   --surface-input: #FFFFFF;
-  --modal-bg: rgba(15, 23, 42, 0.6);
+  --modal-bg: rgba(247, 239, 229, 0.94);
 
-  /* Strong, legible typography */
-  --text-primary: #0B1120;
-  --text-secondary: #334155;
-  --text-muted: #4B5563;
+  /* Strong, legible charcoal typography */
+  --text-primary: #222222;
+  --text-secondary: #58534C;
+  --text-muted: #8A8177;
 
   /* Visible borders in light */
-  --border-primary: rgba(30, 41, 59, 0.13);
-  --border-secondary: rgba(30, 41, 59, 0.22);
-  --border-subtle: rgba(30, 41, 59, 0.07);
-  --border-focus: #2B70F7;
+  --border-primary: rgba(34, 34, 34, 0.12);
+  --border-secondary: rgba(34, 34, 34, 0.22);
+  --border-subtle: rgba(34, 34, 34, 0.06);
+  --border-focus: #FD5825;
 
-  /* Neural Blue stays same */
-  --accent-color: #2B70F7;
-  --accent-hover: #1D5FD8;
-  --accent-surface: rgba(43, 112, 247, 0.1);
+  /* Flame Orange Accent */
+  --accent-color: #FD5825;
+  --accent-hover: #E34818;
+  --accent-surface: rgba(253, 88, 37, 0.12);
   --accent-contrast: #FFFFFF;
-  --accent-glow: rgba(43, 112, 247, 0.25);
+  --accent-glow: rgba(253, 88, 37, 0.25);
 
-  --apple-blue: #2563EB;
+  --apple-blue: #3FABAF;
   --apple-green: #059669;
   --apple-red: #DC2626;
-  --apple-amber: #B45309;
+  --apple-amber: #FD5825;
   --dbd-purple: #6D28D9;
 
   --success-color: #059669;
@@ -115,8 +121,8 @@
   --gold-surface: rgba(180, 83, 9, 0.1);
 
   /* Navbar specific overrides for light mode */
-  --navbar-bg: rgba(255, 255, 255, 0.92);
-  --navbar-border: rgba(30, 41, 59, 0.12);
+  --navbar-bg: rgba(247, 239, 229, 0.92);
+  --navbar-border: rgba(34, 34, 34, 0.12);
 }
 
 /* Global Reset */
@@ -842,14 +848,14 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #2B70F7 0%, #60A5FA 50%, #93C5FD 100%);
+  background: linear-gradient(135deg, #FD5825 0%, #FFA07A 45%, #3FABAF 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   display: inline-block;
 }
 
 [data-theme="light"] .gradient-text {
-  background: linear-gradient(135deg, #1A4FBF 0%, #2B70F7 50%, #3B82F6 100%);
+  background: linear-gradient(135deg, #E04818 0%, #FD5825 50%, #2A898D 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -2968,7 +2974,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   top: 0;
   z-index: 999;
   width: 100%;
-  background: rgba(8, 12, 20, 0.90);
+  background: rgba(26, 26, 26, 0.90);
   border-bottom: 1px solid var(--border-primary);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -3015,17 +3021,17 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.65rem;
   font-weight: 600;
-  background: rgba(43, 112, 247, 0.12);
-  color: #60A5FA;
+  background: rgba(253, 88, 37, 0.14);
+  color: #FD5825;
   padding: 0.1rem 0.45rem;
-  border: 1px solid rgba(43, 112, 247, 0.28);
+  border: 1px solid rgba(253, 88, 37, 0.32);
   letter-spacing: 0.04em;
 }
 
 [data-theme="light"] .navbar-logo-badge {
-  background: rgba(43, 112, 247, 0.1);
-  color: #1D5FD8;
-  border-color: rgba(43, 112, 247, 0.3);
+  background: rgba(253, 88, 37, 0.12);
+  color: #FD5825;
+  border-color: rgba(253, 88, 37, 0.32);
 }
 
 .navbar-desktop-nav {
