@@ -252,9 +252,9 @@ function Dashboard() {
   const [favorites, setFavorites] = useState(() => {
     try {
       const saved = localStorage.getItem('solocast_fav_overlays');
-      return saved ? JSON.parse(saved) : ['loyalty-card', 'spotify-sr'];
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return ['loyalty-card', 'spotify-sr'];
+      return [];
     }
   });
   const [overlayTab, setOverlayTab] = useState('all'); // 'all' | 'twitch' | 'spotify' | 'game' | 'favorites'
