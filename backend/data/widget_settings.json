@@ -100,7 +100,7 @@
       "showSubtitle": false,
       "showScanEffects": false,
       "photoSize": 480,
-      "enableVisualOverlay": false
+      "enableVisualOverlay": true
     },
     "776638139": {
       "rewardName": "Random Killer",
@@ -148,7 +148,7 @@
       "cardBgColor": "rgba(15, 15, 23, 0.92)",
       "textColor": "#ffffff",
       "soundUrl": "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3",
-      "soundVolume": 60
+      "soundVolume": 0
     }
   },
   "loyalty-card": {
@@ -189,7 +189,7 @@
       "chatMsgTemplate": "{user} checked in {count} times!"
     },
     "148596257": {
-      "triggerChannelPoints": "no",
+      "triggerChannelPoints": "yes",
       "rewardName": "จุ่มๆๆๆ",
       "cardTitle": "Loyalty Card",
       "fontFamily": "Quicksand",
@@ -222,7 +222,10 @@
       "enableChatMsg": "yes",
       "enableChatCmd": "yes",
       "chatCmdPrefix": "!loyalty",
-      "chatMsgTemplate": "{user} checked in {count} times!"
+      "chatMsgTemplate": "{user} checked in {count} times!",
+      "showRemainingNote": "yes",
+      "showSpirals": "yes",
+      "enableVisualOverlay": "yes"
     },
     "785915826": {
       "triggerChannelPoints": "yes",
@@ -254,6 +257,45 @@
       "stampTotal": 10,
       "cardWidth": 440,
       "cardOffset": 36,
+      "displayDuration": 6,
+      "enableChatMsg": "yes",
+      "enableChatCmd": "yes",
+      "chatCmdPrefix": "!loyalty",
+      "chatMsgTemplate": "{user} checked in {count} times!"
+    },
+    "1536233139": {
+      "triggerChannelPoints": "yes",
+      "rewardName": "Check-in",
+      "cardTitle": "Loyalty Card",
+      "fontFamily": "Quicksand",
+      "notebookTabText": "NOTES",
+      "remainingTemplate": "{remaining} more stamp(s) needed to complete your card!",
+      "showRemainingNote": "yes",
+      "checkinText": "Count:",
+      "colorPreset": "lavender",
+      "accentColor": "#8e90f6",
+      "bgColor": "#fffdfa",
+      "stackColor": "#e0e2ff",
+      "borderColor": "#8e90f6",
+      "textColor": "#393a6e",
+      "avatarGlowColor": "#8e90f6",
+      "cardIcon": "Heart",
+      "avatarShape": "circle",
+      "stampShapePreset": "paw",
+      "stampImage": "",
+      "rubberStampImage": "",
+      "cardCornerRadius": 20,
+      "showSpirals": "yes",
+      "stampShape": "circle",
+      "overlayScale": 100,
+      "cardPosition": "bottom-left",
+      "animStyle": "slide",
+      "soundUrl": "",
+      "soundVolume": 80,
+      "stampTotal": 10,
+      "cardWidth": 440,
+      "cardOffset": 36,
+      "enableVisualOverlay": "yes",
       "displayDuration": 6,
       "enableChatMsg": "yes",
       "enableChatCmd": "yes",

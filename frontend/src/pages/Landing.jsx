@@ -296,7 +296,7 @@ export default function Landing() {
                   {activeService.id === 'dbd-perks' && (
                     <div className="perk-image-showcase-container">
                       <img
-                        src="/dbd-perks-showcase.png"
+                        src="/dbd-perks-showcase.webp"
                         alt="Dead by Daylight Perks Roulette Display"
                         className="perk-showcase-real-img"
                         loading="lazy"
@@ -311,7 +311,7 @@ export default function Landing() {
                   {activeService.id === 'random-killer' && (
                     <div className="killer-image-showcase-container">
                       <img
-                        src="/random-killer-showcase.png"
+                        src="/random-killer-showcase.webp"
                         alt="Dead by Daylight Random Killer Overlay"
                         className="killer-showcase-real-img"
                         loading="lazy"
@@ -326,7 +326,7 @@ export default function Landing() {
                   {activeService.id === 'twitch-shoutout' && (
                     <div className="shoutout-image-showcase-container">
                       <img
-                        src="/twitch-shoutout-showcase.png"
+                        src="/twitch-shoutout-showcase.webp"
                         alt="Twitch Shoutout Banner Overlay"
                         className="shoutout-showcase-real-img"
                         loading="lazy"
@@ -341,7 +341,7 @@ export default function Landing() {
                   {activeService.id === 'loyalty-card' && (
                     <div className="loyalty-image-showcase-container">
                       <img
-                        src="/loyalty-card-showcase.png"
+                        src="/loyalty-card-showcase.webp"
                         alt="Twitch Loyalty Stamp Card Overlay"
                         className="loyalty-showcase-real-img"
                         loading="lazy"

@@ -78,6 +78,30 @@
     ],
     "148596257": [
       {
+        "id": "roll_1789137840385_l4w6e",
+        "timestamp": 1789137840381,
+        "username": "LegionXIZ",
+        "killer": "The Clown",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K12_TheClown_Portrait.png?26bd2a",
+        "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
+      },
+      {
+        "id": "roll_1789137441552_i5leu",
+        "timestamp": 1789137441550,
+        "username": "LegionXIZ",
+        "killer": "The Executioner",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K20_TheExecutioner_Portrait.png?286cd2",
+        "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
+      },
+      {
+        "id": "roll_1789137432032_kon13",
+        "timestamp": "2026-09-11T14:37:12.028Z",
+        "user": "148596257",
+        "killerName": "The Pig",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K11_ThePig_Portrait.png?893de3",
+        "username": "LegionXIZ"
+      },
+      {
         "id": "roll_1789133955332_csta1",
         "timestamp": "2026-09-11T13:39:15.328Z",
         "user": "148596257",
@@ -263,6 +287,15 @@
     ],
     "148596257": [
       {
+        "id": "roll_1789137779963_06ezi",
+        "timestamp": 1789137779961,
+        "username": "LegionXIZ",
+        "count": 17,
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png",
+        "rewardTitle": "จุ่มๆๆๆ",
+        "result": "เช็คอินครั้งที่ 17"
+      },
+      {
         "id": "roll_1789036366184_ra1nd",
         "timestamp": 1789036366179,
         "username": "LegionXIZ",
@@ -279,6 +312,17 @@
         "username": "wa_wawiwa",
         "count": 1,
         "avatar": "/api/twitch/avatar/wa_wawiwa",
+        "rewardTitle": "Check-in",
+        "result": "เช็คอินครั้งที่ 1"
+      }
+    ],
+    "1536233139": [
+      {
+        "id": "roll_1789138689873_awlck",
+        "timestamp": 1789138689868,
+        "username": "legionxiz0",
+        "count": 1,
+        "avatar": "/api/twitch/avatar/legionxiz0",
         "rewardTitle": "Check-in",
         "result": "เช็คอินครั้งที่ 1"
       }
@@ -794,6 +838,132 @@
       }
     ],
     "148596257": [
+      {
+        "id": "roll_1789138206745_p6fdd",
+        "timestamp": 1789138206742,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "hope",
+            "name": "Hope",
+            "role": "survivor",
+            "character": "All (General)",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_hope.png/96px-IconPerks_hope.png?2226b6",
+            "description": "\"The growing odds of a successful escape fill you with hope and give you wings.\" Once the Exit Gates are powered, Hope activates for the remainder of the Trial: Grants a 3 / 4 / 5 &#37; Haste Status Effect . \"Buckle up, fuckos! Let's roll.\" — Nikki, The Lost Tapes"
+          },
+          {
+            "id": "flow-state",
+            "name": "Flow State",
+            "role": "survivor",
+            "character": "Kwon",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconsPerks_FlowState.png/96px-IconsPerks_FlowState.png?62d1bc",
+            "description": "Whenever a Generator is completed, gain a token, up to 5 . For each token: Bless and cleanse Totems 8 / 9 / 10 &#37; faster. Heal 8 / 9 / 10 &#37; faster. Unhook Survivors 8 / 9 / 10 &#37; faster. \"I’m sorry… I didn’t realize I was working so late.\" — Kwon Tae-young"
+          },
+          {
+            "id": "lightweight",
+            "name": "Lightweight",
+            "role": "survivor",
+            "character": "All (General)",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_lightweight.png/96px-IconPerks_lightweight.png?98fd2f",
+            "description": "Your running is light and soft, making your tracks harder to follow. Reduces the Lifetime of your Scratch Marks by 3 / 4 / 5 seconds . Reduces the Spawn chance of patches of Scratch Marks by -60&#160;% , making their spacing inconsistent. \"Take it slow, he knows where you have been... just like I have always said: 'live slow and die old'.\" — Dylan, The Lost Tapes"
+          },
+          {
+            "id": "overcome",
+            "name": "Overcome",
+            "role": "survivor",
+            "character": "Jonah",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_overcome.png/96px-IconPerks_overcome.png?ce6f96",
+            "description": "\"You have calculated how much energy you can risk to expend.\" Whenever you enter the Injured State from full health, Overcome triggers its effect: Extends the duration of the On-hit Sprint boost by +2 seconds . Overcome cannot be used while Exhausted . Overcome causes the Exhausted Status Effect for 60 / 50 / 40 seconds . \"After careful analysis, we are getting the hell out of here!\" — Jonah Vasquez"
+          }
+        ],
+        "result": "Hope | Flow State | Lightweight | Overcome",
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png"
+      },
+      {
+        "id": "roll_1789137720375_au2x7",
+        "timestamp": 1789137720373,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "appraisal",
+            "name": "Appraisal",
+            "role": "survivor",
+            "character": "Élodie",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_appraisal.png/96px-IconPerks_appraisal.png?1342d7",
+            "description": "\"You have a careful eye that notices what many overlook.\" Start the Trial with 4 Tokens . While standing next to an unlocked and empty Chest , press and hold the Interaction button to perform the Rummage action: Grants the ability to retrieve an extra Item from that Chest . This consumes -1 Token and is limited to twice per Chest . Increases the Rummaging speed by 40 / 60 / 80 &#37; ."
+          },
+          {
+            "id": "light-footed",
+            "name": "Light-Footed",
+            "role": "survivor",
+            "character": "Ellen",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_light-Footed.png/96px-IconPerks_light-Footed.png?cdc815",
+            "description": "\"Crossing paths with deadly Killers has taught you the value of discretion.\" Whenever you are healthy, Light-Footed activates: Suppresses the sound of your footsteps while running. Light-Footed has a cool-down of 14 / 12 / 10 seconds after performing a Rush Vault action . \"Come on, cat.\" — Ellen Ripley"
+          },
+          {
+            "id": "left-behind",
+            "name": "Left Behind",
+            "role": "survivor",
+            "character": "Bill",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_leftBehind.png/96px-IconPerks_leftBehind.png?23e038",
+            "description": "\"You will get the job done... no matter the cost.\" Once you are the Last Survivor Standing , Left Behind activates: The Aura of the Hatch is revealed to you within 24 / 28 / 32 metres . \"I'm not horse-shittin' around. I'm doing this alone!\" — Bill Overbeck"
+          },
+          {
+            "id": "open-handed",
+            "name": "Open-Handed",
+            "role": "survivor",
+            "character": "Ace",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_open-Handed.png/96px-IconPerks_open-Handed.png?22cbcf",
+            "description": "\"Strengthens the potential in your and your team's Aura-reading abilities.\" All Survivors benefit from the following permanent effect: Increases the radius of all Aura-reading abilities by 8 / 12 / 16 metres . Open-Handed only affects Auras that emanate from the Survivor causing them. Survivors can only be affected by one instance of Open-Handed at a time. \"Paying attention is what kept me alive through the years. That, and my good looks of course.\" — Ace Visconti"
+          }
+        ],
+        "result": "Appraisal | Light-Footed | Left Behind | Open-Handed",
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png"
+      },
+      {
+        "id": "roll_1789137429090_cjz6a",
+        "timestamp": 1789137429089,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "boon-steadfast",
+            "name": "Boon: Steadfast",
+            "role": "survivor",
+            "character": "Aurora",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/T_UI_iconsPerks_BoonSteadfast.png/96px-T_UI_iconsPerks_BoonSteadfast.png?69ff59",
+            "description": "Press and hold the Active Ability button on a Dull or Hex Totem to bless it and create a Boon Totem . All Survivors within 24 metres hear soft chimes ringing out and benefit from its Boon Effects : Generators within this Boon's range: Regress -50&#160;% slower. Survivors repair them + 8 / 9 / 10 &#37; faster. Survivors see their auras while inside the Boon's range. Survivors can only be affected by one instance of Boon: Steadfast at a time. Only one Totem can be blessed by your Boon Perks at a time and all of their effects are active on the same Boon Totem . \"That which thine hands deliver shall prosper, for thine hands are guided by faith.\" — (Enlightenments, 2:10)"
+          },
+          {
+            "id": "no-one-left-behind",
+            "name": "No One Left Behind",
+            "role": "survivor",
+            "character": "All (General)",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_noOneLeftBehind.png/96px-IconPerks_noOneLeftBehind.png?8ed80d",
+            "description": "\"It is inconceivable to leave someone behind.\" Once the Exit Gates are powered, No One Left Behind activates: The Auras of all other Survivors are revealed to you. Increases your Action speeds for Healing and Unhooking by 50 / 75 / 100 &#37; . Increases the strength and duration of the Haste Status Effect granted to Survivors you unhook by +10&#160;% and +5 seconds respectively: Causes them to benefit from a 20&#160;% Haste Status Effect for 15 seconds . \"Yeah, no shit. But I believe we can outsmart and overthrow him if we work together. Don't be predictable and selfish!\" — Clyde, The Lost Tapes"
+          },
+          {
+            "id": "last-stand",
+            "name": "Last Stand",
+            "role": "survivor",
+            "character": "Michonne",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_lastStand.png/96px-IconPerks_lastStand.png?cb8a9f",
+            "description": "\"Even when things are at their worst, your spirit is indomitable.\" After staying in the Terror Radius without being chased for 120 / 105 / 90 seconds , Last Stand activates. While active, perform a Rushed Vault action to trigger its effect: Stuns the Killer for 3 seconds , if they are within 2.5 metres of that Vault location. Last Stand is disabled for the remainder of the Trial after use. \"Some bullies, you can live with. Others, you gotta fight.\" — Michonne Grimes"
+          },
+          {
+            "id": "sole-survivor",
+            "name": "Sole Survivor",
+            "role": "survivor",
+            "character": "Laurie",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_soleSurvivor.png/96px-IconPerks_soleSurvivor.png?f0b7d4",
+            "description": "Identical to Down to the Last . \"It was the boogeyman.\" — Laurie Strode"
+          }
+        ],
+        "result": "Boon: Steadfast | No One Left Behind | Last Stand | Sole Survivor",
+        "avatar": "/api/twitch/avatar/LegionXIZ"
+      },
       {
         "id": "roll_1789123199208_w5k80",
         "timestamp": 1789123201654,

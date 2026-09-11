@@ -15,6 +15,7 @@ import rateLimit from 'express-rate-limit';
 import { syncDbdPerks } from './scripts/scrape_dbd_perks.js';
 import { initDatabase, syncStore, saveAllItems, syncTickets, saveAllTickets, deleteTicketFromMongo } from './database.js';
 import * as spotify from './spotify.js';
+import compression from 'compression';
 
 import { safeWriteJson, safeReadJson } from './fileUtils.js';
 
@@ -37,6 +38,13 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 
 app.use(cors());
+app.use(compression({
+  threshold: 1024,
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    return compression.filter(req, res);
+  }
+}));
 
 // 🛡️ Security Headers via Helmet (tuned for OBS Studio widgets & iframe embedding)
 app.use(helmet({
@@ -371,15 +379,16 @@ function isUserAllowedForWidget(userId, username, widgetId) {
 }
 
 function isWidgetUserEnabled(userId, widgetId) {
-  if (!widgetId) return true;
+  if (!widgetId) return false;
+  if (!userId) return false;
   const ids = getAssociatedUserIdentifiers(userId);
-  ids.add(String(userId || 'default').trim().toLowerCase());
+  ids.add(String(userId).trim().toLowerCase());
   for (const id of ids) {
-    if (userWidgetStatus[id] && userWidgetStatus[id][widgetId] === false) {
-      return false;
+    if (userWidgetStatus[id] && typeof userWidgetStatus[id][widgetId] === 'boolean') {
+      return userWidgetStatus[id][widgetId];
     }
   }
-  return true;
+  return false; // ค่าเริ่มต้นสำหรับผู้ใช้ใหม่คือปิดใช้งาน (Disabled by default)
 }
 
 function isWidgetActiveForUser(userId, widgetId, username = '') {
@@ -395,16 +404,25 @@ app.get('/api/widgets/status-overview', (req, res) => {
     const session = getSessionFromReq(req);
     const user = req.query.user || req.query.userId || session?.userId || '';
     const username = req.query.username || req.query.channel || session?.username || '';
-    const userMap = user && userWidgetStatus[user] ? userWidgetStatus[user] : (userWidgetStatus['default'] || {});
 
-    // คำนวณสถานะสิทธิ์การเข้าถึงสำหรับผู้ใช้คนนี้
+    // อ่านรายชื่อ Widgets ทั้งหมดจากไดเรกทอรีและ globalWidgetStatus
+    const widgetsDir = path.join(__dirname, 'public', 'widgets');
+    const widgetDirs = fs.existsSync(widgetsDir)
+      ? fs.readdirSync(widgetsDir, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name)
+      : [];
+    const allWidgetIds = new Set([...Object.keys(globalWidgetStatus), ...widgetDirs]);
+
+    // คำนวณสถานะสิทธิ์การเข้าถึงและสถานะเปิด/ปิดของผู้ใช้คนนี้ (ค่าเริ่มต้น: ปิดใช้งานสำหรับผู้ใช้ใหม่)
     const accessMap = {};
-    for (const [wId, s] of Object.entries(globalWidgetStatus)) {
+    const userMap = {};
+    for (const wId of allWidgetIds) {
+      const s = globalWidgetStatus[wId];
       accessMap[wId] = {
         hasAccess: isUserAllowedForWidget(user, username, wId),
         accessMode: s?.accessMode || 'all',
         allowedUsersCount: Array.isArray(s?.allowedUsers) ? s.allowedUsers.length : 0
       };
+      userMap[wId] = user ? isWidgetUserEnabled(user, wId) : false;
     }
 
     res.json({
@@ -2517,6 +2535,12 @@ server.listen(PORT, async () => {
         const allTokens = spotify.getAllSpotifyTokens();
         for (const [userId, userToken] of Object.entries(allTokens)) {
           if (!userToken || !userToken.refreshToken) continue;
+
+          // 🚀 Smart Polling: Only poll Spotify if an overlay/client is active for this user
+          const userRoom = io.sockets.adapter.rooms.get('user_' + userId);
+          const channelRoom = io.sockets.adapter.rooms.get('channel_' + userId);
+          const hasActiveOverlay = (userRoom && userRoom.size > 0) || (channelRoom && channelRoom.size > 0);
+          if (!hasActiveOverlay) continue;
           try {
             const accessToken = await spotify.getValidAccessToken(userId);
             if (!accessToken) continue;

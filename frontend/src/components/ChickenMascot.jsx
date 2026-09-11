@@ -28,7 +28,7 @@ export default function ChickenMascot() {
         {/* Animated Chicken Image Wrapper */}
         <div className="chicken-character-wrapper">
           <img
-            src="/electric-chicken.png"
+            src="/electric-chicken.webp"
             alt="FastChick Electric Chicken Mascot"
             className="electric-chicken-img"
             width="215"

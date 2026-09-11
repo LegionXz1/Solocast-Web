@@ -369,7 +369,7 @@ function Dashboard() {
   const getWidgetStatus = useCallback((widgetId) => {
     const globalInfo = widgetStatusOverview.global[widgetId];
     const globalEnabled = globalInfo ? globalInfo.enabled !== false : true;
-    const userEnabled = widgetStatusOverview.user[widgetId] !== false;
+    const userEnabled = widgetStatusOverview.user[widgetId] === true; // ค่าเริ่มต้นคือปิดใช้งานสำหรับผู้ใช้ใหม่ (Disabled by default)
     const accessInfo = widgetStatusOverview.access ? widgetStatusOverview.access[widgetId] : null;
     const hasAccess = status.isAdmin ? true : (accessInfo ? accessInfo.hasAccess !== false : true);
     return {
@@ -416,20 +416,22 @@ function Dashboard() {
     }
   }, [status.connected, status.userId, fetchWidgetStatusOverview]);
 
-  // ตรวจสอบ Widget ที่เลือกตาม URL หรือเปลี่ยนเมื่อ Widget ที่เลือกอยู่ถูกปิด
+  // ตรวจสอบ Widget ที่เลือกตาม URL หรือเปลี่ยนเมื่อ Widget ที่เลือกอยู่ถูกปิดโดย Admin หรือหมดสิทธิ์
   useEffect(() => {
     if (!widgets || widgets.length === 0) return;
     const urlWidget = new URLSearchParams(window.location.search).get('widget');
     if (urlWidget && widgets.some(w => w.id === urlWidget)) {
       const ws = getWidgetStatus(urlWidget);
-      if (ws.active || status.isAdmin) {
+      const isAvailable = (ws.globalEnabled && ws.hasAccess) || status.isAdmin;
+      if (isAvailable) {
         setSelectedWidget(urlWidget);
         return;
       }
     }
     if (selectedWidget) {
       const currentWs = getWidgetStatus(selectedWidget);
-      if (!currentWs.active && !status.isAdmin) {
+      const isAvailable = (currentWs.globalEnabled && currentWs.hasAccess) || status.isAdmin;
+      if (!isAvailable) {
         setSelectedWidget('');
         const url = new URL(window.location);
         url.searchParams.delete('widget');
@@ -683,12 +685,6 @@ function Dashboard() {
           ...prev,
           user: { ...prev.user, [widgetId]: newEnabled }
         }));
-        if (!newEnabled && selectedWidget === widgetId) {
-          const nextActive = widgets.find(w => w.id !== widgetId && getWidgetStatus(w.id).active);
-          setSelectedWidget(nextActive ? nextActive.id : '');
-        } else if (newEnabled && !selectedWidget) {
-          setSelectedWidget(widgetId);
-        }
       } else if (data.globallyDisabled) {
         alert('Widget นี้ถูกปิดโดยผู้ดูแลระบบ ไม่สามารถเปิดใช้งานได้ในขณะนี้');
       } else {
