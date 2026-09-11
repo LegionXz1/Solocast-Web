@@ -1522,7 +1522,7 @@ function Dashboard() {
                 return (
                   <div
                     key={w.id}
-                    className={`overlay-card ${!wStatus.active ? 'is-disabled' : ''} ${!wStatus.hasAccess ? 'is-restricted' : ''}`}
+                    className={`overlay-card ${wStatus.active ? 'is-active' : 'is-disabled'} ${!wStatus.hasAccess ? 'is-restricted' : ''}`}
                     onClick={() => handleOpenWidget(w.id)}
                   >
                     {/* Top Row: Icon + Title + Category + Controls */}
