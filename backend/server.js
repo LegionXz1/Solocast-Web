@@ -21,7 +21,7 @@ import { safeWriteJson, safeReadJson } from './fileUtils.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 // 🛡️ Process-Level Crash Protection
 process.on('unhandledRejection', (reason, promise) => {
