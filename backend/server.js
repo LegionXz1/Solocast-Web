@@ -1705,14 +1705,9 @@ function startEventSub(userId) {
         const chatterName = e.chatterName || 'viewer';
         const displayName = e.chatterDisplayName || chatterName;
 
-        // ตรวจสอบสถานะว่า Spotify SR Widget เปิดใช้งานอยู่หรือไม่
+        // ตรวจสอบสถานะว่า Spotify SR Widget เปิดใช้งานอยู่หรือไม่ (ถ้าไม่มีสิทธิ์ หรือปิดอยู่ ให้เงียบสนิท ไม่ส่งข้อความไปทับ Nightbot)
         if (!isWidgetActiveForUser(userId, 'spotify-sr')) {
-          console.log(`[Spotify SR] ⚠️ Spotify SR widget is DISABLED for user ${userId}, ignoring !sr command`);
-          try {
-            await apiClient?.asUser(userId, async (ctx) => {
-              await ctx.chat.sendChatMessage(userId, `@${displayName} ขออภัยด้วยนะ ระบบขอเพลง (Spotify Song Request) ของช่องนี้ถูกปิดใช้งานอยู่ชั่วคราว ⚠️`);
-            });
-          } catch (_) {}
+          console.log(`[Spotify SR] 🔇 Spotify SR widget is DISABLED or not allowed for user ${userId}, ignoring !sr silently`);
           return;
         }
 
@@ -1729,14 +1724,9 @@ function startEventSub(userId) {
           return;
         }
 
-        // ตรวจสอบว่าตั้งค่า Spotify Client ID ใน .env หรือยัง
+        // ตรวจสอบว่าตั้งค่า Spotify Client ID ใน .env หรือยัง (ถ้ายังไม่ตั้งค่า ให้ข้ามไปเงียบๆ)
         if (!spotify.isSpotifyConfigured()) {
-          console.warn(`[Spotify SR] ⚠️ Spotify Client ID / Secret is missing in .env`);
-          try {
-            await apiClient?.asUser(userId, async (ctx) => {
-              await ctx.chat.sendChatMessage(userId, `@${displayName} ระบบขอเพลงยังไม่ได้ตั้งค่า Spotify Client ID/Secret ใน .env กรุณาตั้งค่าก่อนใช้งาน`);
-            });
-          } catch (_) {}
+          console.warn(`[Spotify SR] ⚠️ Spotify Client ID / Secret is missing in .env, ignoring !sr silently`);
           return;
         }
 
