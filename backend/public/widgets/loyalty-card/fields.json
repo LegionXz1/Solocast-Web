@@ -55,6 +55,16 @@
     "value": "{remaining} more stamp(s) needed to complete your card!",
     "group": "Typography"
   },
+  "showRemainingNote": {
+    "type": "dropdown",
+    "label": "แสดงข้อความบอกจำนวนแต้มที่เหลือ (Show Remaining Note)",
+    "value": "yes",
+    "options": {
+      "yes": "Enabled",
+      "no": "Disabled"
+    },
+    "group": "Typography"
+  },
   "checkinText": {
     "type": "text",
     "label": "Count Prefix",
@@ -175,6 +185,16 @@
     "step": 2,
     "group": "Layout & Appearance"
   },
+  "showSpirals": {
+    "type": "dropdown",
+    "label": "แสดงห่วงสมุดโน้ตด้านบน (Show Spiral Rings)",
+    "value": "yes",
+    "options": {
+      "yes": "Enabled",
+      "no": "Disabled"
+    },
+    "group": "Layout & Appearance"
+  },
   "stampShape": {
     "type": "dropdown",
     "label": "Stamp Slot Frame Shape",
@@ -252,6 +272,16 @@
     "label": "Screen Offset (px)",
     "value": 36,
     "group": "Layout & Appearance"
+  },
+  "enableVisualOverlay": {
+    "type": "dropdown",
+    "label": "แสดงผลการ์ดบนจอ OBS (Show Visual Overlay on Stream)",
+    "value": "yes",
+    "options": {
+      "yes": "Enabled (แสดงการ์ดบนจอ)",
+      "no": "Disabled (โหมดแชทอย่างเดียว Chat-Only)"
+    },
+    "group": "General Settings"
   },
   "displayDuration": {
     "type": "slider",

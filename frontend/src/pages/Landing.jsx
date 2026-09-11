@@ -11,10 +11,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   ArrowRight,
-  Headphones,
-  Check,
-  Star,
-  Monitor
+  Check
 } from 'lucide-react';
 import ChickenMascot from '../components/ChickenMascot';
 
@@ -23,78 +20,69 @@ const SERVICES = [
     id: 'dbd-perks',
     badge: 'Gaming Overlay',
     badgeColor: '#A855F7',
+    badgeBg: 'rgba(168, 85, 247, 0.12)',
     title: 'DBD Perk Roulette',
     subtitle: 'วงล้อสุ่ม Perk Dead by Daylight สตรีมเมอร์',
     icon: Dices,
-    desc: 'ระบบสุ่ม Perk สำหรับผู้รอดชีวิต (Survivor) และฆาตกร (Killer) เพิ่มความท้าทายและสีสันให้คนดูร่วมสนุก สุ่ม Perk ท้าทายสตรีมเมอร์ได้ตลอดเวลา',
+    gradient: 'linear-gradient(135deg, #A855F7, #6366F1)',
+    desc: 'ระบบสุ่ม Perk 4 ช่องสำหรับ Survivor และ Killer เพิ่มความท้าทายให้คนดูร่วมสนุก สุ่มผ่านคำสั่งแชทหรือ Channel Points พร้อมระบบแบล็คลิสต์ Perk',
     highlights: [
       'กรอง Perk ที่ไม่ต้องการเล่นได้อิสระ',
       'สุ่มผ่าน Channel Points หรือคำสั่งแชท Twitch',
-      'อัปเดต Perk ล่าสุด'
+      'อัปเดต Perk ล่าสุดจาก Official Wiki อัตโนมัติ',
+      'ปรับแต่งสี ขนาด และแอนิเมชันได้อย่างอิสระ'
     ]
   },
   {
     id: 'random-killer',
     badge: 'Viewer Interactive',
     badgeColor: '#EF4444',
+    badgeBg: 'rgba(239, 68, 68, 0.12)',
     title: 'DBD Killer Roulette',
     subtitle: 'วงล้อสุ่มฆาตกร Dead by Daylight',
     icon: Skull,
-    desc: 'ให้ผู้ชมหรือตัวคุณเองสุ่ม Killer สำหรับแต่ละแมตช์ มาพร้อมรูปภาพ Portrait ประจำตัวฆาตกรครบทุกตัว พร้อมระบบตัดตัวละครที่ไม่ต้องการเล่น',
+    gradient: 'linear-gradient(135deg, #EF4444, #B91C1C)',
+    desc: 'ให้ผู้ชมหรือตัวคุณเองสุ่ม Killer สำหรับแต่ละแมตช์ มาพร้อมการ์ด Dossier รูปภาพ Portrait สวยงามคมชัด พร้อมเอฟเฟกต์เสียงสแกนและประวัติการสุ่ม',
     highlights: [
-      'คัดกรอง Killer ที่ยังไม่ปลดล็อกได้',
-      'รูป Killer ความละเอียดสูง',
-      'มีแอนิเมชันเปิดตัวการ์ด',
-      'ประวัติการสุ่มบันทึกเก็บไว้ดูย้อนหลังได้ทันที'
-    ],
-    preview: {
-      type: 'killer',
-      name: 'The Trapper',
-      alias: 'Evan MacMillan',
-      badge: 'Selected Killer'
-    }
+      'คัดกรอง Killer ที่ยังไม่ปลดล็อกหรือไม่อยากเล่นได้',
+      'รูป Killer คมชัดพร้อมแอนิเมชันเปิดตัวการ์ด',
+      'ประวัติการสุ่ม (Roll History) บันทึกเก็บไว้ดูย้อนหลังได้ทันที',
+      'ปรับแต่งเวลาหมุนและเวลาแสดงผลได้อย่างละเอียด'
+    ]
   },
   {
     id: 'twitch-shoutout',
     badge: 'Stream Engagement',
-    badgeColor: '#8B5CF6',
+    badgeColor: '#0EA5E9',
+    badgeBg: 'rgba(14, 165, 233, 0.12)',
     title: 'Twitch Shoutout Overlay',
     subtitle: 'ป้ายแนะนำและต้อนรับสตรีมเมอร์คนพิเศษ',
     icon: Megaphone,
-    desc: 'ป้ายแบนเนอร์แสดงโปรโมตสตรีมเมอร์คนโปรดหรือ VIP บนหน้าจอ  แบบอัตโนมัติเมื่อมีคำสั่ง /shoutout หรือ Raid เข้ามาในช่อง',
+    gradient: 'linear-gradient(135deg, #0EA5E9, #0284C7)',
+    desc: 'ป้ายแบนเนอร์แสดงโปรโมตสตรีมเมอร์คนโปรดหรือ VIP บนหน้าจออัตโนมัติเมื่อมีคำสั่ง /shoutout หรือเมื่อมีคน Raid เข้ามาในช่องสตรีม',
     highlights: [
-      'ดึงรูป Avatar โปรไฟล์ และชื่อเกมล่าสุดที่สตรีมมาแสดงผล',
-      'แอนิเมชันสไลด์เข้าออกนุ่มนวล',
+      'ดึงรูป Avatar โปรไฟล์ และชื่อเกมล่าสุดที่สตรีมมาแสดงผลบนจอ',
+      'แอนิเมชันสไลด์เข้าออกนุ่มนวล สวยงาม สบายตา',
       'ปรับแต่งเสียง Custom Sound, ระยะเวลาแสดง และสีธีมได้ 100%',
       'รองรับการทดสอบพรีวิวก่อนขึ้นไลฟ์จริง'
-    ],
-    preview: {
-      type: 'shoutout',
-      username: 'GamerGirl_Pro',
-      game: 'Dead by Daylight',
-      message: 'ฝากติดตามสตรีมเมอร์คนเก่งด้วยนะกุ๊ก!'
-    }
+    ]
   },
   {
     id: 'loyalty-card',
     badge: 'Viewer Stamp System',
     badgeColor: '#F59E0B',
-    title: 'Stamp Card',
-    subtitle: 'บัตรสะสมแต้มสำหรับผู้ชม',
+    badgeBg: 'rgba(245, 158, 11, 0.12)',
+    title: 'Twitch Loyalty Card',
+    subtitle: 'บัตรสะสมแต้มแสตมป์สำหรับผู้ชมในช่อง',
     icon: Award,
-    desc: 'ระบบการ์ดสะสมแต้ม ช่วยกระตุ้นให้ผู้ชมมีส่วนร่วมและกลับมาดูสตรีมของคุณอย่างต่อเนื่อง',
+    gradient: 'linear-gradient(135deg, #F59E0B, #D97706)',
+    desc: 'ระบบการ์ดสะสมแต้มแสตมป์สไตล์สมุดโน้ต ช่วยกระตุ้นให้ผู้ชมมีส่วนร่วมและกลับมาดูสตรีมของคุณอย่างต่อเนื่อง พร้อมระบบตอบกลับในแชทอัตโนมัติ',
     highlights: [
-      'การ์ดแสตมป์',
-      'Leaderboard จัดอันดับ Top Fan ผู้ชมที่แต้มสะสมสูงสุด',
-      'แจ้งเตือนแสตมป์ใหม่แบบ Real-Time บนจอ',
-      'ผูกคำสั่งหรือ Channel Points สำหรับปั๊มแสตมป์'
-    ],
-    preview: {
-      type: 'loyalty',
-      stamps: 8,
-      maxStamps: 10,
-      fan: 'Viewer_No1'
-    }
+      'การ์ดแสตมป์สไตล์สมุดโน้ตน่ารัก ปรับแต่งได้ทั้งสี ฟอนต์ และไอคอน',
+      'Leaderboard จัดอันดับ Top Fan ผู้ชมที่แต้มสะสมสูงสุดในช่อง',
+      'แจ้งเตือนแสตมป์ใหม่แบบ Real-Time บนจอ และพิมพ์คอนเฟิร์มลงแชท',
+      'ผูกคำสั่งแชท !loyalty หรือ Channel Points เพื่อให้ผู้ชมเช็คอิน'
+    ]
   }
 ];
 
@@ -134,7 +122,7 @@ const HOW_IT_WORKS = [
   },
   {
     step: '03',
-    title: 'คัดลอกลิงค์',
+    title: 'คัดลอกลิงค์ลง OBS',
     desc: 'คัดลอกลิงก์ Browser Source ไปวางในโปรแกรมสตรีมมิ่ง เพียงเท่านี้ก็พร้อมใช้งานแล้ว'
   }
 ];
@@ -163,7 +151,7 @@ export default function Landing() {
 
           <div className="hero-actions">
             <button className="btn-island accent hero-btn" onClick={() => navigate('/dashboard')}>
-              <span>เข้าสู่แผงควบคุม</span>
+              <span>เข้าสู่แผงควบคุมสตรีมเมอร์</span>
               <div className="btn-icon-wrapper">
                 <ArrowRight size={14} strokeWidth={2.5} />
               </div>
@@ -180,7 +168,7 @@ export default function Landing() {
                 }
               }}
             >
-              <span>สำรวจบริการทั้งหมด</span>
+              <span>ดูตัวอย่างวิดเจ็ต</span>
             </a>
           </div>
 
@@ -188,15 +176,15 @@ export default function Landing() {
           <div className="hero-trust-row">
             <div className="trust-item">
               <CheckCircle2 size={15} className="trust-icon" />
-              <span>OBS & Streamlabs</span>
+              <span>OBS Studio & Streamlabs</span>
             </div>
             <div className="trust-item">
               <CheckCircle2 size={15} className="trust-icon" />
-              <span>Zero-Latency</span>
+              <span>Zero-Latency WebSockets</span>
             </div>
             <div className="trust-item">
               <CheckCircle2 size={15} className="trust-icon" />
-              <span>Easy Install</span>
+              <span>ปลอดภัย ไม่ต้องลงโปรแกรมเพิ่ม</span>
             </div>
           </div>
         </div>
@@ -207,17 +195,17 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* 2. SERVICES & WIDGETS SHOWCASE SECTION */}
+      {/* 2. SERVICES & SPOTLIGHT SHOWCASE */}
       <section id="services" className="services-section">
         <div className="section-header text-center">
-          <span className="eyebrow">OUR SERVICES</span>
-          <h2 className="section-title">บริการและวิดเจ็ตทั้งหมดของเรา</h2>
+          <span className="eyebrow">SERVICES & OVERLAYS</span>
+          <h2 className="section-title">วิดเจ็ตสตรีมเมอร์ระดับพรีเมียม</h2>
           <p className="section-subtitle">
-            เลือกใช้งานได้ตามความต้องการของช่องคุณ ปรับแต่งได้อิสระ
+            เลือกใช้วิดเจ็ตที่เหมาะกับช่องของคุณ ปรับแต่งได้ตามใจและเชื่อมต่อง่ายดาย
           </p>
         </div>
 
-        {/* Services Tabs */}
+        {/* Services Tab Switcher */}
         <div className="services-tabs-container">
           <div className="services-tabs-pills">
             {SERVICES.map((s) => {
@@ -229,7 +217,7 @@ export default function Landing() {
                   className={`service-tab-btn ${isActive ? 'active' : ''}`}
                   onClick={() => setActiveServiceTab(s.id)}
                 >
-                  <Icon size={18} />
+                  <Icon size={16} />
                   <span>{s.title}</span>
                 </button>
               );
@@ -237,12 +225,15 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Active Service Showcase Card */}
+        {/* Active Service Spotlight Showcase Card */}
         <div className="doppel-shell service-showcase-shell">
           <div className="doppel-core service-showcase-grid">
             {/* Left: Info */}
             <div className="service-info-col">
-              <div className="service-badge" style={{ borderColor: activeService.badgeColor, color: activeService.badgeColor }}>
+              <div
+                className="service-badge"
+                style={{ borderColor: activeService.badgeColor, color: activeService.badgeColor }}
+              >
                 <span className="service-badge-dot" style={{ backgroundColor: activeService.badgeColor }} />
                 {activeService.badge}
               </div>
@@ -262,7 +253,10 @@ export default function Landing() {
               </div>
 
               <div className="service-cta-row">
-                <button className="btn-island accent" onClick={() => navigate('/dashboard')}>
+                <button
+                  className="btn-island accent"
+                  onClick={() => navigate(`/dashboard?widget=${activeService.id}`)}
+                >
                   <span>เปิดใช้งานวิดเจ็ตนี้บนช่องคุณ</span>
                   <div className="btn-icon-wrapper">
                     <ArrowRight size={13} strokeWidth={2.5} />
@@ -298,40 +292,40 @@ export default function Landing() {
                     background: activeService.id === 'loyalty-card' ? 'var(--surface-1)' : '#000000'
                   }}
                 >
-                  {/* 1. DBD Perks: USER SUPPLIED REAL IMAGE */}
+                  {/* 1. DBD Perks */}
                   {activeService.id === 'dbd-perks' && (
                     <div className="perk-image-showcase-container">
                       <img
                         src="/dbd-perks-showcase.png"
-                        alt="Dead by Daylight Perks Roulette Display (LegionXIZ Killer)"
+                        alt="Dead by Daylight Perks Roulette Display"
                         className="perk-showcase-real-img"
                       />
                     </div>
                   )}
 
-                  {/* 2. Killer Roulette: USER SUPPLIED REAL IMAGE */}
+                  {/* 2. Killer Roulette */}
                   {activeService.id === 'random-killer' && (
                     <div className="killer-image-showcase-container">
                       <img
                         src="/random-killer-showcase.png"
-                        alt="Dead by Daylight Random Killer Overlay (The Lich)"
+                        alt="Dead by Daylight Random Killer Overlay"
                         className="killer-showcase-real-img"
                       />
                     </div>
                   )}
 
-                  {/* 3. Shoutout Banner: USER SUPPLIED REAL IMAGE */}
+                  {/* 3. Shoutout Banner */}
                   {activeService.id === 'twitch-shoutout' && (
                     <div className="shoutout-image-showcase-container">
                       <img
                         src="/twitch-shoutout-showcase.png"
-                        alt="Twitch Shoutout Banner Overlay (LegionXIZ)"
+                        alt="Twitch Shoutout Banner Overlay"
                         className="shoutout-showcase-real-img"
                       />
                     </div>
                   )}
 
-                  {/* 4. Loyalty Stamp Card: USER SUPPLIED REAL IMAGE */}
+                  {/* 4. Loyalty Stamp Card */}
                   {activeService.id === 'loyalty-card' && (
                     <div className="loyalty-image-showcase-container">
                       <img
@@ -348,14 +342,39 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* 3. PLATFORM FEATURES GRID */}
+      <section className="features-section">
+        <div className="section-header text-center">
+          <span className="eyebrow">FASTCHICK ADVANTAGES</span>
+          <h2 className="section-title">ทำไมสตรีมเมอร์ถึงเลือกใช้ FastChick?</h2>
+          <p className="section-subtitle">
+            ออกแบบมาเพื่อประสิทธิภาพสูงสุดบน OBS ไร้ดีเลย์ ไม่ดึงสเปกเครื่องสตรีม
+          </p>
+        </div>
+
+        <div className="features-grid">
+          {PLATFORM_FEATURES.map((feat, idx) => {
+            const Icon = feat.icon;
+            return (
+              <div key={idx} className="feature-card">
+                <div className="feature-icon-wrapper">
+                  <Icon size={22} className="feature-icon" />
+                </div>
+                <h4 className="feature-title">{feat.title}</h4>
+                <p className="feature-desc">{feat.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* 4. HOW IT WORKS 3-STEP */}
       <section className="instructions-section doppel-shell">
         <div className="doppel-core">
           <div className="section-header">
-            <span className="eyebrow">How to use</span>
+            <span className="eyebrow">HOW TO USE</span>
             <h2 className="section-title">วิธีเริ่มต้นใช้งานใน 3 สเต็ปง่ายๆ</h2>
-            <p className="section-subtitle">ไม่ต้องลงโปรแกรมเพิ่ม ไม่ต้องเขียนโค้ด</p>
+            <p className="section-subtitle">ไม่ต้องลงโปรแกรมเพิ่ม ไม่ต้องเขียนโค้ด รองรับ Browser Source</p>
           </div>
 
           <div className="steps-grid">

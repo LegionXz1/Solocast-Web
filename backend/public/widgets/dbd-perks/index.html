@@ -141,6 +141,10 @@
       transition: all 0.25s ease;
     }
 
+    .perk-diamond-bg.hidden {
+      display: none !important;
+    }
+
     .perk-slot.spinning .perk-diamond-bg {
       animation: spinPulse 0.4s infinite alternate;
     }
@@ -221,6 +225,11 @@
       role: 'survivor',
       perkCount: 4,
       rewardName: 'สุ่มเปิร์ค DBD',
+      enableVisualOverlay: true,
+      showUserPill: true,
+      showPerkName: true,
+      showCharacterName: true,
+      showDiamondBg: true,
       enableChat: true,
       chatTemplate: '[DBD] {username} สุ่มเปิร์ค ({role}): {perks}',
       displayDuration: 10,
@@ -307,8 +316,14 @@
 
       const userPill = document.getElementById('dbd-user-pill');
       if (userPill) {
-        userPill.style.display = config.showUserPill === false ? 'none' : 'inline-flex';
+        const showPill = config.showUserPill !== false && config.showUserPill !== 'false' && config.showUserPill !== 0 && config.showUserPill !== '0';
+        userPill.style.display = showPill ? 'inline-flex' : 'none';
       }
+
+      const showDiamond = config.showDiamondBg !== false && config.showDiamondBg !== 'false' && config.showDiamondBg !== 0 && config.showDiamondBg !== '0';
+      document.querySelectorAll('.perk-diamond-bg').forEach(el => {
+        el.classList.toggle('hidden', !showDiamond);
+      });
 
       if (config.iconScale) {
         const sz = parseInt(config.iconScale, 10) || 94;
@@ -410,6 +425,15 @@
 
       console.log(`[DBD Perks] 🎲 Rolling ${count} perks for ${user} (${activeRole}):`, selectedPerks.map(p => p.name));
 
+      // ── Chat-Only Mode Check ──
+      const isVisualEnabled = config.enableVisualOverlay !== false && config.enableVisualOverlay !== 'false' && config.enableVisualOverlay !== 0 && config.enableVisualOverlay !== '0';
+      if (!isVisualEnabled) {
+        console.log('[DBD Perks] 💬 Chat-Only Mode active: Bypassing visual overlay on stream.');
+        await sendChat(user, activeRole, selectedPerks);
+        recordHistory(user, activeRole, selectedPerks, avatar);
+        return;
+      }
+
       isShowing = true;
 
       // Update UI Header
@@ -433,15 +457,16 @@
       row.innerHTML = '';
 
       const slotElements = [];
-      const showName = config.showPerkName !== false;
-      const showChar = config.showCharacterName !== false;
+      const showName = config.showPerkName !== false && config.showPerkName !== 'false';
+      const showChar = config.showCharacterName !== false && config.showCharacterName !== 'false';
+      const showDiamond = config.showDiamondBg !== false && config.showDiamondBg !== 'false';
 
       for (let i = 0; i < count; i++) {
         const slot = document.createElement('div');
         slot.className = 'perk-slot spinning';
         slot.innerHTML = `
           <div class="perk-icon-wrapper">
-            <div class="perk-diamond-bg"></div>
+            <div class="perk-diamond-bg ${showDiamond ? '' : 'hidden'}"></div>
             <img class="perk-icon-img" src="${sourceList[i % sourceList.length].icon}" alt="Slot ${i + 1}" />
           </div>
           <div class="perk-name" style="${showName ? '' : 'display:none;'}">...</div>
@@ -500,17 +525,53 @@
       }
 
       // Send to Twitch Chat
-      if (config.enableChat && window.sendTwitchChat) {
-        const perkNames = selectedPerks.map(p => p.name).join(' | ');
-        const roleName = activeRole === 'killer' ? 'ฆาตกร' : 'ผู้รอดชีวิต';
-        const msg = (config.chatTemplate || '[DBD] {username} สุ่มเปิร์ค ({role}): {perks}')
-          .replace('{username}', user)
-          .replace('{role}', roleName)
-          .replace('{perks}', perkNames);
-        window.sendTwitchChat(msg);
-      }
+      await sendChat(user, activeRole, selectedPerks);
 
       // Record Roll History in Backend
+      recordHistory(user, activeRole, selectedPerks, avatar);
+
+      // Auto Hide after duration
+      clearTimeout(hideTimeout);
+      hideTimeout = setTimeout(() => {
+        container.classList.remove('active');
+        setTimeout(() => {
+          isShowing = false;
+        }, 500);
+      }, durationSec * 1000);
+    }
+
+    async function sendChat(user, activeRole, selectedPerks) {
+      if (config.enableChat === false || config.enableChat === 'false' || config.enableChat === 0 || config.enableChat === '0') {
+        console.log('[DBD Perks] 🔇 Twitch Chat notification is disabled in settings.');
+        return;
+      }
+      const perkNames = selectedPerks.map(p => p.name).join(' | ');
+      const roleName = activeRole === 'killer' ? 'ฆาตกร' : 'ผู้รอดชีวิต';
+      const msg = (config.chatTemplate || '[DBD] {username} สุ่มเปิร์ค ({role}): {perks}')
+        .replace(/{username}/g, user)
+        .replace(/{role}/g, roleName)
+        .replace(/{perks}/g, perkNames);
+
+      console.log('[DBD Perks] 🤖 Sending Twitch Chat message:', msg);
+      if (window.sendTwitchChat) {
+        await window.sendTwitchChat(msg);
+      } else {
+        try {
+          await fetch('/api/chat/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user: window.SolocastTargetUser || '',
+              message: msg
+            })
+          });
+        } catch (e) {
+          console.error('[DBD Perks] Failed to send chat message:', e);
+        }
+      }
+    }
+
+    function recordHistory(user, activeRole, selectedPerks, avatar) {
       const historyItem = {
         username: user,
         role: activeRole,
@@ -533,15 +594,6 @@
           }).catch(() => {});
         }
       } catch (e) {}
-
-      // Auto Hide after duration
-      clearTimeout(hideTimeout);
-      hideTimeout = setTimeout(() => {
-        container.classList.remove('active');
-        setTimeout(() => {
-          isShowing = false;
-        }, 500);
-      }, durationSec * 1000);
     }
   </script>
 </body>

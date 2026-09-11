@@ -18,6 +18,12 @@
     "step": 1,
     "group": "Game Settings"
   },
+  "enableVisualOverlay": {
+    "type": "checkbox",
+    "label": "แสดงผลกราฟิก Pop-up บนจอ OBS (Show Visual Overlay on Stream)",
+    "value": true,
+    "group": "Display Settings"
+  },
   "showUserPill": {
     "type": "checkbox",
     "label": "แสดงแถบชื่อผู้แลก / สตรีมเมอร์ (Show User Badge)",
@@ -33,6 +39,12 @@
   "showCharacterName": {
     "type": "checkbox",
     "label": "แสดงชื่อตัวละครเจ้าของเปิร์ค (Show Character Name)",
+    "value": true,
+    "group": "Display Settings"
+  },
+  "showDiamondBg": {
+    "type": "checkbox",
+    "label": "แสดงกรอบเพชร DBD หลังไอคอน (Show Diamond Frame)",
     "value": true,
     "group": "Display Settings"
   },
