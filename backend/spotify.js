@@ -103,9 +103,9 @@ export function getAllSpotifyTokens() {
 /**
  * Generate Spotify OAuth Authorize URL
  */
-export function getSpotifyAuthUrl(userId = '') {
+export function getSpotifyAuthUrl(userId = '', customRedirect = '') {
   const clientId = process.env.SPOTIFY_CLIENT_ID || '';
-  const redirectUri = process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:3000/auth/spotify/callback';
+  const redirectUri = customRedirect || process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:3000/auth/spotify/callback';
 
   const scopes = [
     'user-read-playback-state',
@@ -131,10 +131,10 @@ export function getSpotifyAuthUrl(userId = '') {
 /**
  * Exchange Authorization Code for Access & Refresh Tokens
  */
-export async function exchangeSpotifyCode(code) {
+export async function exchangeSpotifyCode(code, customRedirect = '') {
   const clientId = process.env.SPOTIFY_CLIENT_ID;
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-  const redirectUri = process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:3000/auth/spotify/callback';
+  const redirectUri = customRedirect || process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:3000/auth/spotify/callback';
 
   if (!clientId || !clientSecret) {
     throw new Error('Spotify Client ID or Client Secret not configured in .env');

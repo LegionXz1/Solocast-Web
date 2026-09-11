@@ -1545,10 +1545,24 @@ if (clientId && clientSecret) {
   }
 }
 
+// ดึง Callback Redirect URI ของ Twitch อัตโนมัติ (ตามโดเมนที่เรียกเข้ามา)
+function getTwitchRedirectUri(req) {
+  if (process.env.TWITCH_REDIRECT_URI) return process.env.TWITCH_REDIRECT_URI;
+  if (req) {
+    const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
+    const host = req.get('host');
+    if (host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+      return `${proto}://${host}/auth/twitch/callback`;
+    }
+  }
+  return 'http://localhost:3000/auth/twitch/callback';
+}
+
 // 1. หน้าสำหรับ Login (Twitch OAuth)
 app.get('/auth/twitch', (req, res) => {
+  const currentRedirectUri = getTwitchRedirectUri(req);
   const scopes = requestedScopes.join(' ');
-  const authUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${encodeURIComponent(scopes)}`;
+  const authUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(currentRedirectUri)}&response_type=code&scope=${encodeURIComponent(scopes)}`;
   res.redirect(authUrl);
 });
 
@@ -1558,7 +1572,8 @@ app.get('/auth/twitch/callback', async (req, res) => {
   if (!code) return res.send("Error: No code provided");
 
   try {
-    const tokenData = await exchangeCode(clientId, clientSecret, code, redirectUri);
+    const currentRedirectUri = getTwitchRedirectUri(req);
+    const tokenData = await exchangeCode(clientId, clientSecret, code, currentRedirectUri);
     const tokenInfo = await getTokenInfo(tokenData.accessToken, clientId);
     const userId = tokenInfo.userId;
 
@@ -2616,6 +2631,19 @@ app.get('/api/spotify/status', (req, res) => {
   });
 });
 
+// ดึง Callback Redirect URI ของ Spotify อัตโนมัติ (ตามโดเมนที่เรียกเข้ามา)
+function getSpotifyRedirectUri(req) {
+  if (process.env.SPOTIFY_REDIRECT_URI) return process.env.SPOTIFY_REDIRECT_URI;
+  if (req) {
+    const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
+    const host = req.get('host');
+    if (host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+      return `${proto}://${host}/auth/spotify/callback`;
+    }
+  }
+  return 'http://localhost:3000/auth/spotify/callback';
+}
+
 // GET /api/spotify/auth-url — ดึง URL สำหรับ Login Spotify (ผู้ใช้ที่ Login แล้วทุกคนเข้าถึงได้)
 app.get('/api/spotify/auth-url', checkUserAuth, (req, res) => {
   try {
@@ -2623,7 +2651,8 @@ app.get('/api/spotify/auth-url', checkUserAuth, (req, res) => {
     if (!spotify.isSpotifyConfigured()) {
       return res.status(503).json({ error: 'Spotify Client ID/Secret ยังไม่ได้ตั้งค่าใน .env' });
     }
-    const url = spotify.getSpotifyAuthUrl(userId);
+    const redirectUri = getSpotifyRedirectUri(req);
+    const url = spotify.getSpotifyAuthUrl(userId, redirectUri);
     res.json({ url });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2647,7 +2676,8 @@ app.get('/auth/spotify/callback', async (req, res) => {
       userId = stateObj.userId || '';
     } catch (_) {}
 
-    const tokenData = await spotify.exchangeSpotifyCode(code);
+    const redirectUri = getSpotifyRedirectUri(req);
+    const tokenData = await spotify.exchangeSpotifyCode(code, redirectUri);
     const targetKey = userId || tokenData.spotifyUserId || 'default';
 
     // ✅ Merge with existing tokens — preserve all other users' tokens
