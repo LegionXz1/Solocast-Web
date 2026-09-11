@@ -1602,21 +1602,66 @@ app.get('/auth/twitch/callback', async (req, res) => {
   }
 });
 
+// ตรวจสอบและลงทะเบียนผู้ใช้เข้า authProvider แบบไดนามิก (กรณีโทเค็นเพิ่งซิงค์มาจาก MongoDB หรือรีเฟรชใหม่)
+function ensureUserInAuthProvider(userId) {
+  if (!authProvider || !userId) return false;
+  const uid = String(userId);
+  if (authProvider.hasUser(uid)) return true;
+
+  const token = userTokens[uid];
+  if (token && token.refreshToken) {
+    try {
+      authProvider.addUser(uid, token, requestedScopes);
+      console.log(`[Twurple] 🔄 Dynamically registered user into authProvider: ${uid}`);
+      return true;
+    } catch (e) {
+      console.error(`[Twurple] ❌ Failed to dynamically register user ${uid}:`, e.message);
+    }
+  }
+  return false;
+}
+
 // ส่งข้อความลงแชท Twitch ในนามของสตรีมเมอร์เจ้าของช่อง
 app.post('/api/chat/send', async (req, res) => {
   try {
     const { user, message } = req.body;
     if (!message) return res.status(400).json({ error: 'Message is required' });
 
-    let targetUserId = user;
-    if (!targetUserId) {
-      const uids = Object.keys(userTokens);
-      if (uids.length > 0) targetUserId = uids[0];
-      else if (process.env.TWITCH_USER_ID) targetUserId = process.env.TWITCH_USER_ID;
+    let targetUserId = user ? String(user).trim() : '';
+
+    // หากส่งมาเป็น username (ไม่ใช่ตัวเลขล้วน) ให้แปลงเป็น Numeric Twitch ID จาก Sessions
+    if (targetUserId && !/^\d+$/.test(targetUserId)) {
+      const clean = targetUserId.toLowerCase().replace(/^@/, '');
+      for (const sess of Object.values(sessions)) {
+        if (sess && (sess.username?.toLowerCase() === clean || sess.displayName?.toLowerCase() === clean)) {
+          targetUserId = String(sess.userId);
+          break;
+        }
+      }
     }
 
-    if (!targetUserId) {
-      return res.status(400).json({ error: 'No Twitch user ID specified for sending chat' });
+    // ตรวจสอบความพร้อมของโทเค็นใน authProvider
+    let isReady = ensureUserInAuthProvider(targetUserId);
+
+    // หากไม่มีโทเค็นของ targetUserId ให้ Fallback ไปหาโทเค็นของผู้ใช้คนแรกที่มีอยู่ในระบบ
+    if (!isReady) {
+      if (process.env.TWITCH_USER_ID && ensureUserInAuthProvider(process.env.TWITCH_USER_ID)) {
+        targetUserId = String(process.env.TWITCH_USER_ID);
+        isReady = true;
+      } else {
+        const uids = Object.keys(userTokens);
+        for (const uid of uids) {
+          if (ensureUserInAuthProvider(uid)) {
+            targetUserId = uid;
+            isReady = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!targetUserId || !isReady) {
+      return res.status(400).json({ error: `No valid Twitch token found for user "${user || 'unknown'}"` });
     }
 
     if (!apiClient) {
@@ -2303,8 +2348,38 @@ io.on('connection', (socket) => {
     try {
       const { userId, message } = payload || {};
       if (!message) return;
-      let uid = userId || Object.keys(userTokens)[0] || process.env.TWITCH_USER_ID;
-      if (!uid || !apiClient) return;
+      let uid = userId ? String(userId).trim() : '';
+
+      if (uid && !/^\d+$/.test(uid)) {
+        const clean = uid.toLowerCase().replace(/^@/, '');
+        for (const sess of Object.values(sessions)) {
+          if (sess && (sess.username?.toLowerCase() === clean || sess.displayName?.toLowerCase() === clean)) {
+            uid = String(sess.userId);
+            break;
+          }
+        }
+      }
+
+      let isReady = ensureUserInAuthProvider(uid);
+      if (!isReady) {
+        if (process.env.TWITCH_USER_ID && ensureUserInAuthProvider(process.env.TWITCH_USER_ID)) {
+          uid = String(process.env.TWITCH_USER_ID);
+          isReady = true;
+        } else {
+          for (const k of Object.keys(userTokens)) {
+            if (ensureUserInAuthProvider(k)) {
+              uid = k;
+              isReady = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!uid || !apiClient || !isReady) {
+        console.warn(`[Twitch Chat Socket] ⚠️ No valid authenticated user found to send chat message`);
+        return;
+      }
 
       await apiClient.asUser(uid, async (ctx) => {
         await ctx.chat.sendChatMessage(uid, message);
@@ -2743,6 +2818,20 @@ async function hydrateFromMongo() {
 
     const mongoTokens = await syncStore('tokens', userTokens);
     Object.assign(userTokens, mongoTokens);
+
+    if (authProvider) {
+      for (const [uid, tData] of Object.entries(userTokens)) {
+        if (!authProvider.hasUser(uid) && tData?.refreshToken) {
+          try {
+            authProvider.addUser(uid, tData, requestedScopes);
+            console.log(`[Twurple] 📥 Registered hydrated token for user: ${uid}`);
+            startEventSub(uid);
+          } catch (e) {
+            console.warn(`[Twurple] Could not register hydrated token for ${uid}:`, e.message);
+          }
+        }
+      }
+    }
 
     const mongoTickets = await syncTickets(loadSupportTickets());
     if (Array.isArray(mongoTickets) && mongoTickets.length > 0) {
