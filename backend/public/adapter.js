@@ -2,6 +2,13 @@
 
 const socket = io('/');
 
+socket.on('connect', () => {
+  const u = targetUser || window.SolocastTargetUser || '';
+  if (u) {
+    socket.emit('join_channel', u);
+  }
+});
+
 console.log('[Solocast Adapter] Initialized');
 
 // ฟังก์ชันสำหรับดึง Query Parameters จาก URL
@@ -28,6 +35,85 @@ const currentWidgetId = getWidgetId();
 const initialParams = new URLSearchParams(window.location.search);
 let targetUser = initialParams.get('user') || initialParams.get('channel') || '';
 
+// จัดการสถานะเปิด/ปิดการทำงานของ Widget Overlay (ทั้งจาก Admin Global Lock และ User Setting)
+const statusStyle = document.createElement('style');
+statusStyle.id = 'solocast-overlay-status-style';
+if (document.head) {
+  document.head.appendChild(statusStyle);
+} else {
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!document.getElementById('solocast-overlay-status-style')) {
+      document.head.appendChild(statusStyle);
+    }
+  });
+}
+
+let isWidgetActive = (typeof window !== 'undefined' && window.__SOLOCAST_INITIAL_ACTIVE !== undefined)
+  ? Boolean(window.__SOLOCAST_INITIAL_ACTIVE)
+  : true;
+let disabledReason = '';
+let hasInitialLoaded = false;
+
+// ฟังก์ชันปรับการแสดงผลและปิดเสียง Overlay เมื่อ Widget ถูกปิดใช้งาน
+function applyOverlayVisibility(active, reason) {
+  isWidgetActive = Boolean(active);
+  disabledReason = reason || '';
+
+  if (!isWidgetActive) {
+    document.documentElement.setAttribute('data-solocast-disabled', 'true');
+    statusStyle.textContent = `
+      html[data-solocast-disabled="true"] body, body {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+    `;
+    if (document.body) {
+      document.body.style.display = 'none';
+    }
+    // ปิดเสียงหรือวิดีโอที่กำลังเล่นอยู่ทันที
+    try {
+      document.querySelectorAll('audio, video').forEach(media => {
+        media.pause();
+        media.currentTime = 0;
+      });
+    } catch (_) {}
+    console.warn(`[Solocast Adapter] ⛔ Widget "${currentWidgetId}" is DISABLED (${disabledReason || 'inactive'}). Overlay hidden from stream.`);
+  } else {
+    document.documentElement.removeAttribute('data-solocast-disabled');
+    statusStyle.textContent = '';
+    if (document.body) {
+      document.body.style.display = '';
+    }
+    console.log(`[Solocast Adapter] ✅ Widget "${currentWidgetId}" is ACTIVE.`);
+    // หากก่อนหน้านี้ปิดอยู่แล้วเพิ่งเปิด ให้โหลดข้อมูลและแสดงผลทันที
+    if (!hasInitialLoaded && typeof dispatchWidgetLoad === 'function') {
+      hasInitialLoaded = true;
+      dispatchWidgetLoad(activeFields);
+      syncSavedSettings();
+    }
+  }
+}
+
+// ตรวจสอบสถานะ Live Status จากเซิร์ฟเวอร์แบบเจาะจง User และ Widget
+async function checkLiveStatus() {
+  if (!currentWidgetId) return;
+  try {
+    const u = targetUser || window.SolocastTargetUser || '';
+    const res = await fetch(`/api/widgets/${currentWidgetId}/live-status?user=${encodeURIComponent(u)}`);
+    if (res.ok) {
+      const data = await res.json();
+      applyOverlayVisibility(data.active, data.reason);
+    }
+  } catch (err) {
+    console.warn('[Solocast Adapter] Failed to fetch live status:', err);
+  }
+}
+
+// ตรวจสอบสถานะทันทีเมื่อโหลดสคริปต์
+checkLiveStatus();
+
 // เข้าร่วมห้องของผู้ใช้
 window.SolocastTargetUser = targetUser;
 if (targetUser) {
@@ -43,6 +129,7 @@ if (targetUser) {
         window.SolocastTargetUser = targetUser;
         socket.emit('join_user', { userId: targetUser });
         console.log('[Solocast Adapter] Auto-joined room for default user:', targetUser);
+        checkLiveStatus();
         syncSavedSettings();
       }
     })
@@ -77,6 +164,10 @@ window.sendTwitchChat = async function(message) {
 // ฟังก์ชันบันทึกประวัติการสุ่มผลลัพธ์
 window.recordRollHistory = async function(item) {
   if (!item || !currentWidgetId) return;
+  if (!isWidgetActive) {
+    console.log('[Solocast Adapter] 🚫 Skipped recording roll history because widget is disabled');
+    return { success: false, disabled: true };
+  }
 
   // หากผู้ส่งแต้มเป็น GamerGod88 ให้ไม่เก็บประวัติ
   if (item.username && item.username.toLowerCase() === 'gamergod88') {
@@ -148,6 +239,11 @@ window.SE_API.store = {
   },
   set: function(key, payload) {
     return new Promise((resolve) => {
+      if (!isWidgetActive) {
+        console.log(`[Solocast Adapter] 🚫 SE_API.store.set "${key}" skipped because widget is disabled`);
+        return resolve({ success: false, disabled: true });
+      }
+
       const val = (payload && payload.value !== undefined) ? payload.value : payload;
       const u = targetUser || window.SolocastTargetUser || getUrlParams().user || getUrlParams().channel || 'default';
       const localKey = `se_store_${currentWidgetId}_${u}_${key}`;
@@ -178,6 +274,12 @@ let activeFields = { ...getUrlParams() };
 
 // ฟังก์ชันส่งอีเวนต์ onWidgetLoad และ onFieldsUpdate ไปยัง Custom Widget
 function dispatchWidgetLoad(fieldsToApply) {
+  if (!isWidgetActive) {
+    console.log('[Solocast Adapter] ⏸️ Skipping onWidgetLoad because widget is disabled.');
+    return;
+  }
+  hasInitialLoaded = true;
+
   const fields = fieldsToApply || activeFields;
   const chName = fields.channel || fields.user || targetUser || 'SolocastUser';
 
@@ -213,7 +315,9 @@ async function syncSavedSettings() {
       const saved = await res.json();
       // การตั้งค่าจากฐานข้อมูลเซิร์ฟเวอร์จะมีความสำคัญกว่า URL Query Params แบบเดิม
       activeFields = { ...getUrlParams(), ...saved };
-      dispatchWidgetLoad(activeFields);
+      if (isWidgetActive) {
+        dispatchWidgetLoad(activeFields);
+      }
       console.log('[Solocast Adapter] Synchronized saved settings from server:', activeFields);
     }
   } catch (err) {
@@ -224,13 +328,17 @@ async function syncSavedSettings() {
 // ยิง onWidgetLoad ทันที และซิงค์การตั้งค่าจากเซิร์ฟเวอร์
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    dispatchWidgetLoad(activeFields);
-    syncSavedSettings();
+    if (isWidgetActive) {
+      dispatchWidgetLoad(activeFields);
+      syncSavedSettings();
+    }
   });
 } else {
   setTimeout(() => {
-    dispatchWidgetLoad(activeFields);
-    syncSavedSettings();
+    if (isWidgetActive) {
+      dispatchWidgetLoad(activeFields);
+      syncSavedSettings();
+    }
   }, 50);
 }
 
@@ -240,20 +348,48 @@ socket.on('widget_settings_updated', (payload) => {
   if (payload.userId && targetUser && payload.userId !== targetUser) return;
 
   console.log('[Solocast Adapter] ⚡ Live settings update received from Dashboard:', payload.settings);
-  // อัปเดตการตั้งค่าแบบ Real-time เข้าสู่ Widget ทันที ไม่ต้องเปลี่ยน URL หรือรีเฟรชหน้า
   activeFields = { ...activeFields, ...payload.settings };
-  dispatchWidgetLoad(activeFields);
+  if (isWidgetActive) {
+    dispatchWidgetLoad(activeFields);
+  }
+});
+
+// ฟัง Live Update สถานะเปิด/ปิด Widget ของ User จาก Dashboard แบบ Real-time
+socket.on('user_widget_status_changed', (payload) => {
+  if (!payload || payload.widgetId !== currentWidgetId) return;
+  if (payload.userId && targetUser && String(payload.userId) !== String(targetUser)) return;
+  console.log(`[Solocast Adapter] 👤 Real-time user widget status changed for "${currentWidgetId}":`, payload.enabled);
+  checkLiveStatus();
+});
+
+// ฟัง Live Update สถานะเปิด/ปิด Widget ทั้งระบบของ Admin (Global Lock) แบบ Real-time
+socket.on('widget_global_status_changed', (payload) => {
+  if (!payload || payload.widgetId !== currentWidgetId) return;
+  console.log(`[Solocast Adapter] 🛡️ Real-time global widget status changed for "${currentWidgetId}":`, payload.enabled);
+  checkLiveStatus();
+});
+
+// ฟัง Live Update ทั่วไปของ Widget Status
+socket.on('widget_status_updated', (payload) => {
+  if (!payload || payload.widgetId !== currentWidgetId) return;
+  if (payload.userId && targetUser && String(payload.userId) !== String(targetUser)) return;
+  console.log(`[Solocast Adapter] ⚡ Real-time widget status updated for "${currentWidgetId}":`, payload);
+  checkLiveStatus();
 });
 
 // รองรับการยิงซ้ำหากได้รับสถานะเชื่อมต่อ
 socket.on('backend_status', (status) => {
-  if (status && status.connected) {
+  if (status && status.connected && isWidgetActive) {
     dispatchWidgetLoad(activeFields);
   }
 });
 
 // จำลอง Event 'onEventReceived' ของ StreamElements
 socket.on('onEventReceived', (event) => {
+  if (!isWidgetActive) {
+    console.log(`[Solocast Adapter] ⏸️ Event "${event.type}" suppressed because widget "${currentWidgetId}" is disabled`);
+    return;
+  }
   if (targetUser && event.userId && String(event.userId) !== String(targetUser)) {
     return; // ข้ามอีเวนต์ที่ไม่ใช่ของช่องนี้
   }
@@ -368,6 +504,7 @@ socket.on('onEventReceived', (event) => {
 
 // 🎵 Spotify Now Playing & Requests Bridge
 socket.on('spotify_now_playing', (data) => {
+  if (!isWidgetActive) return;
   const seEvent = new CustomEvent('onEventReceived', {
     detail: {
       type: 'spotify_now_playing',
@@ -379,6 +516,7 @@ socket.on('spotify_now_playing', (data) => {
 });
 
 socket.on('spotify_new_request', (data) => {
+  if (!isWidgetActive) return;
   const seEvent = new CustomEvent('onEventReceived', {
     detail: {
       type: 'spotify_new_request',

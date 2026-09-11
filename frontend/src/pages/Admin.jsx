@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   CheckCircle2, AlertTriangle, X, ExternalLink, Plus, Trash2, 
   RotateCw, Loader2, Search, Skull, UserCheck, Layers, Ban, Check, Key, Lock, Unlock,
-  LifeBuoy, MessageSquare, Clock, ShieldCheck, MessageCircle, Send, Edit3, Filter
+  LifeBuoy, MessageSquare, Clock, ShieldCheck, MessageCircle, Send, Edit3, Filter,
+  User, Users, Save
 } from 'lucide-react';
 
 import { API_BASE } from '../config';
@@ -108,6 +109,13 @@ function Admin() {
   const [globalWidgetStatus, setGlobalWidgetStatus] = useState({});
   const [statusLoading, setStatusLoading] = useState({});
 
+  // Widget Access Control State (All Users vs Specific Users)
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [widgetAccessMode, setWidgetAccessMode] = useState('all');
+  const [widgetAllowedUsers, setWidgetAllowedUsers] = useState([]);
+  const [customUserToAdd, setCustomUserToAdd] = useState('');
+  const [isSavingAccess, setIsSavingAccess] = useState(false);
+
   // Form State
   const [formData, setFormData] = useState({
     id: '',
@@ -193,6 +201,7 @@ function Admin() {
         });
         fetchWidgets();
         fetchDbdPerks();
+        fetchAdminUsers();
         showToast('เข้าสู่ระบบแอดมินด้วย Admin Key สำเร็จ!', 'success');
       } else {
         setKeyError('รหัสผ่าน Admin Key ไม่ถูกต้อง (ค่าเริ่มต้น: solocast_admin_2026)');
@@ -425,6 +434,7 @@ function Admin() {
         fetchWidgets();
         fetchDbdPerks();
         fetchSupportTickets();
+        fetchAdminUsers();
       } else {
         setIsAuthorized(false);
       }
@@ -438,6 +448,21 @@ function Admin() {
     verifyAuth();
   }, []);
 
+  // Fetch Admin Users list for Whitelist Picker
+  const fetchAdminUsers = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/users`, {
+        headers: getAuthHeader()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAdminUsers(data);
+      }
+    } catch (err) {
+      console.error('Error fetching admin users:', err);
+    }
+  };
+
   // Fetch Global Widget Status (Admin Control)
   const fetchGlobalWidgetStatus = async () => {
     try {
@@ -445,9 +470,51 @@ function Admin() {
       if (res.ok) {
         const data = await res.json();
         setGlobalWidgetStatus(data.global || {});
+        if (selectedId && data.global && data.global[selectedId]) {
+          const s = data.global[selectedId];
+          setWidgetAccessMode(s.accessMode === 'specific' ? 'specific' : 'all');
+          setWidgetAllowedUsers(Array.isArray(s.allowedUsers) ? [...s.allowedUsers] : []);
+        }
       }
     } catch (e) {
       console.error('Error fetching global widget status:', e);
+    }
+  };
+
+  // Save Widget Access Settings (All Users vs Specific Users)
+  const handleSaveAccess = async () => {
+    if (!selectedId) return;
+    setIsSavingAccess(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/widgets/${selectedId}/access`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify({
+          accessMode: widgetAccessMode,
+          allowedUsers: widgetAllowedUsers
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setGlobalWidgetStatus(prev => ({
+          ...prev,
+          [selectedId]: {
+            ...(prev[selectedId] || {}),
+            accessMode: widgetAccessMode,
+            allowedUsers: widgetAllowedUsers
+          }
+        }));
+        showToast(`บันทึกสิทธิ์การใช้งานสำหรับ "${selectedId}" สำเร็จ! (${widgetAccessMode === 'all' ? '🌐 ผู้ใช้ทุกคน' : `🔒 เฉพาะ ${widgetAllowedUsers.length} คน`})`, 'success');
+      } else {
+        showToast(data.error || 'บันทึกสิทธิ์ไม่สำเร็จ', 'error');
+      }
+    } catch (err) {
+      showToast('เกิดข้อผิดพลาดในการบันทึกสิทธิ์: ' + err.message, 'error');
+    } finally {
+      setIsSavingAccess(false);
     }
   };
 
@@ -474,7 +541,11 @@ function Admin() {
       if (res.ok) {
         setGlobalWidgetStatus(prev => ({
           ...prev,
-          [widgetId]: { enabled: newEnabled, reason }
+          [widgetId]: {
+            ...(prev[widgetId] || {}),
+            enabled: newEnabled,
+            reason
+          }
         }));
         showToast(`Widget "${widgetId}" ${newEnabled ? '🟢 เปิดให้ใช้งานแล้ว' : '🔴 ปิดปรับปรุงระบบแล้ว'} สำเร็จ!`, 'success');
       } else {
@@ -507,6 +578,10 @@ function Admin() {
     setIsLoading(true);
     setIsCreatingNew(false);
     setSelectedId(widgetId);
+    setCustomUserToAdd('');
+    const s = globalWidgetStatus[widgetId] || {};
+    setWidgetAccessMode(s.accessMode === 'specific' ? 'specific' : 'all');
+    setWidgetAllowedUsers(Array.isArray(s.allowedUsers) ? [...s.allowedUsers] : []);
     try {
       const res = await fetch(`${API_BASE}/api/widgets/${widgetId}`);
       if (!res.ok) throw new Error('ไม่พบข้อมูล Widget');
@@ -906,6 +981,23 @@ function Admin() {
                             🔒 ปิด
                           </span>
                         )}
+                        {globalWidgetStatus[w.id]?.accessMode === 'specific' ? (
+                          <span style={{
+                            fontSize: '0.62rem', fontWeight: 700, padding: '1px 6px',
+                            background: 'rgba(245,158,11,0.15)', color: '#fbbf24',
+                            borderRadius: '4px', border: '1px solid rgba(245,158,11,0.3)'
+                          }}>
+                            🔒 เฉพาะกลุ่ม ({Array.isArray(globalWidgetStatus[w.id]?.allowedUsers) ? globalWidgetStatus[w.id].allowedUsers.length : 0})
+                          </span>
+                        ) : (
+                          <span style={{
+                            fontSize: '0.62rem', fontWeight: 600, padding: '1px 6px',
+                            background: 'rgba(59,130,246,0.12)', color: '#60a5fa',
+                            borderRadius: '4px', border: '1px solid rgba(59,130,246,0.25)'
+                          }}>
+                            🌐 ทุกคน
+                          </span>
+                        )}
                       </div>
                       <span>ID: {w.id}</span>
                     </div>
@@ -1021,6 +1113,263 @@ function Admin() {
                     </>
                   )}
                 </button>
+              </div>
+            )}
+
+            {/* Access Permission Card: All Users vs Specific Users */}
+            {!isCreatingNew && selectedId && (
+              <div className="admin-access-control-card" style={{
+                margin: '0 0 1.5rem 0',
+                padding: '1.15rem 1.25rem',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--surface-1)',
+                border: '1px solid var(--border-primary)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                      <Users size={17} className="text-accent" />
+                      <span>การกำหนดสิทธิ์ผู้ใช้งาน (Access Permissions)</span>
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      เลือกได้ว่าจะเปิดให้สตรีมเมอร์ทุกคนใช้งาน หรือจำกัดเฉพาะผู้ใช้ที่ระบุ (Whitelist)
+                    </div>
+                  </div>
+
+                  {/* Mode Switcher */}
+                  <div style={{
+                    display: 'inline-flex',
+                    padding: '3px',
+                    background: 'var(--surface-2)',
+                    borderRadius: 'var(--radius-xs)',
+                    border: '1px solid var(--border-primary)',
+                    gap: '3px'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setWidgetAccessMode('all')}
+                      style={{
+                        padding: '0.4rem 0.85rem',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        borderRadius: 'var(--radius-xs)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: widgetAccessMode === 'all' ? 'var(--accent-color)' : 'transparent',
+                        color: widgetAccessMode === 'all' ? 'var(--accent-contrast)' : 'var(--text-secondary)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>🌐 ทุกคน (All Users)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWidgetAccessMode('specific')}
+                      style={{
+                        padding: '0.4rem 0.85rem',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        borderRadius: 'var(--radius-xs)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: widgetAccessMode === 'specific' ? '#f59e0b' : 'transparent',
+                        color: widgetAccessMode === 'specific' ? '#ffffff' : 'var(--text-secondary)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>🔒 เฉพาะผู้ใช้ที่ระบุ (Specific Users)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Whitelist section when Specific is selected */}
+                {widgetAccessMode === 'specific' && (
+                  <div style={{
+                    padding: '1rem',
+                    borderRadius: 'var(--radius-xs)',
+                    background: 'rgba(245, 158, 11, 0.04)',
+                    border: '1px dashed rgba(245, 158, 11, 0.3)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.85rem'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f59e0b' }}>
+                        รายชื่อผู้ใช้ที่ได้รับอนุญาต ({widgetAllowedUsers.length} คน):
+                      </span>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                        *แอดมิน (Admin) มีสิทธิ์เข้าถึงทุก Widget เสมอโดยไม่ต้องใส่ชื่อ
+                      </span>
+                    </div>
+
+                    {/* Input & Quick Select Row */}
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {/* Quick Select from existing users */}
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val && !widgetAllowedUsers.includes(val)) {
+                            setWidgetAllowedUsers(prev => [...prev, val]);
+                          }
+                        }}
+                        style={{
+                          flex: '1',
+                          minWidth: '180px',
+                          padding: '0.45rem 0.75rem',
+                          borderRadius: 'var(--radius-xs)',
+                          background: 'var(--surface-2)',
+                          border: '1px solid var(--border-primary)',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.82rem'
+                        }}
+                      >
+                        <option value="">+ เลือกจากผู้ใช้ที่เคยล็อกอินในระบบ...</option>
+                        {adminUsers.map(u => {
+                          const identifier = u.username || u.userId;
+                          const isAlreadyAdded = widgetAllowedUsers.includes(u.userId) || widgetAllowedUsers.includes(u.username);
+                          return (
+                            <option key={u.userId} value={identifier} disabled={isAlreadyAdded}>
+                              {u.displayName || u.username} ({u.userId}) {u.isAdmin ? '👑 [Admin]' : ''} {isAlreadyAdded ? '✓ เพิ่มแล้ว' : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+
+                      {/* Manual input for custom username / user ID */}
+                      <div style={{ display: 'flex', gap: '0.35rem', flex: '1', minWidth: '220px' }}>
+                        <input
+                          type="text"
+                          placeholder="พิมพ์ Twitch Username หรือ User ID..."
+                          value={customUserToAdd}
+                          onChange={(e) => setCustomUserToAdd(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const val = customUserToAdd.trim();
+                              if (val && !widgetAllowedUsers.includes(val)) {
+                                setWidgetAllowedUsers(prev => [...prev, val]);
+                                setCustomUserToAdd('');
+                              }
+                            }
+                          }}
+                          style={{
+                            flex: '1',
+                            padding: '0.45rem 0.75rem',
+                            borderRadius: 'var(--radius-xs)',
+                            background: 'var(--surface-2)',
+                            border: '1px solid var(--border-primary)',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.82rem'
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = customUserToAdd.trim();
+                            if (val && !widgetAllowedUsers.includes(val)) {
+                              setWidgetAllowedUsers(prev => [...prev, val]);
+                              setCustomUserToAdd('');
+                            }
+                          }}
+                          style={{
+                            padding: '0.45rem 0.9rem',
+                            borderRadius: 'var(--radius-xs)',
+                            background: '#f59e0b',
+                            color: '#ffffff',
+                            border: 'none',
+                            fontWeight: 700,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          + เพิ่ม
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Chips of Allowed Users */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', minHeight: '34px', alignItems: 'center' }}>
+                      {widgetAllowedUsers.length === 0 ? (
+                        <span style={{ fontSize: '0.78rem', color: '#f87171', fontStyle: 'italic' }}>
+                          ⚠️ ยังไม่ได้ระบุผู้ใช้ที่ได้รับสิทธิ์ (จะไม่มีสตรีมเมอร์ทั่วไปคนใดเข้าถึง Widget นี้ได้เลย)
+                        </span>
+                      ) : (
+                        widgetAllowedUsers.map(userItem => (
+                          <span
+                            key={userItem}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              padding: '3px 8px',
+                              borderRadius: '999px',
+                              background: 'rgba(245, 158, 11, 0.15)',
+                              border: '1px solid rgba(245, 158, 11, 0.35)',
+                              color: '#fbbf24',
+                              fontSize: '0.78rem',
+                              fontWeight: 600
+                            }}
+                          >
+                            <User size={12} />
+                            <span>{userItem}</span>
+                            <button
+                              type="button"
+                              onClick={() => setWidgetAllowedUsers(prev => prev.filter(u => u !== userItem))}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#f87171',
+                                cursor: 'pointer',
+                                padding: 0,
+                                marginLeft: '2px',
+                                lineHeight: 1
+                              }}
+                              title="ลบออก"
+                            >
+                              <X size={12} />
+                            </button>
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Save Access Button */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    disabled={isSavingAccess}
+                    onClick={handleSaveAccess}
+                    style={{
+                      padding: '0.45rem 1.15rem',
+                      borderRadius: 'var(--radius-xs)',
+                      background: 'var(--accent-color)',
+                      color: 'var(--accent-contrast)',
+                      border: 'none',
+                      fontWeight: 700,
+                      fontSize: '0.82rem',
+                      cursor: isSavingAccess ? 'wait' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      boxShadow: '0 2px 8px rgba(59, 130, 246, 0.25)'
+                    }}
+                  >
+                    <Save size={14} />
+                    <span>{isSavingAccess ? 'กำลังบันทึกสิทธิ์...' : 'บันทึกสิทธิ์การใช้งาน'}</span>
+                  </button>
+                </div>
               </div>
             )}
 

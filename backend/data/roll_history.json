@@ -1,6 +1,122 @@
 {
   "random-killer": {
+    "134926621": [
+      {
+        "id": "roll_1789041628804_6sj1t",
+        "timestamp": 1789041628989,
+        "username": "AlucardWalkerr",
+        "killer": "The Hillbilly",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K03_TheHillbilly_Portrait.png?b1fa3b",
+        "rewardTitle": "Random Killer"
+      }
+    ],
+    "137653755": [
+      {
+        "id": "roll_1789041296445_o3p7i",
+        "timestamp": 1789041296830,
+        "username": "AumMidNightAngel",
+        "killer": "The Cannibal",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K09_TheCannibal_Portrait.png?2b9b38",
+        "rewardTitle": "Random Killer"
+      },
+      {
+        "id": "roll_1789041296431_299qf",
+        "timestamp": 1789041296817,
+        "username": "AumMidNightAngel",
+        "killer": "The Spirit",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K13_TheSpirit_Portrait.png?c6efeb",
+        "rewardTitle": "Random Killer"
+      },
+      {
+        "id": "roll_1789041286301_dnsls",
+        "timestamp": 1789041286680,
+        "username": "AumMidNightAngel",
+        "killer": "The Houndmaster",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K38_TheHoundmaster_Portrait.png?6e438f",
+        "rewardTitle": "Random Killer"
+      },
+      {
+        "id": "roll_1789041003516_z7cck",
+        "timestamp": 1789041003908,
+        "username": "AumMidNightAngel",
+        "killer": "The Lich",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K36_TheLich_Portrait.png?25df98",
+        "rewardTitle": "Random Killer"
+      },
+      {
+        "id": "roll_1789040946448_4444a",
+        "timestamp": 1789040946856,
+        "username": "AumMidNightAngel",
+        "killer": "The Hillbilly",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K03_TheHillbilly_Portrait.png?b1fa3b",
+        "rewardTitle": "Random Killer"
+      },
+      {
+        "id": "roll_1789040762439_oqh8n",
+        "timestamp": 1789040762837,
+        "username": "AumMidNightAngel",
+        "killer": "The Krasue",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K41_TheKrasue_Portrait.png?3513ba",
+        "rewardTitle": "Random Killer"
+      },
+      {
+        "id": "roll_1789040755297_wpi17",
+        "timestamp": 1789040755693,
+        "username": "AumMidNightAngel",
+        "killer": "The Unknown",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K35_TheUnknown_Portrait.png?88bbed",
+        "rewardTitle": "Random Killer"
+      },
+      {
+        "id": "roll_1789040747710_c871n",
+        "timestamp": 1789040748103,
+        "username": "AumMidNightAngel",
+        "killer": "The Huntress",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K08_TheHuntress_Portrait.png?194544",
+        "rewardTitle": "Random Killer"
+      }
+    ],
     "148596257": [
+      {
+        "id": "roll_1789080123257_al4fn",
+        "timestamp": 1789080123250,
+        "username": "LegionXIZ",
+        "killer": "The Lich",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K36_TheLich_Portrait.png?25df98",
+        "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
+      },
+      {
+        "id": "roll_1789080081280_y556b",
+        "timestamp": 1789080081266,
+        "username": "LegionXIZ",
+        "killer": "The Nightmare",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K10_TheNightmare_Portrait.png?8dfa33",
+        "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
+      },
+      {
+        "id": "roll_1789079726255_puw97",
+        "timestamp": 1789079726250,
+        "username": "LegionXIZ",
+        "killer": "The Dark Lord",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K37_TheDarkLord_Portrait.png?d391a7",
+        "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
+      },
+      {
+        "id": "roll_1789079678201_xf46g",
+        "timestamp": 1789079678192,
+        "username": "LegionXIZ",
+        "killer": "The Skull Merchant",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K31_TheSkullMerchant_Portrait.png?91edf3",
+        "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
+      },
+      {
+        "id": "roll_1789079677645_6wvlb",
+        "timestamp": 1789079677638,
+        "username": "LegionXIZ",
+        "killer": "The Blight",
+        "killerImg": "https://deadbydaylight.wiki.gg/images/K21_TheBlight_Portrait.png?bb5b92",
+        "rewardTitle": "ติดโฆษณาอยู่กั้บๆๆๆๆ"
+      },
       {
         "id": "roll_1789036456378_vpfdl",
         "timestamp": 1789036456371,
@@ -76,6 +192,26 @@
     ]
   },
   "loyalty-card": {
+    "137653755": [
+      {
+        "id": "roll_1789041600383_2hqen",
+        "timestamp": 1789041600756,
+        "username": "AumMidNightAngel",
+        "count": 2,
+        "avatar": "/api/twitch/avatar/AumMidNightAngel",
+        "rewardTitle": "Check-in",
+        "result": "เช็คอินครั้งที่ 2"
+      },
+      {
+        "id": "roll_1789040798765_91wve",
+        "timestamp": 1789040799161,
+        "username": "AumMidNightAngel",
+        "count": 1,
+        "avatar": "/api/twitch/avatar/AumMidNightAngel",
+        "rewardTitle": "Check-in",
+        "result": "เช็คอินครั้งที่ 1"
+      }
+    ],
     "148596257": [
       {
         "id": "roll_1789036366184_ra1nd",
@@ -89,7 +225,1071 @@
     ]
   },
   "dbd-perks": {
+    "134926621": [
+      {
+        "id": "roll_1789041412457_hfblc",
+        "timestamp": 1789041412388,
+        "username": "AlucardWalkerr",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "overcome",
+            "name": "Overcome",
+            "role": "survivor",
+            "character": "Jonah",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_overcome.png/96px-IconPerks_overcome.png?ce6f96",
+            "description": "\"You have calculated how much energy you can risk to expend.\" Whenever you enter the Injured State from full health, Overcome triggers its effect: Extends the duration of the On-hit Sprint boost by +2 seconds . Overcome cannot be used while Exhausted . Overcome causes the Exhausted Status Effect for 60 / 50 / 40 seconds . \"After careful analysis, we are getting the hell out of here!\" — Jonah Vasquez"
+          },
+          {
+            "id": "flashbang",
+            "name": "Flashbang",
+            "role": "survivor",
+            "character": "Leon",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_flashbang.png/96px-IconPerks_flashbang.png?dd91f3",
+            "description": "You have adapted to a world in chaos and making what you can from the debris. After repairing Generators for a total of 50 / 45 / 40 &#37; , Flashbang activates: Press the Active Ability button while hiding inside a Locker to craft a Flash Grenade . Flashbang deactivates after use. \"Get outta my face!\" — Leon Scott Kennedy"
+          },
+          {
+            "id": "botany-knowledge",
+            "name": "Botany Knowledge",
+            "role": "survivor",
+            "character": "Claudette",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_botanyKnowledge.png/96px-IconPerks_botanyKnowledge.png?6bf985",
+            "description": "\"You transform plants found around the campfire into tinctures that slow down bleeding.\" You benefit from the following permanent effect: Increases your Healing speed by 30 / 40 / 50 &#37; . \"Basic Botany Knowledge could save your life someday\" — Claudette Morel"
+          },
+          {
+            "id": "bada-bada-boom",
+            "name": "Bada Bada Boom",
+            "role": "survivor",
+            "character": "Dustin",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconsPerks_BadaBadaBoom.png/96px-IconsPerks_BadaBadaBoom.png?7a75d9",
+            "description": "\"You may not be a fighter, but you have clever ways of striking back.\" After completing 20&#160;% worth of Generator repairs, Bada Bada Boom activates: While active, press Active Ability button next to a window to install a Trap, which stays active for up to 40 / 50 / 60 seconds . The Trap tiggers when the Killer performs a vault through the window, causing the Killer to suffer from a -50&#160;% Hindered Status Effect for 6 seconds . Bada Bada Boom deactives after triggering successfully or once the timer runs out. The Auras of Trapped Windows are revealed to all Survivors in yellow . \"Never tell me the odds.\" — Dustin Henderson"
+          }
+        ],
+        "result": "Overcome | Flashbang | Botany Knowledge | Bada Bada Boom",
+        "avatar": "/api/twitch/avatar/AlucardWalkerr"
+      },
+      {
+        "id": "roll_1789041412218_1kors",
+        "timestamp": 1789041412377,
+        "username": "AlucardWalkerr",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "slippery-meat",
+            "name": "Slippery Meat",
+            "role": "survivor",
+            "character": "All (General)",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_slipperyMeat.png/96px-IconPerks_slipperyMeat.png?cfb283",
+            "description": "You have developed an efficient way to get off Hooks. Grants the ability to attempt +3 additional Self-Unhooks during the first Hook Stage . Increases the chances to successfully perform a Self-Unhook by 2 / 3 / 4 &#37; ."
+          },
+          {
+            "id": "any-means-necessary",
+            "name": "Any Means Necessary",
+            "role": "survivor",
+            "character": "Yui",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_anyMeansNecessary.png/96px-IconPerks_anyMeansNecessary.png?5eb1f2",
+            "description": "\"You stand up for yourself, using whatever's on hand to gain an advantage.\" Unlocks potential in your Aura-reading ability: The Auras of dropped Pallets in the environment are revealed to you. While standing next to a dropped Pallet , press and hold the Active Ability button to trigger the following effect: Resets the Pallet to its upright position over 5 / 4 / 3 seconds . \"I'll hit you with everything I've got. Then I'll do it again.\" — Yui Kimura"
+          },
+          {
+            "id": "cross-examination",
+            "name": "Cross-Examination",
+            "role": "survivor",
+            "character": "Shane",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/T_UI_iconsPerks_CrossExamination.png/96px-T_UI_iconsPerks_CrossExamination.png?2dfe77",
+            "description": "While inside the Killer's Terror Radius and not being chased, you can see Light Marks the Killer leaves behind while moving. Light Marks have a duration of 10 seconds . While standing on a Light Mark , gain Elusive Status Effect . This lingers for 3 / 4 / 5 seconds . \"The witness has said enough, Your Honor. No further questions.\" — Shane Wiigwaas"
+          },
+          {
+            "id": "appraisal",
+            "name": "Appraisal",
+            "role": "survivor",
+            "character": "Élodie",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_appraisal.png/96px-IconPerks_appraisal.png?1342d7",
+            "description": "\"You have a careful eye that notices what many overlook.\" Start the Trial with 4 Tokens . While standing next to an unlocked and empty Chest , press and hold the Interaction button to perform the Rummage action: Grants the ability to retrieve an extra Item from that Chest . This consumes -1 Token and is limited to twice per Chest . Increases the Rummaging speed by 40 / 60 / 80 &#37; ."
+          }
+        ],
+        "result": "Slippery Meat | Any Means Necessary | Cross-Examination | Appraisal",
+        "avatar": "/api/twitch/avatar/AlucardWalkerr"
+      },
+      {
+        "id": "roll_1789041197113_bdjoh",
+        "timestamp": 1789041197245,
+        "username": "AlucardWalkerr",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "finesse",
+            "name": "Finesse",
+            "role": "survivor",
+            "character": "Lara",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_finesse.png/96px-IconPerks_finesse.png?38d700",
+            "description": "The threat of danger can motivate any creature to strengthen its resolve. Whenever you are healthy, Finesse activates: Increases your Vaulting speed for a Fast Vault by +20&#160;% . Finesse has a cool-down of 40 / 35 / 30 seconds after performing a Fast Vault . \"Just need to push myself a bit further.\" — Lara Croft"
+          },
+          {
+            "id": "power-struggle",
+            "name": "Power Struggle",
+            "role": "survivor",
+            "character": "Élodie",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_powerStruggle.png/96px-IconPerks_powerStruggle.png?e01602",
+            "description": "\"You have never given up and you are not about to start now.\" Whenever you are in the Dying State , you benefit from the following primary effect: The Auras of upright Pallets are revealed to you. After reaching 25 / 20 / 15 &#37; of Wiggle progression, Power Struggle unlocks the following secondary effect: Grants the ability to drop a nearby Pallet while being carried by the Killer. Stuns the Killer and causes them to release you from their grasp. Power Struggle deactivates after use. \"I relied on others to protect me once and I lost everything. Never again.\" — Élodie Rakoto"
+          },
+          {
+            "id": "mettle-of-man",
+            "name": "Mettle of Man",
+            "role": "survivor",
+            "character": "Ash",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_mettleOfMan.png/96px-IconPerks_mettleOfMan.png?deba27",
+            "description": "\"Evil has a way of always finding you.\" After triggering a third Protection Hit by any means, Mettle of Man activates: While in the Injured State , Mettle of Man shields you from the next attack that would put you into the Dying State . After healing back to full health by any means, Mettle of Man reveals your Aura to the Killer whenever you are farther than 12 / 14 / 16 metres from their location. Mettle of Man deactivates after entering the Dying State by any means. Increases your chance of becoming the initial Obsession by increasing the default value by +100&#160;% . The Killer can only be obsessed with one Survivor at a time. \"Evil has a bullseye on my back the size of Tiger Stadium.\" — Ash Williams"
+          },
+          {
+            "id": "self-preservation",
+            "name": "Self-Preservation",
+            "role": "survivor",
+            "character": "Lee",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_self-Preservation.png/96px-IconPerks_self-Preservation.png?e3b2dc",
+            "description": "\"Life is unforgiving. The more confirmation you get of that, the more prepared you become.\" Whenever another Survivor is hooked, Self-Preservation triggers its effect: Grants the Elusive Status Effect for 20 / 25 / 30 seconds \"Something I learnt in the industry: when the axe is swinging, keep your head down.\" — Yun-Jin Lee"
+          }
+        ],
+        "result": "Finesse | Power Struggle | Mettle of Man | Self-Preservation",
+        "avatar": "/api/twitch/avatar/AlucardWalkerr"
+      },
+      {
+        "id": "roll_1789041197090_lkgai",
+        "timestamp": 1789041197255,
+        "username": "AlucardWalkerr",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "diversion",
+            "name": "Diversion",
+            "role": "survivor",
+            "character": "Adam",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_diversion.png/96px-IconPerks_diversion.png?88981a",
+            "description": "After staying in the Terror Radius without being chased for 30 / 25 / 20 seconds , Diversion activates. While active, press the Active Ability button while crouched and motionless to throw a pebble in the direction you are facing: Creates a distraction for the Killer at its landing location 20 metres away: Triggers a Loud Noise Notification . Creates fake Scratch Marks . Diversion deactivates after use. \"There's what is easy and then there's what is right. If you confuse the two, there's no telling what you become.\" — Adam Francis"
+          },
+          {
+            "id": "strength-in-shadows",
+            "name": "Strength in Shadows",
+            "role": "survivor",
+            "character": "Sable",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_strengthInShadows.png/96px-IconPerks_strengthInShadows.png?c1507c",
+            "description": "\"A chance for renewed power down where danger calls home.\" Whenever you are inside the Basement , Strength in Shadows activates: Unlocks the Strength in Shadows ability, allowing you to self-heal without needing a Med-Kit at 70&#160;% of the normal Healing speed. Upon finishing a heal in the Basement, the Aura of the Killer is revealed to you for 6 / 8 / 10 seconds . \"I'm getting out of here, if it's the last thing I do.\" — Sable"
+          },
+          {
+            "id": "teamwork-full-circuit",
+            "name": "Teamwork: Full Circuit",
+            "role": "survivor",
+            "character": "Dustin",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconsPerks_TeamworkFullCircuit.png/96px-IconsPerks_TeamworkFullCircuit.png?33a898",
+            "description": "\"You've dabbled with mechanical engineering and show off your abilities to others.\" For each Survivor repairing a generator with you, the size of the good Skill Check zone is increased by 15 / 20 / 25 &#37; . While repairing with at least 1 other Survivor , you repair 5&#160;% faster. \"How many times do I have to be right on the money before you guys just trust me?\" — Dustin Henderson"
+          },
+          {
+            "id": "scavenger",
+            "name": "Scavenger",
+            "role": "survivor",
+            "character": "Gabriel",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_scavenger.png/96px-IconPerks_scavenger.png?1fc2de",
+            "description": "\"Where others see junk, you see valuable improvised tools.\" While holding a depleted Toolbox , Scavenger activates: Succeeding at Great Repairing Skill Checks grants 1 Token , up to a maximum of 5 Tokens . Reaching the maximum number of Tokens automatically consumes them and fully recharges the Toolbox . Recharging a Toolbox will reduce your Repair speed by -50&#160;% for the next 40 / 35 / 30 seconds . Scavenger grants the ability to rummage through an opened Chest once per Trial and will guarantee a basic Toolbox . \"It's amazing what people will throw away around here.\" — Gabriel Soma"
+          }
+        ],
+        "result": "Diversion | Strength in Shadows | Teamwork: Full Circuit | Scavenger",
+        "avatar": "/api/twitch/avatar/AlucardWalkerr"
+      },
+      {
+        "id": "roll_1789041166461_vk9ek",
+        "timestamp": 1789041166643,
+        "username": "AlucardWalkerr",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "potential-energy",
+            "name": "Potential Energy",
+            "role": "survivor",
+            "character": "Vittorio",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_potentialEnergy.png/96px-IconPerks_potentialEnergy.png?ca8f3c",
+            "description": "\"Your arcane abilities have adapted to The Entity's Realm after centuries of wandering, granting you unprecedented control over its many devices.\" While repairing a Generator , press the Active Ability button to Store Potential Energy : Repair Charges no longer progress the Generator and are instead converted into Tokens: Gain 1 Token for the equivalent of 1&#160;% Progression, up to a maximum of 10 / 15 / 20 Tokens . Failed Repair Skill Checks incur a penalty depending on how many Tokens have been accumulated: Not at Token Limit : Reduces the number of accumulated Tokens by -20&#160;% . At Token Limit : Regresses the Generator by -10&#160;% . Having accumulated at least 1 Token , press the Active Ability button again on the same or a different Generator to Release Potential Energy : Consumes all accumulated Tokens. Instantly progresses that Generator by +1&#160;% per Token. Potential Energy deactivates after use or losing a Health State by any means, and will lose all accumulated Tokens in case of the latter. \"When you look a layer deeper, you realise... everything is connected.\" — Vittorio Toscano"
+          },
+          {
+            "id": "five-moves-ahead",
+            "name": "Five Moves Ahead",
+            "role": "survivor",
+            "character": "Kwon",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconsPerks_FiveMovesAhead.png/96px-IconsPerks_FiveMovesAhead.png?57a099",
+            "description": "This perk activates while you are being chased by the Killer or are inside the Killer's Terror Radius : After you drop a Pallet , you start moving 50&#160;% earlier. See the auras of the 5 closest Pallets and Windows . This perk goes on a 40 / 35 / 30 seconds cool-down when you drop a Pallet while this perk is activated. \"Every problem has a solution. It’s only a question of complexity.\" — Kwon Tae-young"
+          },
+          {
+            "id": "overcome",
+            "name": "Overcome",
+            "role": "survivor",
+            "character": "Jonah",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_overcome.png/96px-IconPerks_overcome.png?ce6f96",
+            "description": "\"You have calculated how much energy you can risk to expend.\" Whenever you enter the Injured State from full health, Overcome triggers its effect: Extends the duration of the On-hit Sprint boost by +2 seconds . Overcome cannot be used while Exhausted . Overcome causes the Exhausted Status Effect for 60 / 50 / 40 seconds . \"After careful analysis, we are getting the hell out of here!\" — Jonah Vasquez"
+          },
+          {
+            "id": "background-player",
+            "name": "Background Player",
+            "role": "survivor",
+            "character": "Renato",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_backgroundPlayer.png/96px-IconPerks_backgroundPlayer.png?cdf056",
+            "description": "\"You are not usually the centre of attention and in some cases, this can be a good thing.\" Whenever the Killer picks up any other Survivor in the Dying State , Background Player activates for 10 seconds . While active, starting to run triggers the following effect: Grants a +50&#160;% Haste Status Effect for 5 seconds . Background Player cannot be used while Exhausted . Background Player causes the Exhausted Status Effect for 30 / 25 / 20 seconds after use. \"You forget about me?\" — Renato Lyra"
+          }
+        ],
+        "result": "Potential Energy | Five Moves Ahead | Overcome | Background Player",
+        "avatar": "/api/twitch/avatar/AlucardWalkerr"
+      },
+      {
+        "id": "roll_1789041150817_rcr2r",
+        "timestamp": 1789041150991,
+        "username": "AlucardWalkerr",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "open-handed",
+            "name": "Open-Handed",
+            "role": "survivor",
+            "character": "Ace",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_open-Handed.png/96px-IconPerks_open-Handed.png?22cbcf",
+            "description": "\"Strengthens the potential in your and your team's Aura-reading abilities.\" All Survivors benefit from the following permanent effect: Increases the radius of all Aura-reading abilities by 8 / 12 / 16 metres . Open-Handed only affects Auras that emanate from the Survivor causing them. Survivors can only be affected by one instance of Open-Handed at a time. \"Paying attention is what kept me alive through the years. That, and my good looks of course.\" — Ace Visconti"
+          },
+          {
+            "id": "we-see-you",
+            "name": "We See You",
+            "role": "survivor",
+            "character": "Eleven",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconsPerks_WeSeeYou.png/96px-IconsPerks_WeSeeYou.png?f6308b",
+            "description": "\"You've honed your powers and can turn the tables on those who try to find you.\" Gain a token when the Killer reveals your Aura . When you have 4 tokens , they are all consumed, and the Killer 's aura is revealed to you and all other Survivors for 10 / 12.5 / 15 seconds . This perk has a 10-second cool-down when gaining a token. \"It is not me. It is you. You are the monster.\" — Eleven"
+          },
+          {
+            "id": "boon-circle-of-healing",
+            "name": "Boon: Circle of Healing",
+            "role": "survivor",
+            "character": "Mikaela",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_boonCircleOfHealing.png/96px-IconPerks_boonCircleOfHealing.png?e36c2d",
+            "description": "A Boon that offers comfort amidst the terror. Press and hold the Active Ability button on a Dull or Hex Totem to bless it and create a Boon Totem . All Survivors within 24 metres hear soft chimes ringing out and benefit from its Boon Effects : Increases the Altruistic Healing speeds by 50 / 75 / 100 &#37; when not using a Med-Kit . If a Survivor is injured, their Aura is revealed to all other Survivors. Survivors can only be affected by one instance of Boon: Circle of Healing at a time. Only one Totem can be blessed by your Boon Perks at a time and all of their effects are active on the same Boon Totem . \"Try this, it is better than anything you'll find in a pharmacy.\" — Mikaela Reid"
+          },
+          {
+            "id": "desperate-measures",
+            "name": "Desperate Measures",
+            "role": "survivor",
+            "character": "Felix",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_desperateMeasures.png/96px-IconPerks_desperateMeasures.png?b18c18",
+            "description": "\"You refuse to fail, even during your darkest hour.\" Whenever any Survivor, including yourself, is not in the Healthy State, Desperate Measures activates: Increases your Action speeds for Healing and Unhooking by a stack-able 16 / 18 / 20 &#37; per injured, dying, or hooked Survivor, up to a maximum of 64 / 72 / 80 &#37; . \"When they come with a wrecking ball, build stronger walls.\" — Felix Richter"
+          }
+        ],
+        "result": "Open-Handed | We See You | Boon: Circle of Healing | Desperate Measures",
+        "avatar": "/api/twitch/avatar/AlucardWalkerr"
+      },
+      {
+        "id": "roll_1789041150813_f9ygc",
+        "timestamp": 1789041150996,
+        "username": "AlucardWalkerr",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "better-than-new",
+            "name": "Better than New",
+            "role": "survivor",
+            "character": "Rebecca",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_betterThanNew.png/96px-IconPerks_betterThanNew.png?bac710",
+            "description": "\"You are an expert in combat medicine. Patients leave your care reinvigorated.\" Completing a Healing action on another Survivor grants them the following benefits until they receive damage again: Increases their Action speeds for Blessing, Cleansing, Healing, and Unlocking by 12 / 14 / 16 &#37; ."
+          },
+          {
+            "id": "diversion",
+            "name": "Diversion",
+            "role": "survivor",
+            "character": "Adam",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_diversion.png/96px-IconPerks_diversion.png?88981a",
+            "description": "After staying in the Terror Radius without being chased for 30 / 25 / 20 seconds , Diversion activates. While active, press the Active Ability button while crouched and motionless to throw a pebble in the direction you are facing: Creates a distraction for the Killer at its landing location 20 metres away: Triggers a Loud Noise Notification . Creates fake Scratch Marks . Diversion deactivates after use. \"There's what is easy and then there's what is right. If you confuse the two, there's no telling what you become.\" — Adam Francis"
+          },
+          {
+            "id": "empathic-connection",
+            "name": "Empathic Connection",
+            "role": "survivor",
+            "character": "Yoichi",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_empathicConnection.png/96px-IconPerks_empathicConnection.png?728368",
+            "description": "\"Your presence psychically projects itself to those in danger.\" You benefit from the following permanent primary effect: Increases your Altruistic Healing speed by 25 / 30 / 35 &#37; . Whenever any other Survivor is injured, Empathic Connection applies its secondary effect: Your Aura as a potential Healer is revealed to them."
+          },
+          {
+            "id": "flow-state",
+            "name": "Flow State",
+            "role": "survivor",
+            "character": "Kwon",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconsPerks_FlowState.png/96px-IconsPerks_FlowState.png?62d1bc",
+            "description": "Whenever a Generator is completed, gain a token, up to 5 . For each token: Bless and cleanse Totems 8 / 9 / 10 &#37; faster. Heal 8 / 9 / 10 &#37; faster. Unhook Survivors 8 / 9 / 10 &#37; faster. \"I’m sorry… I didn’t realize I was working so late.\" — Kwon Tae-young"
+          }
+        ],
+        "result": "Better than New | Diversion | Empathic Connection | Flow State",
+        "avatar": "/api/twitch/avatar/AlucardWalkerr"
+      },
+      {
+        "id": "roll_1789041134676_8flj4",
+        "timestamp": 1789041134414,
+        "username": "AlucardWalkerr",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "saboteur",
+            "name": "Saboteur",
+            "role": "survivor",
+            "character": "Jake",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_saboteur.png/96px-IconPerks_saboteur.png?9f0313",
+            "description": "Unlocks potential in your Aura-reading ability: While the Killer is carrying another Survivor, the Auras of all Hooks within 56 metres of their original Pick-up location are revealed to you: The Auras of normal Hooks are white . The Auras of Scourge Hooks are yellow . Unlocks the ability to sabotage Hooks without Toolboxes : Increases the Sabotage speed without a Toolbox by +30&#160;% . This effect has a cool-down of 70 / 65 / 60 seconds after use."
+          },
+          {
+            "id": "counterforce",
+            "name": "Counterforce",
+            "role": "survivor",
+            "character": "Jill",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_counterforce.png/96px-IconPerks_counterforce.png?b76d0c",
+            "description": "\"You know how to withstand an enemy stronger than you, and it starts with hunting down and knocking out their support.\" You benefit from the following permanent effect: Increases the default value of your Cleansing speed to 125&#160;% . Whenever you cleanse a Totem , Counterforce triggers the following effects: Increases your Cleansing speed by a stack-able +25&#160;% . The Aura of the Totem farthest from your current location is revealed to you for 10 / 12 / 14 seconds . \"I don't mind a little detective work.\" — Jill Valentine"
+          },
+          {
+            "id": "dead-hard",
+            "name": "Dead Hard",
+            "role": "survivor",
+            "character": "David",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_deadHard.png/96px-IconPerks_deadHard.png?48782d",
+            "description": "\"You can take a beating. Tap into your adrenaline bank to avoid taking further damage.\" After being unhooked by any means, Dead Hard activates:While injured and running, press the Active Ability button to trigger the following effect: Grants the Endurance Status Effect for 0.5 seconds . Dead Hard cannot be used while Exhausted . Dead Hard causes the Exhausted Status Effect for 60 / 50 / 40 seconds . \"We were walkin' through t'ginnel one night when a beer bottle flew past me, then another, and another. I thought to myself \"Gonna 'ave some fun 'ere lads, let's get stuck in!\". It were a right dust up, I swear down!\" — David King"
+          },
+          {
+            "id": "lithe",
+            "name": "Lithe",
+            "role": "survivor",
+            "character": "Feng",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_lithe.png/96px-IconPerks_lithe.png?74ca81",
+            "description": "Whenever you perform a Rushed Vault action, Lithe triggers its effect: Grants a +50&#160;% Haste Status Effect for 3 seconds . Lithe cannot be used while Exhausted . Lithe causes the Exhausted Status Effect for 60 / 50 / 40 seconds . \"U mad?\" — Feng Min"
+          }
+        ],
+        "result": "Saboteur | Counterforce | Dead Hard | Lithe",
+        "avatar": "/api/twitch/avatar/AlucardWalkerr"
+      },
+      {
+        "id": "roll_1789041134239_0qla1",
+        "timestamp": 1789041134412,
+        "username": "AlucardWalkerr",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "breakout",
+            "name": "Breakout",
+            "role": "survivor",
+            "character": "Yui",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_breakout.png/96px-IconPerks_breakout.png?6efb27",
+            "description": "\"You kick into high gear when someone is in trouble, inspiring them to overcome any obstacle.\" While within 5 metres of the Killer carrying another Survivor, the following effects apply: Grants you a 6 / 8 / 10 &#37; Haste Status Effect . Increases the Wiggling speed of the carried Survivor by +25&#160;% . Survivors can only be affected by one instance of Breakout at a time. \"Come, we are going to rip our way out of this.\" — Yui Kimura"
+          },
+          {
+            "id": "troubleshooter",
+            "name": "Troubleshooter",
+            "role": "survivor",
+            "character": "Gabriel",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_troubleshooter.png/96px-IconPerks_troubleshooter.png?662533",
+            "description": "\"No amount of distraction will shake you from your primary task.\" When you are chased by the Killer, Troubleshooter activates: The Aura of the Generator with the most progress is revealed to you. The Aura of the Killer is revealed to you for 4 / 5 / 6 seconds after dropping a Pallet . These effects linger for 6 / 8 / 10 seconds after ending the Chase, after which Troubleshooter deactivates. \"Nothing gets done around here if I don't do it.\" — Gabriel Soma"
+          },
+          {
+            "id": "lithe",
+            "name": "Lithe",
+            "role": "survivor",
+            "character": "Feng",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_lithe.png/96px-IconPerks_lithe.png?74ca81",
+            "description": "Whenever you perform a Rushed Vault action, Lithe triggers its effect: Grants a +50&#160;% Haste Status Effect for 3 seconds . Lithe cannot be used while Exhausted . Lithe causes the Exhausted Status Effect for 60 / 50 / 40 seconds . \"U mad?\" — Feng Min"
+          },
+          {
+            "id": "smash-hit",
+            "name": "Smash Hit",
+            "role": "survivor",
+            "character": "Lee",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_smashHit.png/96px-IconPerks_smashHit.png?27f3e6",
+            "description": "\"When your rival makes a mistake, you seize the opportunity.\" Whenever you stun the Killer with a Pallet , Smash Hit triggers its effect: Grants a +50&#160;% Haste Status Effect for 4 seconds . Smash Hit cannot be used while Exhausted . Smash Hit causes the Exhausted Status Effect for 30 / 25 / 20 seconds . \"I have dealt with psychopaths in suits. You're just uglier and worse dressed.\" — Yun-Jin Lee"
+          }
+        ],
+        "result": "Breakout | Troubleshooter | Lithe | Smash Hit",
+        "avatar": "/api/twitch/avatar/AlucardWalkerr"
+      }
+    ],
+    "137653755": [
+      {
+        "id": "roll_1789041614327_z8wrw",
+        "timestamp": 1789041614707,
+        "username": "AumMidNightAngel",
+        "role": "killer",
+        "perks": [
+          {
+            "id": "hex-thrill-of-the-hunt",
+            "name": "Hex: Thrill of the Hunt",
+            "role": "killer",
+            "character": "All (General)",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_hexThrillOfTheHunt.png/96px-IconPerks_hexThrillOfTheHunt.png?9eae8e",
+            "description": "\"A Hex rooting its power on hope. The false hope of Survivors fills you with excitement and strengthens your Totems.\" Start the Trial with 5 Tokens , one for each Totem located in the environment: Reduces the Action speeds for Blessing and Cleansing by a stack-able 8 / 9 / 10 &#37; per Token, up to a maximum of 40 / 45 / 50 &#37; . Hex: Thrill of the Hunt loses -1 Token whenever a Totem is cleansed. The Hex Effects persist until the Hex Totem is either blessed or cleansed by a Survivor, disabling it for the remainder of the Trial."
+          },
+          {
+            "id": "play-with-your-food",
+            "name": "Play with Your Food",
+            "role": "killer",
+            "character": "Shape",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_playWithYourFood.png/96px-IconPerks_playWithYourFood.png?bfcaf7",
+            "description": "Identical to See How They Run . \"You've fooled them, haven't you Michael? But not me.\" — Dr Sam Loomis"
+          },
+          {
+            "id": "alien-instinct",
+            "name": "Alien Instinct",
+            "role": "killer",
+            "character": "Xenomorph",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_alienInstinct.png/96px-IconPerks_alienInstinct.png?5e7374",
+            "description": "\"You are so stealthy, sometimes it seems like you appear out of nowhere.\" Whenever you hook a Survivor, Alien Instinct activates: The Aura of the farthest Survivor from your current location who is in the Injured State is revealed to you for 8 seconds . Causes that Survivor to suffer from the Oblivious Status Effect for 40 / 50 / 60 seconds . \"Yellow light's for my eyes only.\" — Dallas"
+          },
+          {
+            "id": "barbecue-amp-chilli",
+            "name": "Barbecue &amp; Chilli",
+            "role": "killer",
+            "character": "Cannibal",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_barbecueAndChilli.png/96px-IconPerks_barbecueAndChilli.png?b6f08b",
+            "description": "A deep bond with The Entity unlocks potential in one's Aura-reading ability. After hooking a Survivor, all Survivors who are at least 60 / 50 / 40 metres away from that Hook have their Aura revealed to you for 5 seconds . \"I just can't take no pleasure in killing. There's just some things you gotta do. Don't mean you have to like it.\" — Drayton Sawyer"
+          }
+        ],
+        "result": "Hex: Thrill of the Hunt | Play with Your Food | Alien Instinct | Barbecue &amp; Chilli",
+        "avatar": "/api/twitch/avatar/AumMidNightAngel"
+      },
+      {
+        "id": "roll_1789040828737_pn2e0",
+        "timestamp": 1789040829132,
+        "username": "AumMidNightAngel",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "wicked",
+            "name": "Wicked",
+            "role": "survivor",
+            "character": "Sable",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_wicked.png/96px-IconPerks_wicked.png?813308",
+            "description": "\"They can try to hurt you. But you're not going down so easily.\" After you are unhooked by any means, Wicked triggers the following effect: The Aura of the Killer is revealed to you for 16 / 18 / 20 seconds . While hooked inside the Basement , Wicked potentially triggers the following effect: First Hook Stage : 100&#160;% to succeed an attempted Self-Unhook . Second Hook Stage : Does not trigger the effect. Last Survivor Standing : Does not trigger the effect. \"I haven't let anyone get in my way before. You think I'm gonna start now?\" — Sable"
+          },
+          {
+            "id": "resilience",
+            "name": "Resilience",
+            "role": "survivor",
+            "character": "All (General)",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_resilience.png/96px-IconPerks_resilience.png?69adfb",
+            "description": "\"You are motivated in dire situations.\" Whenever you are in the Injured State , Resilience activates: Increases the Action speeds for the following interactions by 3 / 6 / 9 &#37; : Blessing or Cleansing Totems . Healing yourself or other Survivors . Opening Exit Gates . Repairing Generators . Sabotaging Hooks . Searching Chests . Unhooking other Survivors . Vaulting Windows . \"Focus, even in these desperate times.\""
+          },
+          {
+            "id": "buckle-up",
+            "name": "Buckle Up",
+            "role": "survivor",
+            "character": "Ash",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_buckleUp.png/96px-IconPerks_buckleUp.png?5ce8dd",
+            "description": "Whenever you are healing a dying Survivor, Buckle Up activates: During the Healing action, you and the dying Survivor benefit from the following primary effect: The Aura of the Killer is revealed to you both. After completing the Healing action, the other Survivor benefits from the following secondary effects for 3 / 4 / 5 seconds : Suppresses the creation of their Scratch Marks . Grants them a +50&#160;% Haste Status Effect . Buckle Up does not cause the Exhausted Status Effect . \"Ghost beaters never leave a man behind.\" — Ash Williams"
+          },
+          {
+            "id": "resurgence",
+            "name": "Resurgence",
+            "role": "survivor",
+            "character": "Jill",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_resurgence.png/96px-IconPerks_resurgence.png?b3bc7d",
+            "description": "\"You have come back from near impossible odds... and you will do it again.\" After you are unhooked by any means, Resurgence triggers the following effect: Grants you 50 / 60 / 70 &#37; of Healing progression. \"It's my turn, bitch!\" — Jill Valentine"
+          }
+        ],
+        "result": "Wicked | Resilience | Buckle Up | Resurgence",
+        "avatar": "/api/twitch/avatar/AumMidNightAngel"
+      },
+      {
+        "id": "roll_1789040813431_aew4b",
+        "timestamp": 1789040813827,
+        "username": "AumMidNightAngel",
+        "role": "killer",
+        "perks": [
+          {
+            "id": "blood-echo",
+            "name": "Blood Echo",
+            "role": "killer",
+            "character": "Oni",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_bloodEcho.png/96px-IconPerks_bloodEcho.png?75f115",
+            "description": "\"The agony of one is inflicted onto others.\" Whenever you hook a Survivor, Blood Echo triggers its effect: Causes all Survivors in the Injured State to suffer from the Exhausted and Haemorrhage Status Effects for 20 / 25 / 30 seconds . \"Attack an enemy with precision and their allies will feel it.\" — Renjiro's Doctrine 6:3"
+          },
+          {
+            "id": "forced-hesitation",
+            "name": "Forced Hesitation",
+            "role": "killer",
+            "character": "Singularity",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_forcedHesitation.png/96px-IconPerks_forcedHesitation.png?46c982",
+            "description": "\"You have learnt the emotional weaknesses of the organics, and how to exploit them.\" Whenever a Survivor is put into the Dying State by any means, Forced Hesitation triggers its effect: Causes all other Survivors within 16 metres of them suffer from a -20&#160;% Hindered Status Effect for 10 seconds . Forced Hesitation has a cool-down of 40 / 35 / 30 seconds . \"THE ORGANIC MIND'S CAPACITY FOR EMPATHY GOES BEYOND HINDRANCE.\" — HUX-A7-13"
+          },
+          {
+            "id": "franklin-s-demise",
+            "name": "Franklin's Demise",
+            "role": "killer",
+            "character": "Cannibal",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_franklinsDemise.png/96px-IconPerks_franklinsDemise.png?2ac922",
+            "description": "Survivors hit with your vicious Basic Attack drop any equipped Item on impact: The Auras of lost Items are revealed to within 32 / 48 / 64 metres . \"Sally, I hear something. Stop! Stop!\" — Franklin Hardesty"
+          },
+          {
+            "id": "forced-penance",
+            "name": "Forced Penance",
+            "role": "killer",
+            "character": "Executioner",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_forcedPenance.png/96px-IconPerks_forcedPenance.png?5ca0a6",
+            "description": "\"Those who stand in the way of duty will suffer harsh judgement.\" Whenever a Survivor triggers a Protection Hit , they suffer from the following effect: Inflicts the Broken Status Effect for 60 / 70 / 80 seconds ."
+          }
+        ],
+        "result": "Blood Echo | Forced Hesitation | Franklin's Demise | Forced Penance",
+        "avatar": "/api/twitch/avatar/AumMidNightAngel"
+      }
+    ],
     "148596257": [
+      {
+        "id": "roll_1789051403201_uh7yd",
+        "timestamp": 1789051403142,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "soul-guard",
+            "name": "Soul Guard",
+            "role": "survivor",
+            "character": "Cheryl",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_soulGuard.png/96px-IconPerks_soulGuard.png?34dc60",
+            "description": "\"You have been through immense hardship and you are stronger for it.\" Whenever you heal or recover from the Dying State , Soul Guard triggers its primary effect: Grants the Endurance Status Effect for 4 / 6 / 8 seconds . Endurance is cancelled prematurely when performing a Conspicuous Action of any kind. This ability has a cool-down of 30 seconds . While suffering from the Cursed Status Effect , Soul Guard applies its secondary effect: Unlocks the Self-Recovery ability, allowing you to fully recover from the Dying State. ."
+          },
+          {
+            "id": "no-one-left-behind",
+            "name": "No One Left Behind",
+            "role": "survivor",
+            "character": "All (General)",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_noOneLeftBehind.png/96px-IconPerks_noOneLeftBehind.png?8ed80d",
+            "description": "\"It is inconceivable to leave someone behind.\" Once the Exit Gates are powered, No One Left Behind activates: The Auras of all other Survivors are revealed to you. Increases your Action speeds for Healing and Unhooking by 50 / 75 / 100 &#37; . Increases the strength and duration of the Haste Status Effect granted to Survivors you unhook by +10&#160;% and +5 seconds respectively: Causes them to benefit from a 20&#160;% Haste Status Effect for 15 seconds . \"Yeah, no shit. But I believe we can outsmart and overthrow him if we work together. Don't be predictable and selfish!\" — Clyde, The Lost Tapes"
+          },
+          {
+            "id": "plot-twist",
+            "name": "Plot Twist",
+            "role": "survivor",
+            "character": "Nicolas",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_plotTwist.png/96px-IconPerks_plotTwist.png?a106be",
+            "description": "\"Big moments are vital, but you know that sometimes an understated read can be just as powerful.\" Whenever you are in the Injured State , Plot Twist activates. While active, press the Active Ability button while crouching and stationary to trigger the following primary effects: Silently enter the Dying State without notifying the Killer. Suppresses your Grunts of Pain and the creation of Pools of Blood . Unlocks the Self-Recovery ability, allowing you to fully recover from the Dying State : Increases the Recovery speed by +25&#160;% . After self-recovering from the Dying State , you benefit from the following secondary effects: Instantly heals you to full health. Grants a +50&#160;% Haste Status Effect for 2 / 3 / 4 seconds . Plot Twist is disabled after recovering by any means, but can be reactivated once more upon powering the Exit Gates . \"I think you'll find this shooting location... captivating.\" — Pauline Stamper"
+          },
+          {
+            "id": "flow-state",
+            "name": "Flow State",
+            "role": "survivor",
+            "character": "Kwon",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconsPerks_FlowState.png/96px-IconsPerks_FlowState.png?62d1bc",
+            "description": "Whenever a Generator is completed, gain a token, up to 5 . For each token: Bless and cleanse Totems 8 / 9 / 10 &#37; faster. Heal 8 / 9 / 10 &#37; faster. Unhook Survivors 8 / 9 / 10 &#37; faster. \"I’m sorry… I didn’t realize I was working so late.\" — Kwon Tae-young"
+          }
+        ],
+        "result": "Soul Guard | No One Left Behind | Plot Twist | Flow State",
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png"
+      },
+      {
+        "id": "roll_1789051384442_g2r2y",
+        "timestamp": 1789051384373,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "counterforce",
+            "name": "Counterforce",
+            "role": "survivor",
+            "character": "Jill",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_counterforce.png/96px-IconPerks_counterforce.png?b76d0c",
+            "description": "\"You know how to withstand an enemy stronger than you, and it starts with hunting down and knocking out their support.\" You benefit from the following permanent effect: Increases the default value of your Cleansing speed to 125&#160;% . Whenever you cleanse a Totem , Counterforce triggers the following effects: Increases your Cleansing speed by a stack-able +25&#160;% . The Aura of the Totem farthest from your current location is revealed to you for 10 / 12 / 14 seconds . \"I don't mind a little detective work.\" — Jill Valentine"
+          },
+          {
+            "id": "scene-partner",
+            "name": "Scene Partner",
+            "role": "survivor",
+            "character": "Nicolas",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_scenePartner.png/96px-IconPerks_scenePartner.png?8a80ad",
+            "description": "\"You lock in with your co-star, engaging with and reacting to each other on a higher level.\" Whenever you are inside the Terror Radius , Scene Partner activates: Looking at the Killer causes you to scream, which reveals their Aura for 4 / 5 / 6 seconds . There is a chance of 50&#160;% that you will scream again, extending the Aura-reveal duration by another +2 seconds . Scene Partner has a cool-down of 40 seconds . \"This is not in the script!\" — Nicolas Cage"
+          },
+          {
+            "id": "we-see-you",
+            "name": "We See You",
+            "role": "survivor",
+            "character": "Eleven",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconsPerks_WeSeeYou.png/96px-IconsPerks_WeSeeYou.png?f6308b",
+            "description": "\"You've honed your powers and can turn the tables on those who try to find you.\" Gain a token when the Killer reveals your Aura . When you have 4 tokens , they are all consumed, and the Killer 's aura is revealed to you and all other Survivors for 10 / 12.5 / 15 seconds . This perk has a 10-second cool-down when gaining a token. \"It is not me. It is you. You are the monster.\" — Eleven"
+          },
+          {
+            "id": "scavenger",
+            "name": "Scavenger",
+            "role": "survivor",
+            "character": "Gabriel",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_scavenger.png/96px-IconPerks_scavenger.png?1fc2de",
+            "description": "\"Where others see junk, you see valuable improvised tools.\" While holding a depleted Toolbox , Scavenger activates: Succeeding at Great Repairing Skill Checks grants 1 Token , up to a maximum of 5 Tokens . Reaching the maximum number of Tokens automatically consumes them and fully recharges the Toolbox . Recharging a Toolbox will reduce your Repair speed by -50&#160;% for the next 40 / 35 / 30 seconds . Scavenger grants the ability to rummage through an opened Chest once per Trial and will guarantee a basic Toolbox . \"It's amazing what people will throw away around here.\" — Gabriel Soma"
+          }
+        ],
+        "result": "Counterforce | Scene Partner | We See You | Scavenger",
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png"
+      },
+      {
+        "id": "roll_1789051355008_7ukv8",
+        "timestamp": 1789051354949,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "change-of-plan",
+            "name": "Change of Plan",
+            "role": "survivor",
+            "character": "Dustin",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconsPerks_ChangeOfPlan.png/96px-IconsPerks_ChangeOfPlan.png?86afb8",
+            "description": "\"Rather than give in to danger, you recalculate and adjust your strategy.\" You start the Trial with 2 Tokens . While hiding inside a Locker and holding a non-event Toolbox , press Active Ability button to spend 1 Token and transform your Toolbox into a Med-Kit of the same rarity with a random add-on of the same rarity. The new Med-kit has 80 / 90 / 100 &#37; of its charges. \"Oh my god, oh my god, oh my god, oh my god.\" — Dustin Henderson"
+          },
+          {
+            "id": "troubleshooter",
+            "name": "Troubleshooter",
+            "role": "survivor",
+            "character": "Gabriel",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_troubleshooter.png/96px-IconPerks_troubleshooter.png?662533",
+            "description": "\"No amount of distraction will shake you from your primary task.\" When you are chased by the Killer, Troubleshooter activates: The Aura of the Generator with the most progress is revealed to you. The Aura of the Killer is revealed to you for 4 / 5 / 6 seconds after dropping a Pallet . These effects linger for 6 / 8 / 10 seconds after ending the Chase, after which Troubleshooter deactivates. \"Nothing gets done around here if I don't do it.\" — Gabriel Soma"
+          },
+          {
+            "id": "babysitter",
+            "name": "Babysitter",
+            "role": "survivor",
+            "character": "Steve",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_babysitter.png/96px-IconPerks_babysitter.png?be1f6b",
+            "description": "\"While you have a reputation for being self-centred, you risk it all to help those in need.\" Whenever you unhook another Survivor, you benefit from the following effect: The Aura of the Killer is revealed to you for 8 seconds . The unhooked Survivor benefits from the following effects instead for 20 / 25 / 30 seconds : Suppresses the creation of their Scratch Marks and Pools of Blood . Increases the strength of their Haste Status Effect by +10&#160;% . \"I promised to keep you shitheads safe, and that's exactly what I plan on doing.\" — Steve Harrington"
+          },
+          {
+            "id": "iron-will",
+            "name": "Iron Will",
+            "role": "survivor",
+            "character": "Jake",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_ironWill.png/96px-IconPerks_ironWill.png?65bc91",
+            "description": "\"You are able to concentrate and enter a meditative-like state to numb some pain.\" While injured, you benefit from the following effects: Reduces the volume of Grunts of Pain by 80 / 90 / 100 &#37; . Iron Will cannot be used while Exhausted , but does not cause the Status Effect ."
+          }
+        ],
+        "result": "Change of Plan | Troubleshooter | Babysitter | Iron Will",
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png"
+      },
+      {
+        "id": "roll_1789051354994_o2a0o",
+        "timestamp": 1789051354936,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "extrasensory-perception",
+            "name": "Extrasensory Perception",
+            "role": "survivor",
+            "character": "Eleven",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconsPerks_ExtrasensoryPerception.png/96px-IconsPerks_ExtrasensoryPerception.png?2084c6",
+            "description": "\"By slowing down and focusing, you can sense both ally and enemy.\" Crouch for 4 seconds to activate this perk. While active: You see the Auras of Survivors , the Killer , and a variety of objects. These are revealed in an expanding 44 meter radius.. Revealed objects include Chests , Exit Gate , Generators , Hatch , Items , Pallets , Totems , and Windows . You gain Elusive and Oblivious Status Effects When you stop crouching, or after 11 seconds , all effects of this perk end and it enters a 60 / 50 / 40 seconds cool-down. \"What is friend?\" — Eleven"
+          },
+          {
+            "id": "borrowed-time",
+            "name": "Borrowed Time",
+            "role": "survivor",
+            "character": "Bill",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_borrowedTime.png/96px-IconPerks_borrowedTime.png?5a951f",
+            "description": "\"You are fuelled with an unexpected energy when saving an ally from a hook.\" Whenever you unhook another Survivor, they benefit from the following effects: Extends the duration of the Endurance Status Effect by 6 / 8 / 10 seconds to 16 / 18 / 20 seconds . Endurance is cancelled prematurely when performing a Conspicuous Action of any kind. Extends the duration of the Haste Status Effect by +10 seconds to 20 seconds . \"Probably stings like hell, but it ain't gonna kill ya. Up and at 'em soldier. Time to move!\" — Bill Overbeck"
+          },
+          {
+            "id": "aftercare",
+            "name": "Aftercare",
+            "role": "survivor",
+            "character": "Jeff",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_aftercare.png/96px-IconPerks_aftercare.png?ba64f9",
+            "description": "Unlocks potential in your Aura-reading ability: You see the Auras of the 1 / 2 / 3 most recent Survivor(s) that helped you or vice versa: Rescued from a Hook . Completed a Healing action on. They also see your Aura. Aftercare resets its effects when you are hooked by the Killer. \"A Mercy that Rips the Storm. Oil work to honour my best buddies who happen to be the best musicians I know. Their first album is still my favourite. It got me through a dark time in my life.\" — Jeff, oil on canvas, 16x16"
+          },
+          {
+            "id": "any-means-necessary",
+            "name": "Any Means Necessary",
+            "role": "survivor",
+            "character": "Yui",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_anyMeansNecessary.png/96px-IconPerks_anyMeansNecessary.png?5eb1f2",
+            "description": "\"You stand up for yourself, using whatever's on hand to gain an advantage.\" Unlocks potential in your Aura-reading ability: The Auras of dropped Pallets in the environment are revealed to you. While standing next to a dropped Pallet , press and hold the Active Ability button to trigger the following effect: Resets the Pallet to its upright position over 5 / 4 / 3 seconds . \"I'll hit you with everything I've got. Then I'll do it again.\" — Yui Kimura"
+          }
+        ],
+        "result": "Extrasensory Perception | Borrowed Time | Aftercare | Any Means Necessary",
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png"
+      },
+      {
+        "id": "roll_1789051334363_fs2jf",
+        "timestamp": 1789051334301,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "apocalyptic-ingenuity",
+            "name": "Apocalyptic Ingenuity",
+            "role": "survivor",
+            "character": "Rick",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_apocalypticIngenuity.png/96px-IconPerks_apocalypticIngenuity.png?271ffd",
+            "description": "\"You salvage what little there is to defend your team.\" Unlocks potential in your Aura-reading ability: The Auras of broken Pallets are revealed to you within 24 / 28 / 32 metres . After unlocking or rummaging through 1 Chest , Apocalyptic Ingenuity gains a special ability. While standing next to the location of a broken Pallet , press and hold the Active Ability button for 3 seconds to use it: Rebuilds it as a Fragile Pallet . Fragile Pallets instantly break when dropped. \"Without the fences, this place is worthless.\" — Rick Grimes"
+          },
+          {
+            "id": "pharmacy",
+            "name": "Pharmacy",
+            "role": "survivor",
+            "character": "Quentin",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_pharmacy.png/96px-IconPerks_pharmacy.png?5abc0f",
+            "description": "\"You have a knack for finding medicine.\" While unlocking a Chest , you benefit from the following effects: Increases the Unlocking speed by 75 / 100 / 125 &#37; . Reduces the audible range of all noises related to the Unlocking interaction by -12 metres . Guarantees an Emergency Med-Kit after completing the interaction. \"Adrenaline, it is going to keep us awake. I stole it from one of the Nurse's carts.\" — Quentin Smith"
+          }
+        ],
+        "result": "Apocalyptic Ingenuity | Pharmacy",
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png"
+      },
+      {
+        "id": "roll_1789051334354_t7snl",
+        "timestamp": 1789051334307,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "light-footed",
+            "name": "Light-Footed",
+            "role": "survivor",
+            "character": "Ellen",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_light-Footed.png/96px-IconPerks_light-Footed.png?cdc815",
+            "description": "\"Crossing paths with deadly Killers has taught you the value of discretion.\" Whenever you are healthy, Light-Footed activates: Suppresses the sound of your footsteps while running. Light-Footed has a cool-down of 14 / 12 / 10 seconds after performing a Rush Vault action . \"Come on, cat.\" — Ellen Ripley"
+          },
+          {
+            "id": "teamwork-throw-down",
+            "name": "Teamwork: Throw Down",
+            "role": "survivor",
+            "character": "Michonne",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_teamworkThrowDown.png/96px-IconPerks_teamworkThrowDown.png?69a5fd",
+            "description": "\"You know the best way to even the odds is to empower those around you.\" Whenever you blind the Killer by any means or stun them using a Pallet , Teamwork: Throw Down triggers its effect: Grants the Endurance Status Effect to all other injured Survivors within 24 metres of your location for 6 / 8 / 10 seconds . \"Facing evil brings good people together.\" — Michonne Grimes"
+          }
+        ],
+        "result": "Light-Footed | Teamwork: Throw Down",
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png"
+      },
+      {
+        "id": "roll_1789051319580_xd85x",
+        "timestamp": 1789051319509,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "friendly-competition",
+            "name": "Friendly Competition",
+            "role": "survivor",
+            "character": "Thalita",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_friendlyCompetition.png/96px-IconPerks_friendlyCompetition.png?78ee93",
+            "description": "\"You revel in the community spirit of a competition, and inspire others to follow suit.\" Each time you complete a Generator together with at least one other Survivor, Friendly Competition activates: Increases the Repair speed of all participating Survivors, including yourself, by +5&#160;% for 100 / 110 / 120 seconds . \"C'mon, let's do this!\" — Thalita Lyra"
+          },
+          {
+            "id": "lucky-break",
+            "name": "Lucky Break",
+            "role": "survivor",
+            "character": "Yui",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_luckyBreak.png/96px-IconPerks_luckyBreak.png?69ab01",
+            "description": "\"You have had your share of scrapes and bruises, but luck is always on your side.\" Whenever you are in the Injured State , Lucky Break activates: Suppresses the creation of Pools of Blood and Scratch Marks for up to 40 / 50 / 60 seconds . Whenever you are healing another Survivor, Lucky Break recharges by the same amount of time spent performing the Healing action, up to its initial maximum. Lucky Break deactivates once its timer runs out or whenever your Health State updates to any other but the Injured State . \"That's not enough to beat me. Not even close.\" — Yui Kimura"
+          },
+          {
+            "id": "breakout",
+            "name": "Breakout",
+            "role": "survivor",
+            "character": "Yui",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_breakout.png/96px-IconPerks_breakout.png?6efb27",
+            "description": "\"You kick into high gear when someone is in trouble, inspiring them to overcome any obstacle.\" While within 5 metres of the Killer carrying another Survivor, the following effects apply: Grants you a 6 / 8 / 10 &#37; Haste Status Effect . Increases the Wiggling speed of the carried Survivor by +25&#160;% . Survivors can only be affected by one instance of Breakout at a time. \"Come, we are going to rip our way out of this.\" — Yui Kimura"
+          },
+          {
+            "id": "empathic-connection",
+            "name": "Empathic Connection",
+            "role": "survivor",
+            "character": "Yoichi",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_empathicConnection.png/96px-IconPerks_empathicConnection.png?728368",
+            "description": "\"Your presence psychically projects itself to those in danger.\" You benefit from the following permanent primary effect: Increases your Altruistic Healing speed by 25 / 30 / 35 &#37; . Whenever any other Survivor is injured, Empathic Connection applies its secondary effect: Your Aura as a potential Healer is revealed to them."
+          }
+        ],
+        "result": "Friendly Competition | Lucky Break | Breakout | Empathic Connection",
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png"
+      },
+      {
+        "id": "roll_1789051319566_x5uyq",
+        "timestamp": 1789051319509,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "small-game",
+            "name": "Small Game",
+            "role": "survivor",
+            "character": "All (General)",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_smallGame.png/96px-IconPerks_smallGame.png?6ea11d",
+            "description": "\"You have the undeniable capability to sense danger.\" Projects an invisible cone in the direction you are looking, with a Detection angle of 45 ° and a range of 8 / 10 / 12 metres : Triggers an audio cue when detecting any type of Totem within it. This effect has a cool-down of 14 / 12 / 10 seconds after use. Each time a Totem is cleansed, Small Game gains +1 Token , up to a maximum of 5 Tokens : Reduces the Detection angle of the cone by a stack-able -5 ° per Token, up to a maximum of -25 ° . \"Nope.\" — Andy, The Lost Tapes"
+          },
+          {
+            "id": "we-see-you",
+            "name": "We See You",
+            "role": "survivor",
+            "character": "Eleven",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconsPerks_WeSeeYou.png/96px-IconsPerks_WeSeeYou.png?f6308b",
+            "description": "\"You've honed your powers and can turn the tables on those who try to find you.\" Gain a token when the Killer reveals your Aura . When you have 4 tokens , they are all consumed, and the Killer 's aura is revealed to you and all other Survivors for 10 / 12.5 / 15 seconds . This perk has a 10-second cool-down when gaining a token. \"It is not me. It is you. You are the monster.\" — Eleven"
+          },
+          {
+            "id": "solidarity",
+            "name": "Solidarity",
+            "role": "survivor",
+            "character": "Jane",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_solidarity.png/96px-IconPerks_solidarity.png?ff4662",
+            "description": "\"Sharing painful experiences has the power to heal.\" While injured, healing another Survivor without a Med-Kit causes Solidarity to apply the following effects: Grants the ability to passively heal yourself while healing other Survivors. Reduces your Personal Healing speed to 50 / 60 / 70 &#37; of your Altruistic Healing speed. \"Showing up when things get rough, listening to people's problems, and supporting those in need; that's how you become stronger, that's how you grow.\" — Jane Romero"
+          },
+          {
+            "id": "teamwork-full-circuit",
+            "name": "Teamwork: Full Circuit",
+            "role": "survivor",
+            "character": "Dustin",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconsPerks_TeamworkFullCircuit.png/96px-IconsPerks_TeamworkFullCircuit.png?33a898",
+            "description": "\"You've dabbled with mechanical engineering and show off your abilities to others.\" For each Survivor repairing a generator with you, the size of the good Skill Check zone is increased by 15 / 20 / 25 &#37; . While repairing with at least 1 other Survivor , you repair 5&#160;% faster. \"How many times do I have to be right on the money before you guys just trust me?\" — Dustin Henderson"
+          }
+        ],
+        "result": "Small Game | We See You | Solidarity | Teamwork: Full Circuit",
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png"
+      },
+      {
+        "id": "roll_1789050205819_crz0j",
+        "timestamp": 1789050205733,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "deadline",
+            "name": "Deadline",
+            "role": "survivor",
+            "character": "Alan",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_deadline.png/96px-IconPerks_deadline.png?69d516",
+            "description": "\"Desperation creeps in, and you push yourself to work harder.\" Whenever you are in the Injured State , Deadline activates: Increases the Odds of triggering Skill Checks by 6 / 8 / 10 &#37; while repairing or healing. Causes Skill Checks to appear in random places. Reduces the penalty for missed Skill Checks by -50&#160;% . \"The night had been one desperate situation after another.\" — Departure"
+          },
+          {
+            "id": "teamwork-power-of-two",
+            "name": "Teamwork: Power of Two",
+            "role": "survivor",
+            "character": "Thalita",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_teamworkPowerOfTwo.png/96px-IconPerks_teamworkPowerOfTwo.png?5cdb75",
+            "description": "\"It is hard to keep up with you, but it does not stop people from trying.\" Whenever you finish healing another Survivor, Teamwork: Power of Two activates, and both you and the healed Survivor benefit from the following effect: Grants a +5&#160;% Haste Status Effect for as long as you stay within 8 / 12 / 16 metres of one another. This effect lingers for 4 seconds once out of range and resumes upon re-entering it before that timer elapses. Survivors can only be affected by one instance of Teamwork: Power of Two at a time. \"You good? Then keep up!\" — Thalita Lyra"
+          },
+          {
+            "id": "bardic-inspiration",
+            "name": "Bardic Inspiration",
+            "role": "survivor",
+            "character": "Aestri",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_bardicInspiration.png/96px-IconPerks_bardicInspiration.png?bae2a8",
+            "description": "It's time to give your audience a show. Will you bring the house down or will you choke? Press the Active Ability button while standing and motionless to enter the Performance interaction that lasts up to 15 seconds and empowers other Survivors within 16 metres of your location. The empowering effect depends on the result of you rolling a d20 and lasts for 90 seconds after completing the Performance : 1 : You scream, but without notifying the Killer. 2 - 10 : Skill Checks grant +1&#160;% Progression. 11 - 19 : Skill Checks grant +2&#160;% Progression. 20 : Skill Checks grant +3&#160;% Progression. Bardic Inspiration has a cool-down of 110 / 100 / 90 seconds after completing the Performance or cancelling it. \"Listen closely! I'm about to save your life!\" — Aestri"
+          },
+          {
+            "id": "aftercare",
+            "name": "Aftercare",
+            "role": "survivor",
+            "character": "Jeff",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_aftercare.png/96px-IconPerks_aftercare.png?ba64f9",
+            "description": "Unlocks potential in your Aura-reading ability: You see the Auras of the 1 / 2 / 3 most recent Survivor(s) that helped you or vice versa: Rescued from a Hook . Completed a Healing action on. They also see your Aura. Aftercare resets its effects when you are hooked by the Killer. \"A Mercy that Rips the Storm. Oil work to honour my best buddies who happen to be the best musicians I know. Their first album is still my favourite. It got me through a dark time in my life.\" — Jeff, oil on canvas, 16x16"
+          }
+        ],
+        "result": "Deadline | Teamwork: Power of Two | Bardic Inspiration | Aftercare",
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png"
+      },
+      {
+        "id": "roll_1789050187359_lt8zx",
+        "timestamp": 1789050187270,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "scene-partner",
+            "name": "Scene Partner",
+            "role": "survivor",
+            "character": "Nicolas",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_scenePartner.png/96px-IconPerks_scenePartner.png?8a80ad",
+            "description": "\"You lock in with your co-star, engaging with and reacting to each other on a higher level.\" Whenever you are inside the Terror Radius , Scene Partner activates: Looking at the Killer causes you to scream, which reveals their Aura for 4 / 5 / 6 seconds . There is a chance of 50&#160;% that you will scream again, extending the Aura-reveal duration by another +2 seconds . Scene Partner has a cool-down of 40 seconds . \"This is not in the script!\" — Nicolas Cage"
+          },
+          {
+            "id": "urban-evasion",
+            "name": "Urban Evasion",
+            "role": "survivor",
+            "character": "Nea",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_urbanEvasion.png/96px-IconPerks_urbanEvasion.png?e98ead",
+            "description": "\"Years of evading the cops taught you a thing or two about stealth.\" You benefit from the following permanent effect: Increases your Movement speed while crouched by 90 / 95 / 100 &#37; . \"The paint is still fresh but I am long gone.\" — Nea Karlsson"
+          },
+          {
+            "id": "red-herring",
+            "name": "Red Herring",
+            "role": "survivor",
+            "character": "Zarina",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_redHerring.png/96px-IconPerks_redHerring.png?8db0d1",
+            "description": "\"You have noticed that people pay attention to whatever makes the loudest noise.\" After repairing a Generator for at least 1 second , Red Herring triggers its primary effect: The Aura of that Generator is highlighted to you in yellow . The highlight persists until either of the following occurs: The Generator is completed. You start repairing a different Generator . You enter a Locker . When entering a Locker , Red Herring triggers its secondary effect: Triggers a Loud Noise Notification for the Killer on the highlighted Generator . Red Herring has a cool-down of 25 / 20 / 15 seconds . \"The news edit out what is burdensome and complex. which is the truth.\" — Zarina Kassir"
+          },
+          {
+            "id": "visionary",
+            "name": "Visionary",
+            "role": "survivor",
+            "character": "Felix",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_visionary.png/96px-IconPerks_visionary.png?2a48fc",
+            "description": "\"You are remarkably focused on your means of escape.\" You benefit from the following permanent effect: The Auras of Generators are revealed to you within 32 metres . Visionary is temporarily deactivated for 20 / 18 / 16 seconds whenever a Generator is completed."
+          }
+        ],
+        "result": "Scene Partner | Urban Evasion | Red Herring | Visionary",
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png"
+      },
+      {
+        "id": "roll_1789050167361_83sit",
+        "timestamp": 1789050167265,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "lithe",
+            "name": "Lithe",
+            "role": "survivor",
+            "character": "Feng",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_lithe.png/96px-IconPerks_lithe.png?74ca81",
+            "description": "Whenever you perform a Rushed Vault action, Lithe triggers its effect: Grants a +50&#160;% Haste Status Effect for 3 seconds . Lithe cannot be used while Exhausted . Lithe causes the Exhausted Status Effect for 60 / 50 / 40 seconds . \"U mad?\" — Feng Min"
+          },
+          {
+            "id": "background-player",
+            "name": "Background Player",
+            "role": "survivor",
+            "character": "Renato",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_backgroundPlayer.png/96px-IconPerks_backgroundPlayer.png?cdf056",
+            "description": "\"You are not usually the centre of attention and in some cases, this can be a good thing.\" Whenever the Killer picks up any other Survivor in the Dying State , Background Player activates for 10 seconds . While active, starting to run triggers the following effect: Grants a +50&#160;% Haste Status Effect for 5 seconds . Background Player cannot be used while Exhausted . Background Player causes the Exhausted Status Effect for 30 / 25 / 20 seconds after use. \"You forget about me?\" — Renato Lyra"
+          },
+          {
+            "id": "do-no-harm",
+            "name": "Do No Harm",
+            "role": "survivor",
+            "character": "Orela",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/T_UI_iconsPerks_DoNoHarm.png/96px-T_UI_iconsPerks_DoNoHarm.png?2073b4",
+            "description": "\"Helping those in need comes easily, no matter how dire things get.\" When healing another Survivor, depending on their accumulated Hook Stages , you benefit from the following effects: Increases your Altruistic Healing speed by 30 / 40 / 50 &#37; per Hook Stage , up to a maximum of 60 / 80 / 100 &#37; . Increases the Progression bonus of Great Healing Skill Checks by +3&#160;% per Hook Stage , up to a maximum of +6&#160;% . \"Look at me. My name's Orela, and I'm gonna make sure you're all right.\" — Orela Rose"
+          },
+          {
+            "id": "invocation-weaving-spiders",
+            "name": "Invocation: Weaving Spiders",
+            "role": "survivor",
+            "character": "Sable",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_invocationWeavingSpiders.png/96px-IconPerks_invocationWeavingSpiders.png?fc3a63",
+            "description": "\"The place where fear festers and terror treads is also where those with the gift can reach across the veil.\" When in the Basement near the circle, press the Active Ability button to begin the Invocation , which takes 60 seconds to complete. During an Invocation , your Aura is revealed to all other Survivors and they can join in, accelerating the process by +100&#160;% , if they too have an Invocation Perk equipped, or by +50&#160;% , if they have not. Once the Invocation is completed, the following effects apply: Permanently reduces the Repair Charges requirement of all Generators in the Trial by 8 / 9 / 10 Charges . You automatically enter the Injured State from any previous Health State, and suffer from the Broken Status Effect for the remainder of the Trial. Completing this Invocation disables all other instances of Invocation: Weaving Spiders for the remainder of the Trial. \"I call upon the spirits of the night, to aid us in our desperate flight!\" — Sable"
+          }
+        ],
+        "result": "Lithe | Background Player | Do No Harm | Invocation: Weaving Spiders",
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png"
+      },
+      {
+        "id": "roll_1789050166148_50us9",
+        "timestamp": 1789050166088,
+        "username": "LegionXIZ",
+        "role": "survivor",
+        "perks": [
+          {
+            "id": "slippery-meat",
+            "name": "Slippery Meat",
+            "role": "survivor",
+            "character": "All (General)",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_slipperyMeat.png/96px-IconPerks_slipperyMeat.png?cfb283",
+            "description": "You have developed an efficient way to get off Hooks. Grants the ability to attempt +3 additional Self-Unhooks during the first Hook Stage . Increases the chances to successfully perform a Self-Unhook by 2 / 3 / 4 &#37; ."
+          },
+          {
+            "id": "bada-bada-boom",
+            "name": "Bada Bada Boom",
+            "role": "survivor",
+            "character": "Dustin",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconsPerks_BadaBadaBoom.png/96px-IconsPerks_BadaBadaBoom.png?7a75d9",
+            "description": "\"You may not be a fighter, but you have clever ways of striking back.\" After completing 20&#160;% worth of Generator repairs, Bada Bada Boom activates: While active, press Active Ability button next to a window to install a Trap, which stays active for up to 40 / 50 / 60 seconds . The Trap tiggers when the Killer performs a vault through the window, causing the Killer to suffer from a -50&#160;% Hindered Status Effect for 6 seconds . Bada Bada Boom deactives after triggering successfully or once the timer runs out. The Auras of Trapped Windows are revealed to all Survivors in yellow . \"Never tell me the odds.\" — Dustin Henderson"
+          },
+          {
+            "id": "reactive-healing",
+            "name": "Reactive Healing",
+            "role": "survivor",
+            "character": "Ada",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_reactiveHealing.png/96px-IconPerks_reactiveHealing.png?349e39",
+            "description": "\"The more the situation becomes compromised, the more determined you become to complete the operation.\" Whenever another Survivor within 32 metres of your location loses a Health State by any means while you are in the Injured State , you benefit from the following effect: Grants 40 / 45 / 50 &#37; of your missing Healing Progression towards your Health Bar."
+          },
+          {
+            "id": "troubleshooter",
+            "name": "Troubleshooter",
+            "role": "survivor",
+            "character": "Gabriel",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_troubleshooter.png/96px-IconPerks_troubleshooter.png?662533",
+            "description": "\"No amount of distraction will shake you from your primary task.\" When you are chased by the Killer, Troubleshooter activates: The Aura of the Generator with the most progress is revealed to you. The Aura of the Killer is revealed to you for 4 / 5 / 6 seconds after dropping a Pallet . These effects linger for 6 / 8 / 10 seconds after ending the Chase, after which Troubleshooter deactivates. \"Nothing gets done around here if I don't do it.\" — Gabriel Soma"
+          }
+        ],
+        "result": "Slippery Meat | Bada Bada Boom | Reactive Healing | Troubleshooter",
+        "avatar": "https://static-cdn.jtvnw.net/jtv_user_pictures/b6682840-8050-4738-9753-f8021473cb00-profile_image-300x300.png"
+      },
+      {
+        "id": "roll_1789040660261_nfn9t",
+        "timestamp": 1789040668997,
+        "username": "LegionXIZ",
+        "role": "killer",
+        "perks": [
+          {
+            "id": "unnerving-presence",
+            "name": "Unnerving Presence",
+            "role": "killer",
+            "character": "Trapper",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_unnervingPresence.png/96px-IconPerks_unnervingPresence.png?4837fb",
+            "description": "\"Your presence alone instils great fear.\" While inside your Terror Radius , Survivors performing Repairing or Healing actions suffer from the following effects: Increases the chances of triggering a Skill Check by +10&#160;% . Reduces the Success zone of those Skill Checks by 40 / 50 / 60 &#37; . \"Its presence befalls us.\""
+          },
+          {
+            "id": "no-way-out",
+            "name": "No Way Out",
+            "role": "killer",
+            "character": "Trickster",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_noWayOut.png/96px-IconPerks_noWayOut.png?a1ebe4",
+            "description": "\"You are not going to let just anyone into the VIP room.\" Whenever you hook a Survivor for the first time, No Way Out gains +1 Token . Once the Exit Gates are powered, No Way Out activates: Causes the first Survivor to interact with either Exit Gate Switch to trigger a Loud Noise Notification at their location. Upon triggering the Loud Noise Notification , No Way Out calls upon The Entity for the following effect: Blocks both Exit Gate Switches for 12 seconds . This time is extended by an additional 6 / 9 / 12 seconds per accumulated Token, up to a combined maximum of 36 / 48 / 60 seconds . \"That sound when you bleed... let me hear it again.\" — Ji-Woon Hak"
+          },
+          {
+            "id": "predator",
+            "name": "Predator",
+            "role": "killer",
+            "character": "Wraith",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_predator.png/96px-IconPerks_predator.png?8bbb59",
+            "description": "\"Your acute tracking ability allows you to find lost prey more easily.\" Whenever you lose a Survivor in a Chase , Predator triggers its effect: Their Aura is revealed to you for 4 seconds . Predator has a cool-down of 60 / 50 / 40 seconds . \"Never stop moving and hope you're always two steps ahead of the beast.\" — Unknown, Notebook"
+          },
+          {
+            "id": "forced-penance",
+            "name": "Forced Penance",
+            "role": "killer",
+            "character": "Executioner",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_forcedPenance.png/96px-IconPerks_forcedPenance.png?5ca0a6",
+            "description": "\"Those who stand in the way of duty will suffer harsh judgement.\" Whenever a Survivor triggers a Protection Hit , they suffer from the following effect: Inflicts the Broken Status Effect for 60 / 70 / 80 seconds ."
+          }
+        ],
+        "result": "Unnerving Presence | No Way Out | Predator | Forced Penance",
+        "avatar": "/api/twitch/avatar/LegionXIZ"
+      },
+      {
+        "id": "roll_1789040659235_xzphq",
+        "timestamp": 1789040667967,
+        "username": "LegionXIZ",
+        "role": "killer",
+        "perks": [
+          {
+            "id": "ravenous",
+            "name": "Ravenous",
+            "role": "killer",
+            "character": "Krasue",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_Ravenous.png/96px-IconPerks_Ravenous.png?c9c858",
+            "description": "\"The scent of blood is in the air. Time to feast.\" Whenever you hook a Survivor for the first time, Ravenous gains +1 Token , up to a maximum of 4 Tokens . Once you accumulate 4 Tokens , all Survivors suffer from the following effects: Causes them to scream. Inflicts the Exposed Status Effect for 40 / 50 / 60 seconds . \"Weeping Ginevra's blood streams/The devil smells the weak.\" — Fabbro Barone's \"Ginevra\""
+          },
+          {
+            "id": "game-afoot",
+            "name": "Game Afoot",
+            "role": "killer",
+            "character": "Skull Merchant",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_gameAfoot.png/96px-IconPerks_gameAfoot.png?32875b",
+            "description": "\"First you pick your prey, then you pick it apart.\" Whenever you hit the Survivor with currently the highest cumulative Chase time with a Basic Attack , Game Afoot triggers its primary effect: Causes the Obsession Status to transfer to that Survivor. While chasing the Obsession , performing the Break or Damage action causes Game Afoot to trigger its secondary effect: Grants a +7&#160;% Haste Status Effect for 8 / 9 / 10 seconds . You can only be obsessed with one Survivor at a time. \"This one might actually be a challenge...\" — Sonhadores Sombrios, Issue #3"
+          },
+          {
+            "id": "starstruck",
+            "name": "Starstruck",
+            "role": "killer",
+            "character": "Trickster",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_starstruck.png/96px-IconPerks_starstruck.png?94d656",
+            "description": "\"Your unmatched showmanship dazzles all.\" Whenever you are carrying a Survivor, Starstruck activates: Causes all other Survivors in your Terror Radius to suffer from the Exposed Status Effect . This effect lingers for 26 / 28 / 30 seconds after affected Survivors leave the Terror Radius or Starstruck deactivates. Starstruck deactivates after hooking or dropping the carried Survivor and has a cool-down of 60 seconds . \"Enjoy this moment, few get so close.\" — Ji-Woon Hak"
+          },
+          {
+            "id": "all-shaking-thunder",
+            "name": "All-Shaking Thunder",
+            "role": "killer",
+            "character": "Houndmaster",
+            "icon": "https://deadbydaylight.wiki.gg/images/thumb/IconPerks_allShakingThunder.png/96px-IconPerks_allShakingThunder.png?9546d5",
+            "description": "\"Enemies on land and sea learned to tremble before your might.\" After falling from a height, All-Shaking Thunder activates for 15 / 20 / 25 seconds : Increases the range of your Lunge Attack by +75&#160;% . All-Shaking Thunder has a cool-down of 5 seconds . \"Go on. Run. Tell your friends I'm coming for them.\" — Portia Maye"
+          }
+        ],
+        "result": "Ravenous | Game Afoot | Starstruck | All-Shaking Thunder",
+        "avatar": "/api/twitch/avatar/LegionXIZ"
+      },
       {
         "id": "roll_1789019585683_hb3c2",
         "timestamp": 1789019585679,

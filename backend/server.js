@@ -16,10 +16,21 @@ import { syncDbdPerks } from './scripts/scrape_dbd_perks.js';
 import { initDatabase, syncStore, saveAllItems, syncTickets, saveAllTickets, deleteTicketFromMongo } from './database.js';
 import * as spotify from './spotify.js';
 
+import { safeWriteJson, safeReadJson } from './fileUtils.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config();
+
+// 🛡️ Process-Level Crash Protection
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Process] ⚠️ Unhandled Promise Rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[Process] 💥 Uncaught Exception:', err);
+});
 
 const app = express();
 const server = http.createServer(app);
@@ -274,6 +285,29 @@ function isWidgetGloballyEnabled(widgetId) {
   return true;
 }
 
+function isUserAllowedForWidget(userId, username, widgetId) {
+  if (!widgetId) return true;
+  // ผู้ดูแลระบบ (Admin) มีสิทธิ์เข้าถึงทุก Widget เสมอ
+  if (isUserAdmin(userId, username)) return true;
+
+  const status = globalWidgetStatus[widgetId];
+  if (!status) return true; // ค่าเริ่มต้นคือเปิดให้ทุกคน (all)
+
+  // ถ้าไม่ได้เลือกโหมด 'specific' แสดงว่าเป็น 'all' (ทุกคนใช้ได้)
+  if (status.accessMode !== 'specific') return true;
+
+  const allowed = Array.isArray(status.allowedUsers) ? status.allowedUsers : [];
+  if (allowed.length === 0) return false;
+
+  const uId = String(userId || '').trim().toLowerCase();
+  const uName = String(username || '').trim().toLowerCase();
+
+  return allowed.some(item => {
+    const target = String(item || '').trim().toLowerCase();
+    return (uId && target === uId) || (uName && target === uName);
+  });
+}
+
 function isWidgetUserEnabled(userId, widgetId) {
   if (!widgetId) return true;
   const u = userId || 'default';
@@ -283,20 +317,35 @@ function isWidgetUserEnabled(userId, widgetId) {
   return true;
 }
 
-function isWidgetActiveForUser(userId, widgetId) {
+function isWidgetActiveForUser(userId, widgetId, username = '') {
   if (!isWidgetGloballyEnabled(widgetId)) return false;
+  if (!isUserAllowedForWidget(userId, username, widgetId)) return false;
   if (!isWidgetUserEnabled(userId, widgetId)) return false;
   return true;
 }
 
-// 1.5 GET /api/widgets/status-overview — สรุปสถานะเปิด/ปิดของทุก Widget (ต้องมาก่อน :id route)
+// 1.5 GET /api/widgets/status-overview — สรุปสถานะเปิด/ปิดและสิทธิ์ของทุก Widget
 app.get('/api/widgets/status-overview', (req, res) => {
   try {
-    const user = req.query.user || req.query.userId || '';
+    const session = getSessionFromReq(req);
+    const user = req.query.user || req.query.userId || session?.userId || '';
+    const username = req.query.username || req.query.channel || session?.username || '';
     const userMap = user && userWidgetStatus[user] ? userWidgetStatus[user] : (userWidgetStatus['default'] || {});
+
+    // คำนวณสถานะสิทธิ์การเข้าถึงสำหรับผู้ใช้คนนี้
+    const accessMap = {};
+    for (const [wId, s] of Object.entries(globalWidgetStatus)) {
+      accessMap[wId] = {
+        hasAccess: isUserAllowedForWidget(user, username, wId),
+        accessMode: s?.accessMode || 'all',
+        allowedUsersCount: Array.isArray(s?.allowedUsers) ? s.allowedUsers.length : 0
+      };
+    }
+
     res.json({
       global: globalWidgetStatus,
-      user: userMap
+      user: userMap,
+      access: accessMap
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -433,6 +482,10 @@ app.get('/widgets/:id/index.html', (req, res) => {
   if (!fs.existsSync(widgetDir)) return res.status(404).send('Widget not found');
 
   try {
+    const user = req.query.user || req.query.channel || 'default';
+    const channel = req.query.channel || '';
+    const isActive = isWidgetActiveForUser(user, widgetId, channel);
+
     // If index.html already exists, express.static would have served it.
     // So if we reach here, we dynamically compile it from .txt files
     const html = fs.existsSync(path.join(widgetDir, 'html.txt')) ? fs.readFileSync(path.join(widgetDir, 'html.txt'), 'utf8') : '';
@@ -444,13 +497,18 @@ app.get('/widgets/:id/index.html', (req, res) => {
 <head>
   <meta charset="UTF-8">
   <title>${widgetId} Widget</title>
+  <script>
+    window.__SOLOCAST_INITIAL_ACTIVE = ${isActive};
+    window.__SOLOCAST_WIDGET_ID = ${JSON.stringify(widgetId)};
+    window.__SOLOCAST_USER = ${JSON.stringify(user)};
+  </script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/adapter.js"></script>
   <style>
 ${css}
   </style>
 </head>
-<body>
+<body style="${!isActive ? 'display: none !important;' : ''}">
 ${html}
 <script>
 ${js}
@@ -618,17 +676,30 @@ app.post('/api/widgets/:id/settings', (req, res) => {
 app.get('/api/widgets/:id/live-status', (req, res) => {
   const widgetId = req.params.id;
   const user = req.query.user || req.query.channel || 'default';
+  const channel = req.query.channel || '';
   const globalEnabled = isWidgetGloballyEnabled(widgetId);
+  const userAllowed = isUserAllowedForWidget(user, channel, widgetId);
   const userEnabled = isWidgetUserEnabled(user, widgetId);
-  const active = globalEnabled && userEnabled;
-  const globalStatus = globalWidgetStatus[widgetId] || { enabled: true };
+  const active = globalEnabled && userAllowed && userEnabled;
+  const globalStatus = globalWidgetStatus[widgetId] || { enabled: true, accessMode: 'all' };
+
+  let reason = '';
+  if (!globalEnabled) {
+    reason = globalStatus.reason || 'ปิดปรับปรุงโดยผู้ดูแลระบบ';
+  } else if (!userAllowed) {
+    reason = 'Widget นี้เปิดให้ใช้งานเฉพาะสตรีมเมอร์ที่ได้รับอนุญาตเท่านั้น';
+  } else if (!userEnabled) {
+    reason = 'ปิดใช้งานโดยผู้ใช้';
+  }
 
   res.json({
     widgetId,
     active,
     globalEnabled,
+    userAllowed,
     userEnabled,
-    reason: !globalEnabled ? (globalStatus.reason || 'ปิดปรับปรุงโดยผู้ดูแลระบบ') : (!userEnabled ? 'ปิดใช้งานโดยผู้ใช้' : '')
+    accessMode: globalStatus.accessMode || 'all',
+    reason
   });
 });
 
@@ -638,7 +709,16 @@ app.post('/api/user/widgets/:id/status', (req, res) => {
     const widgetId = req.params.id;
     const session = getSessionFromReq(req);
     const userId = req.body.user || req.body.userId || session?.userId || 'default';
+    const username = req.body.username || session?.username || '';
     const enabled = Boolean(req.body.enabled);
+
+    // ตรวจสอบสิทธิ์ว่าผู้ใช้ได้รับอนุญาตให้ใช้ Widget นี้หรือไม่
+    if (!isUserAllowedForWidget(userId, username, widgetId)) {
+      return res.status(403).json({
+        error: 'คุณไม่ได้รับสิทธิ์ให้ใช้งาน Widget นี้ (สงวนสิทธิ์เฉพาะผู้ใช้ที่ได้รับอนุญาต)',
+        accessDenied: true
+      });
+    }
 
     // หากผู้ดูแลระบบปิด Widget นี้ไว้ทั้งระบบ ไม่อนุญาตให้ผู้ใช้ทั่วไปเปิดใช้งาน
     if (!isWidgetGloballyEnabled(widgetId) && enabled) {
@@ -683,6 +763,7 @@ app.post('/api/admin/widgets/:id/global-status', checkAdminAuth, (req, res) => {
     const adminUser = req.user?.username || req.user?.displayName || 'Admin';
 
     globalWidgetStatus[widgetId] = {
+      ...(globalWidgetStatus[widgetId] || {}),
       enabled,
       reason: enabled ? '' : (reason || 'ปิดปรับปรุงระบบชั่วคราวโดยผู้ดูแลระบบ'),
       updatedAt: Date.now(),
@@ -706,6 +787,90 @@ app.post('/api/admin/widgets/:id/global-status', checkAdminAuth, (req, res) => {
 
     console.log(`[Widget Status] 🛡️ Admin ${adminUser} set global status for "${widgetId}" to ${enabled ? 'ENABLED' : 'DISABLED'} (${reason})`);
     res.json({ success: true, widgetId, status: globalWidgetStatus[widgetId] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/admin/widgets/:id/access — ผู้ดูแลระบบกำหนดสิทธิ์การใช้งาน Widget (All Users หรือ Specific Users)
+app.post('/api/admin/widgets/:id/access', checkAdminAuth, (req, res) => {
+  try {
+    const widgetId = req.params.id;
+    const accessMode = req.body.accessMode === 'specific' ? 'specific' : 'all';
+    const rawAllowed = Array.isArray(req.body.allowedUsers) ? req.body.allowedUsers : [];
+    const allowedUsers = Array.from(new Set(rawAllowed.map(u => String(u).trim()).filter(Boolean)));
+    const adminUser = req.user?.username || req.user?.displayName || 'Admin';
+
+    globalWidgetStatus[widgetId] = {
+      ...(globalWidgetStatus[widgetId] || {}),
+      enabled: globalWidgetStatus[widgetId]?.enabled !== false,
+      reason: globalWidgetStatus[widgetId]?.reason || '',
+      accessMode,
+      allowedUsers,
+      updatedAt: Date.now(),
+      updatedBy: adminUser
+    };
+    saveGlobalWidgetStatus(globalWidgetStatus);
+
+    // แจ้งเตือน WebSocket ไปยังทุก Client
+    io.emit('widget_access_changed', {
+      widgetId,
+      accessMode,
+      allowedUsers,
+      updatedBy: adminUser
+    });
+    io.emit('widget_status_updated', {
+      widgetId,
+      accessMode,
+      type: 'access'
+    });
+
+    console.log(`[Widget Access] 🛡️ Admin ${adminUser} set access for "${widgetId}" to ${accessMode.toUpperCase()} (${allowedUsers.length} users allowed)`);
+    res.json({ success: true, widgetId, status: globalWidgetStatus[widgetId] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/admin/users — ดึงรายชื่อผู้ใช้ที่เคยล็อกอินทั้งหมด (สำหรับเลือก Whitelist)
+app.get('/api/admin/users', checkAdminAuth, (req, res) => {
+  try {
+    const userMap = new Map();
+
+    // 1. จาก Sessions
+    for (const session of Object.values(sessions)) {
+      if (session && session.userId) {
+        const uid = String(session.userId);
+        if (!userMap.has(uid)) {
+          userMap.set(uid, {
+            userId: uid,
+            username: session.username || '',
+            displayName: session.displayName || session.username || uid,
+            isAdmin: Boolean(session.isAdmin)
+          });
+        }
+      }
+    }
+
+    // 2. จาก userTokens (Twurple)
+    for (const uid of Object.keys(userTokens)) {
+      if (uid && !userMap.has(uid)) {
+        userMap.set(uid, {
+          userId: uid,
+          username: uid,
+          displayName: uid,
+          isAdmin: isUserAdmin(uid)
+        });
+      }
+    }
+
+    const users = Array.from(userMap.values()).sort((a, b) => {
+      if (a.isAdmin && !b.isAdmin) return -1;
+      if (!a.isAdmin && b.isAdmin) return 1;
+      return (a.displayName || a.username || '').localeCompare(b.displayName || b.username || '');
+    });
+
+    res.json(users);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1424,6 +1589,10 @@ function startEventSub(userId) {
 
   try {
     el.onChannelShoutoutCreate(userId, userId, (e) => {
+      if (!isWidgetActiveForUser(userId, 'twitch-shoutout')) {
+        console.log(`[EventSub] ⚠️ Shoutout widget is DISABLED for user ${userId}, skipping shoutout event`);
+        return;
+      }
       console.log(`[EventSub] 📢 Shoutout created on channel ${userId} for: ${e.shoutedOutBroadcasterName}`);
       const ev = {
         type: 'shoutout',
@@ -1455,6 +1624,12 @@ function startEventSub(userId) {
       const isSrCmd = cmd === '!sr';
 
       if (isSoCmd) {
+        // ตรวจสอบสถานะว่า Shoutout Widget เปิดใช้งานอยู่หรือไม่
+        if (!isWidgetActiveForUser(userId, 'twitch-shoutout')) {
+          console.log(`[Twitch Chat Command] ⚠️ Shoutout widget is DISABLED for user ${userId}, ignoring !so command`);
+          return;
+        }
+
         // ตรวจสอบคำสั่ง !so <channel> หรือ !shoutout <channel>
         const targetChannel = parts[1].replace('@', '').toLowerCase();
         console.log(`[Twitch Chat Command] 📢 Detected ${parts[0]} for "${targetChannel}" from ${e.chatterName}`);
@@ -1473,9 +1648,21 @@ function startEventSub(userId) {
         io.to('user_' + userId).emit('onEventReceived', soEv);
       } else if (isSrCmd) {
         // คำสั่ง !sr <ชื่อเพลง / Spotify URL> — ขอเพลงจาก Spotify
-        const query = parts.slice(1).join(' ').trim();
         const chatterName = e.chatterName || 'viewer';
         const displayName = e.chatterDisplayName || chatterName;
+
+        // ตรวจสอบสถานะว่า Spotify SR Widget เปิดใช้งานอยู่หรือไม่
+        if (!isWidgetActiveForUser(userId, 'spotify-sr')) {
+          console.log(`[Spotify SR] ⚠️ Spotify SR widget is DISABLED for user ${userId}, ignoring !sr command`);
+          try {
+            await apiClient?.asUser(userId, async (ctx) => {
+              await ctx.chat.sendChatMessage(userId, `@${displayName} ขออภัยด้วยนะ ระบบขอเพลง (Spotify Song Request) ของช่องนี้ถูกปิดใช้งานอยู่ชั่วคราว ⚠️`);
+            });
+          } catch (_) {}
+          return;
+        }
+
+        const query = parts.slice(1).join(' ').trim();
 
         // ถ้าพิมพ์แค่ !sr โดยไม่มีชื่อเพลง
         if (!query) {
@@ -1614,6 +1801,18 @@ io.on('connection', (socket) => {
     if (targetUserId) {
       socket.join('user_' + targetUserId);
       console.log(`Socket ${socket.id} joined room user_${targetUserId}`);
+    }
+  });
+
+  // ให้ Overlay หรือ Browser Source เข้าร่วมห้องประจำ Channel
+  socket.on('join_channel', (payload) => {
+    const channelName = typeof payload === 'string' ? payload : (payload?.channel || payload?.user);
+    if (channelName && typeof channelName === 'string') {
+      const clean = channelName.trim().toLowerCase().replace('@', '');
+      if (clean) {
+        socket.join('channel_' + clean);
+        console.log(`Socket ${socket.id} joined room channel_${clean}`);
+      }
     }
   });
 
@@ -2000,6 +2199,10 @@ app.post('/api/spotify/request', checkUserAuth, async (req, res) => {
     if (!query) return res.status(400).json({ error: 'กรุณากรอกชื่อเพลงหรือ Spotify URL' });
 
     const userId = req.user?.userId || '';
+    const username = req.user?.username || '';
+    if (!isUserAllowedForWidget(userId, username, 'spotify-sr')) {
+      return res.status(403).json({ error: 'คุณไม่ได้รับสิทธิ์ให้ใช้งาน Widget ขอเพลง Spotify (เฉพาะผู้ใช้ที่ได้รับอนุญาตจาก Admin)' });
+    }
     const accessToken = await spotify.getValidAccessToken(userId || undefined);
     if (!accessToken) {
       return res.status(503).json({ error: 'ยังไม่ได้เชื่อมต่อ Spotify กรุณา Connect ก่อน' });
@@ -2131,6 +2334,18 @@ if (fs.existsSync(frontendDist)) {
   });
 }
 
+// 🛡️ Global Express Error Handling Middleware
+app.use((err, req, res, next) => {
+  console.error(`[Express Error] 💥 Error on ${req.method} ${req.url}:`, err.stack || err.message);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(err.status || 500).json({
+    error: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง',
+    message: process.env.NODE_ENV === 'production' ? undefined : err.message
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, async () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
@@ -2143,7 +2358,7 @@ server.listen(PORT, async () => {
       try {
         const token = spotify.getSpotifyUserToken(undefined);
         if (!token) return;
-        const uid = token.spotifyUserId || Object.keys({}).find(Boolean) || 'default';
+        const uid = token.spotifyUserId || 'default';
         const accessToken = await spotify.getValidAccessToken(undefined);
         if (!accessToken) return;
         const current = await spotify.getCurrentlyPlaying(accessToken);
