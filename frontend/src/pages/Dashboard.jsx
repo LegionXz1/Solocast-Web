@@ -287,6 +287,7 @@ function Dashboard() {
 
   // DBD Perks State & Search
   const [dbdPerksList, setDbdPerksList] = useState({ survivor: [], killer: [] });
+  const [dbdBlacklistRole, setDbdBlacklistRole] = useState('survivor');
   const [dbdSearchQuery, setDbdSearchQuery] = useState('');
   const [isSyncingPerks, setIsSyncingPerks] = useState(false);
   const [syncPerksSuccess, setSyncPerksSuccess] = useState('');
@@ -668,7 +669,7 @@ function Dashboard() {
             setCounterCount(d.count);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [selectedWidget, status.userId]);
 
@@ -812,7 +813,7 @@ function Dashboard() {
     setPreviewKey(prev => prev + 1);
   };
 
-  const handleTriggerPreview = () => {
+  const handleTriggerPreview = (overrideRole) => {
     if (selectedWidget === 'twitch-shoutout') {
       const ch = (shoutoutChannel || status.username || 'legionxiz').trim().toLowerCase().replace('@', '');
       socket.emit('simulate_shoutout', {
@@ -825,7 +826,7 @@ function Dashboard() {
         data: { username: ch, channel: ch }
       }, ...prev].slice(0, 5));
     } else if (selectedWidget === 'dbd-perks') {
-      const curRole = fieldData.role || 'survivor';
+      const curRole = typeof overrideRole === 'string' ? overrideRole : (dbdBlacklistRole || 'survivor');
       const testUser = status.username || 'Streamer';
       socket.emit('simulate_dbd_perk', {
         userId: status.userId,
@@ -1314,7 +1315,7 @@ function Dashboard() {
                   color: '#60a5fa',
                   border: '1px solid rgba(59, 130, 246, 0.3)'
                 }}>
-                  v2.0 PRO
+                  v1.2.0
                 </span>
               </div>
               <h1 className="my-overlays-title">แผงควบคุม Overlays</h1>
@@ -1578,8 +1579,8 @@ function Dashboard() {
                 const categoryLabel = meta.category === 'twitch'
                   ? 'Twitch & Chat'
                   : meta.category === 'spotify'
-                  ? 'Spotify Music'
-                  : 'DBD & Games';
+                    ? 'Spotify Music'
+                    : 'DBD & Games';
 
                 return (
                   <div
@@ -1622,10 +1623,10 @@ function Dashboard() {
                             !wStatus.hasAccess
                               ? 'เฉพาะผู้ใช้ที่ได้รับอนุญาตจาก Admin'
                               : !wStatus.globalEnabled
-                              ? 'แอดมินปิดปรับปรุงทั้งระบบ'
-                              : wStatus.userEnabled
-                              ? 'เปิดอยู่ (คลิกเพื่อปิดใช้งานใน OBS)'
-                              : 'ปิดอยู่ (คลิกเพื่อเปิดใช้งานใน OBS)'
+                                ? 'แอดมินปิดปรับปรุงทั้งระบบ'
+                                : wStatus.userEnabled
+                                  ? 'เปิดอยู่ (คลิกเพื่อปิดใช้งานใน OBS)'
+                                  : 'ปิดอยู่ (คลิกเพื่อเปิดใช้งานใน OBS)'
                           }
                         >
                           {isUserToggleLoading ? (
@@ -1637,10 +1638,10 @@ function Dashboard() {
                             {!wStatus.hasAccess
                               ? 'เฉพาะผู้ได้รับสิทธิ์'
                               : !wStatus.globalEnabled
-                              ? 'ล็อคระบบ'
-                              : wStatus.userEnabled
-                              ? 'เปิดใช้งาน'
-                              : 'ปิดใช้งาน'}
+                                ? 'ล็อคระบบ'
+                                : wStatus.userEnabled
+                                  ? 'เปิดใช้งาน'
+                                  : 'ปิดใช้งาน'}
                           </span>
                         </button>
                       </div>
@@ -1795,8 +1796,8 @@ function Dashboard() {
                       !curWs.globalEnabled
                         ? 'แอดมินปิดปรับปรุงทั้งระบบ'
                         : curWs.userEnabled
-                        ? 'เปิดอยู่ (คลิกเพื่อปิดใช้งานใน OBS)'
-                        : 'ปิดอยู่ (คลิกเพื่อเปิดใช้งานใน OBS)'
+                          ? 'เปิดอยู่ (คลิกเพื่อปิดใช้งานใน OBS)'
+                          : 'ปิดอยู่ (คลิกเพื่อเปิดใช้งานใน OBS)'
                     }
                     style={{ padding: '0.48rem 1rem', fontSize: '0.82rem' }}
                   >
@@ -1805,8 +1806,8 @@ function Dashboard() {
                       {!curWs.globalEnabled
                         ? 'ล็อคระบบ'
                         : curWs.userEnabled
-                        ? 'เปิดใช้งาน'
-                        : 'ปิดใช้งาน'}
+                          ? 'เปิดใช้งาน'
+                          : 'ปิดใช้งาน'}
                     </span>
                   </button>
                 );
@@ -1950,8 +1951,8 @@ function Dashboard() {
                               {!currentWs.globalEnabled
                                 ? (currentWs.reason || 'ผู้ดูแลระบบปิดปรับปรุง Widget นี้ชั่วคราว จึงไม่สามารถเปิดใช้งานหรือตั้งค่าได้')
                                 : !currentWs.hasAccess
-                                ? 'สงวนสิทธิ์เฉพาะผู้ใช้ที่ได้รับอนุญาตจาก Admin'
-                                : 'กรุณาเปิดใช้งาน Widget ก่อน เพื่อเริ่มปรับแต่งการตั้งค่า'}
+                                  ? 'สงวนสิทธิ์เฉพาะผู้ใช้ที่ได้รับอนุญาตจาก Admin'
+                                  : 'กรุณาเปิดใช้งาน Widget ก่อน เพื่อเริ่มปรับแต่งการตั้งค่า'}
                             </p>
                             {currentWs.globalEnabled && currentWs.hasAccess && (
                               <button
@@ -2076,8 +2077,8 @@ function Dashboard() {
                             {!currentWs.globalEnabled
                               ? (currentWs.reason || 'ผู้ดูแลระบบปิดปรับปรุง Widget นี้ชั่วคราว จึงไม่สามารถแสดงผลหรือใช้งานใน OBS ได้')
                               : !currentWs.hasAccess
-                              ? 'คุณไม่ได้รับสิทธิ์ให้ใช้งาน Widget นี้ (สงวนสิทธิ์เฉพาะผู้ใช้ที่ได้รับอนุญาตจาก Admin)'
-                              : 'Widget นี้ถูกปิดการทำงานไว้ จึงไม่มีการตั้งค่าและไม่มีการแสดงผลใน OBS Studio กรุณาเปิดใช้งานก่อนเพื่อเริ่มตั้งค่า'}
+                                ? 'คุณไม่ได้รับสิทธิ์ให้ใช้งาน Widget นี้ (สงวนสิทธิ์เฉพาะผู้ใช้ที่ได้รับอนุญาตจาก Admin)'
+                                : 'Widget นี้ถูกปิดการทำงานไว้ จึงไม่มีการตั้งค่าและไม่มีการแสดงผลใน OBS Studio กรุณาเปิดใช้งานก่อนเพื่อเริ่มตั้งค่า'}
                           </p>
                           {currentWs.globalEnabled && currentWs.hasAccess && (
                             <button
@@ -2143,16 +2144,29 @@ function Dashboard() {
                                   </button>
                                 </div>
                               ) : selectedWidget === 'dbd-perks' ? (
-                                <button
-                                  type="button"
-                                  onClick={handleTriggerPreview}
-                                  className="btn-preview-action accent"
-                                  title="ทดสอบสุ่มเปิร์ค DBD ทันที"
-                                >
-                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                    <Dices size={14} /> สุ่มเปิร์ค DBD (Test Roll)
-                                  </span>
-                                </button>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTriggerPreview('survivor')}
+                                    className="btn-preview-action accent"
+                                    title="ทดสอบสุ่มเปิร์ค Survivor (ผู้รอดชีวิต)"
+                                  >
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                      <Dices size={14} /> สุ่ม Survivor
+                                    </span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTriggerPreview('killer')}
+                                    className="btn-preview-action"
+                                    style={{ borderColor: 'rgba(239, 68, 68, 0.4)', color: '#f87171' }}
+                                    title="ทดสอบสุ่มเปิร์ค Killer (ฆาตกร)"
+                                  >
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                      <Dices size={14} /> สุ่ม Killer
+                                    </span>
+                                  </button>
+                                </div>
                               ) : selectedWidget === 'spotify-sr' ? (
                                 <button
                                   type="button"
@@ -2574,7 +2588,7 @@ function Dashboard() {
 
                             {/* DBD Perks Searchable Blacklist / Exclude Section */}
                             {selectedWidget === 'dbd-perks' && (() => {
-                              const currentRole = fieldData.role || 'survivor';
+                              const currentRole = dbdBlacklistRole || 'survivor';
                               const rolePerks = dbdPerksList[currentRole] || [];
                               const excludedList = Array.isArray(fieldData.excludedPerks) ? fieldData.excludedPerks : [];
                               const query = (dbdSearchQuery || '').trim().toLowerCase();
@@ -2630,7 +2644,7 @@ function Dashboard() {
                                       <div style={{ display: 'inline-flex', background: 'rgba(255, 255, 255, 0.05)', padding: '3px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
                                         <button
                                           type="button"
-                                          onClick={() => handleFieldChange('role', 'survivor')}
+                                          onClick={() => setDbdBlacklistRole('survivor')}
                                           style={{
                                             border: 'none',
                                             padding: '6px 14px',
@@ -2646,7 +2660,7 @@ function Dashboard() {
                                         </button>
                                         <button
                                           type="button"
-                                          onClick={() => handleFieldChange('role', 'killer')}
+                                          onClick={() => setDbdBlacklistRole('killer')}
                                           style={{
                                             border: 'none',
                                             padding: '6px 14px',
@@ -2771,10 +2785,11 @@ function Dashboard() {
                                             <div className="dbd-perk-icon-wrapper">
                                               <div className="dbd-perk-diamond-bg" />
                                               <img
-                                                src={perk.icon}
+                                                src={perk.icon ? (perk.icon.startsWith('http') ? perk.icon : `${API_BASE}${perk.icon}`) : ''}
                                                 alt={perk.name}
                                                 className="dbd-perk-img"
                                                 loading="lazy"
+                                                referrerPolicy="no-referrer"
                                                 onError={(e) => { e.target.style.opacity = '0.3'; }}
                                               />
                                             </div>
@@ -3756,7 +3771,7 @@ function Dashboard() {
                                         <div className="roll-dbd-perks" style={{ width: '100%' }}>
                                           {item.perks.map((p, idx) => (
                                             <div key={idx} className="roll-dbd-perk-item" title={p.description || p.name}>
-                                              <img src={p.icon} alt={p.name} className="roll-dbd-perk-thumb" />
+                                              <img src={p.icon ? (p.icon.startsWith('http') ? p.icon : `${API_BASE}${p.icon}`) : ''} alt={p.name} className="roll-dbd-perk-thumb" />
                                               <span style={{ fontWeight: 600 }}>{p.name}</span>
                                               {p.character && (
                                                 <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', opacity: 0.85 }}>({p.character})</span>

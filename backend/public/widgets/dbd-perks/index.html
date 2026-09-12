@@ -49,39 +49,39 @@
     .dbd-user-pill {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      gap: 10px;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(12px);
+      border: 1.5px solid rgba(255, 255, 255, 0.2);
       border-radius: 9999px;
-      padding: 4px 14px 4px 6px;
-      margin-bottom: 20px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+      padding: 6px 18px 6px 8px;
+      margin-bottom: 28px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7);
     }
 
     .dbd-avatar {
-      width: 24px;
-      height: 24px;
+      width: 34px;
+      height: 34px;
       border-radius: 50%;
       object-fit: cover;
       background: #111;
-      border: 1.5px solid rgba(255, 255, 255, 0.3);
+      border: 2px solid rgba(255, 255, 255, 0.4);
     }
 
     .dbd-username {
-      font-size: 0.85rem;
-      font-weight: 700;
+      font-size: 1.05rem;
+      font-weight: 800;
       color: #FFFFFF;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
     }
 
     .dbd-role-tag {
-      font-size: 0.7rem;
+      font-size: 0.82rem;
       font-weight: 800;
       text-transform: uppercase;
-      padding: 2px 7px;
+      padding: 3px 9px;
       border-radius: 6px;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.05em;
     }
 
     .dbd-role-tag.survivor {
@@ -97,16 +97,16 @@
     }
 
     :root {
-      --icon-size: 94px;
-      --diamond-size: 68px;
+      --icon-size: 280px;
+      --diamond-size: 202px;
     }
 
-    /* Clean Horizontal Perks Row */
+    /* Clean Horizontal Perks Row - Optimized for 1920x1080 Broadcast Stream */
     .perks-row {
       display: flex;
       align-items: flex-start;
       justify-content: center;
-      gap: 28px;
+      gap: clamp(24px, calc(var(--icon-size) * 0.16), 56px);
       flex-wrap: nowrap;
     }
 
@@ -114,7 +114,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      width: calc(var(--icon-size) + 36px);
+      width: calc(var(--icon-size) + 40px);
       text-align: center;
       transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
@@ -128,16 +128,16 @@
       position: relative;
     }
 
-    /* Iconic DBD Diamond Perk Frame */
+    /* Iconic DBD Tier-3 Very Rare Diamond Frame */
     .perk-diamond-bg {
       position: absolute;
       width: var(--diamond-size);
       height: var(--diamond-size);
-      background: #231038;
-      border: 2px solid #9333EA;
+      background: radial-gradient(circle at 35% 35%, #581c87 0%, #2e1065 60%, #150529 100%);
+      border: 4px solid #c084fc;
       transform: rotate(45deg);
-      border-radius: 6px;
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.75);
+      border-radius: 16px;
+      box-shadow: 0 0 32px rgba(168, 85, 247, 0.6), 0 12px 28px rgba(0, 0, 0, 0.9);
       transition: all 0.25s ease;
     }
 
@@ -159,7 +159,7 @@
     }
 
     .perk-slot.locked .perk-diamond-bg {
-      box-shadow: 0 0 16px rgba(147, 51, 234, 0.5), 0 6px 16px rgba(0, 0, 0, 0.75);
+      box-shadow: 0 0 38px rgba(192, 132, 252, 0.8), 0 12px 28px rgba(0, 0, 0, 0.9);
       animation: lockPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
@@ -176,30 +176,33 @@
     .perk-icon-img {
       position: relative;
       z-index: 2;
-      width: 76px;
-      height: 76px;
+      width: calc(var(--icon-size) * 0.86);
+      height: calc(var(--icon-size) * 0.86);
+      max-width: 100%;
+      max-height: 100%;
       object-fit: contain;
-      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.8));
+      filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.9));
       transition: transform 0.25s ease;
     }
 
     .perk-name {
-      margin-top: 12px;
-      font-size: 0.88rem;
-      font-weight: 700;
+      margin-top: clamp(16px, calc(var(--icon-size) * 0.08), 24px);
+      font-size: clamp(1.1rem, calc(var(--icon-size) * 0.095), 1.65rem);
+      font-weight: 800;
       color: #FFFFFF;
       line-height: 1.25;
-      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95), 0 0 2px #000;
+      text-shadow: 0 3px 10px rgba(0, 0, 0, 0.95), 0 0 4px #000;
       word-break: break-word;
+      max-width: calc(var(--icon-size) + 40px);
     }
 
     .perk-char {
-      margin-top: 3px;
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: #CBD5E1;
-      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 0 2px #000;
-      opacity: 0.9;
+      margin-top: 5px;
+      font-size: clamp(0.9rem, calc(var(--icon-size) * 0.072), 1.25rem);
+      font-weight: 700;
+      color: #E2E8F0;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95), 0 0 3px #000;
+      opacity: 0.95;
     }
   </style>
   <script src="/socket.io/socket.io.js"></script>
@@ -224,7 +227,9 @@
     let config = {
       role: 'survivor',
       perkCount: 4,
-      rewardName: 'สุ่มเปิร์ค DBD',
+      rewardNameSurvivor: 'สุ่มเปิร์ค ผู้รอดชีวิต',
+      rewardNameKiller: 'สุ่มเปิร์ค ฆาตกร',
+      iconScale: 280,
       enableVisualOverlay: true,
       showUserPill: true,
       showPerkName: true,
@@ -326,7 +331,7 @@
       });
 
       if (config.iconScale) {
-        const sz = parseInt(config.iconScale, 10) || 94;
+        const sz = parseInt(config.iconScale, 10) || 280;
         document.documentElement.style.setProperty('--icon-size', `${sz}px`);
         document.documentElement.style.setProperty('--diamond-size', `${Math.round(sz * 0.72)}px`);
       }
@@ -357,27 +362,61 @@
       if (obj.listener === 'redemption-latest' || obj.event?.type === 'redemption' || obj.type === 'redemption') {
         const ev = obj.event || obj;
         const rewardTitle = (ev.data?.rewardTitle || ev.reward?.title || '').trim().toLowerCase();
-        const configuredReward = (config.rewardName || 'สุ่มเปิร์ค DBD').trim().toLowerCase();
+        const survReward = (config.rewardNameSurvivor || 'สุ่มเปิร์ค ผู้รอดชีวิต').trim().toLowerCase();
+        const killerReward = (config.rewardNameKiller || 'สุ่มเปิร์ค ฆาตกร').trim().toLowerCase();
+        const userInput = (ev.data?.input || ev.input || '').trim().toLowerCase();
 
-        if (rewardTitle === configuredReward || rewardTitle.includes('dbd') || rewardTitle.includes('perk') || rewardTitle.includes('เปิร์ค')) {
+        // ตรวจจับว่าตรงกับชื่อรางวัล Survivor หรือ Killer ที่ผู้ใช้ตั้งไว้ หรือมีคีย์เวิร์ด DBD / Perk หรือไม่
+        const isSurvReward = survReward && (rewardTitle === survReward || rewardTitle.includes(survReward));
+        const isKillerReward = killerReward && (rewardTitle === killerReward || rewardTitle.includes(killerReward));
+        const isKeywordMatch = rewardTitle.includes('dbd') || rewardTitle.includes('perk') || rewardTitle.includes('เปิร์ค');
+
+        if (isSurvReward || isKillerReward || isKeywordMatch) {
           shouldTrigger = true;
           user = ev.data?.displayName || ev.data?.userName || ev.data?.name || 'Viewer';
           avatar = ev.data?.avatar || ev.data?.profileImage || '';
+
+          // ลำดับการเลือกบทบาท:
+          // 1. ตรงกับชื่อรางวัล Survivor ที่ผู้ใช้ระบุในหน้าตั้งค่า
+          if (isSurvReward) {
+            forcedRole = 'survivor';
+          }
+          // 2. ตรงกับชื่อรางวัล Killer ที่ผู้ใช้ระบุในหน้าตั้งค่า
+          else if (isKillerReward) {
+            forcedRole = 'killer';
+          }
+          // 3. ตรวจสอบคีย์เวิร์ดในชื่อรางวัล
+          else if (rewardTitle.includes('killer') || rewardTitle.includes('ฆาตกร') || rewardTitle.includes('คิลเลอร์')) {
+            forcedRole = 'killer';
+          } else if (rewardTitle.includes('surv') || rewardTitle.includes('ผู้รอดชีวิต') || rewardTitle.includes('เซอร์')) {
+            forcedRole = 'survivor';
+          }
+          // 4. ตรวจสอบจากข้อความที่ผู้ชมพิมพ์มาตอนแลกแต้ม
+          else if (userInput.includes('killer') || userInput.includes('ฆาตกร') || userInput.includes('คิลเลอร์')) {
+            forcedRole = 'killer';
+          } else if (userInput.includes('surv') || userInput.includes('ผู้รอดชีวิต') || userInput.includes('เซอร์')) {
+            forcedRole = 'survivor';
+          }
         }
       }
-      // 2. Chat Command (!perk, !dbd, !survperk, !killerperk)
-      else if (obj.listener === 'message' || obj.event?.type === 'message') {
+      // 2. Chat Command (!perk, !dbd, !survperk, !killerperk, !perk killer, !perk surv ฯลฯ)
+      else if (obj.listener === 'message' || obj.event?.type === 'message' || obj.type === 'message') {
         const text = (obj.event?.text || obj.event?.data?.text || obj.data?.text || '').trim();
         const parts = text.split(/\s+/);
         const cmd = parts[0]?.toLowerCase() || '';
+        const arg = parts[1]?.toLowerCase() || '';
 
-        if (cmd === '!perk' || cmd === '!dbd' || cmd === '!dbdperk' || cmd === '!survperk' || cmd === '!killerperk') {
+        if (cmd === '!perk' || cmd === '!dbd' || cmd === '!dbdperk' || cmd === '!survperk' || cmd === '!killerperk' || cmd === '!เปิร์ค') {
           shouldTrigger = true;
-          user = obj.event?.data?.displayName || obj.event?.displayName || obj.data?.displayName || 'Viewer';
+          user = obj.event?.data?.displayName || obj.event?.displayName || obj.data?.displayName || obj.data?.user || 'Viewer';
           avatar = '';
 
-          if (cmd === '!killerperk') forcedRole = 'killer';
-          if (cmd === '!survperk') forcedRole = 'survivor';
+          // ตรวจจับบทบาททั้งจากชื่อคำสั่งและ argument ต่อท้าย
+          if (cmd === '!killerperk' || arg === 'killer' || arg === 'k' || arg === 'ฆาตกร') {
+            forcedRole = 'killer';
+          } else if (cmd === '!survperk' || arg === 'survivor' || arg === 'surv' || arg === 's' || arg === 'ผู้รอดชีวิต') {
+            forcedRole = 'survivor';
+          }
         }
       }
       // 3. Direct Test / Simulation
@@ -467,7 +506,7 @@
         slot.innerHTML = `
           <div class="perk-icon-wrapper">
             <div class="perk-diamond-bg ${showDiamond ? '' : 'hidden'}"></div>
-            <img class="perk-icon-img" src="${sourceList[i % sourceList.length].icon}" alt="Slot ${i + 1}" />
+            <img class="perk-icon-img" src="${sourceList[i % sourceList.length].icon}" alt="Slot ${i + 1}" referrerpolicy="no-referrer" />
           </div>
           <div class="perk-name" style="${showName ? '' : 'display:none;'}">...</div>
           <div class="perk-char" style="${showChar ? '' : 'display:none;'}">Spinning</div>

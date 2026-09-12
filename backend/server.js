@@ -1320,6 +1320,31 @@ app.get('/api/widgets/random-killer/killers', (req, res) => {
   }
 });
 
+// ดึงข้อมูลประกาศอัปเดตระบบล่าสุด (Announcement / What's New)
+app.get('/api/announcements/latest', (req, res) => {
+  try {
+    const annFile = path.join(__dirname, 'data', 'announcements.json');
+    if (fs.existsSync(annFile)) {
+      const data = JSON.parse(fs.readFileSync(annFile, 'utf8'));
+      return res.json(data);
+    }
+    res.json(null);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// บันทึก/แก้ไขประกาศอัปเดตระบบ (Admin Only)
+app.post('/api/admin/announcements', checkAdminAuth, (req, res) => {
+  try {
+    const annFile = path.join(__dirname, 'data', 'announcements.json');
+    fs.writeFileSync(annFile, JSON.stringify(req.body, null, 2), 'utf8');
+    res.json({ success: true, announcement: req.body });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ดึงฐานข้อมูลเปิร์ค Dead by Daylight ทั้งหมด
 app.get('/api/widgets/dbd-perks/perks', (req, res) => {
   try {

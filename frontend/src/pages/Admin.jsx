@@ -4,10 +4,11 @@ import {
   CheckCircle2, AlertTriangle, X, ExternalLink, Plus, Trash2, 
   RotateCw, Loader2, Search, Skull, UserCheck, Layers, Ban, Check, Key, Lock, Unlock,
   LifeBuoy, MessageSquare, Clock, ShieldCheck, MessageCircle, Send, Edit3, Filter,
-  User, Users, Save
+  User, Users, Save, BellRing, Eye, Sparkles
 } from 'lucide-react';
 
 import { API_BASE } from '../config';
+import UpdateModal from '../components/UpdateModal';
 
 const SAMPLE_TEMPLATE = {
   html: `<div id="widget-container">
@@ -150,6 +151,12 @@ function Admin() {
   const [deleteConfirmPerk, setDeleteConfirmPerk] = useState(null);
   const [isDeletingPerk, setIsDeletingPerk] = useState(false);
 
+  // Announcements Management State
+  const [announcementForm, setAnnouncementForm] = useState(null);
+  const [isLoadingAnnouncement, setIsLoadingAnnouncement] = useState(false);
+  const [isSavingAnnouncement, setIsSavingAnnouncement] = useState(false);
+  const [showAnnouncementPreview, setShowAnnouncementPreview] = useState(false);
+
   // Support Tickets Management State
   const [ticketsList, setTicketsList] = useState([]);
   const [ticketCounts, setTicketCounts] = useState({ total: 0, pending: 0, in_progress: 0, resolved: 0, closed: 0 });
@@ -163,6 +170,46 @@ function Admin() {
   const [isSavingTicket, setIsSavingTicket] = useState(false);
   const [deleteConfirmTicket, setDeleteConfirmTicket] = useState(null);
   const [isDeletingTicket, setIsDeletingTicket] = useState(false);
+
+  const loadAnnouncementData = async () => {
+    setIsLoadingAnnouncement(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/announcements/latest`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data) setAnnouncementForm(data);
+      }
+    } catch (e) {
+      console.error('Error loading announcement:', e);
+    } finally {
+      setIsLoadingAnnouncement(false);
+    }
+  };
+
+  const handleSaveAnnouncement = async () => {
+    if (!announcementForm) return;
+    setIsSavingAnnouncement(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/announcements`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify(announcementForm)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast('บันทึกประกาศอัปเดตระบบเรียบร้อยแล้ว!', 'success');
+      } else {
+        showToast(data.error || 'เกิดข้อผิดพลาดในการบันทึกประกาศ', 'error');
+      }
+    } catch (e) {
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+    } finally {
+      setIsSavingAnnouncement(false);
+    }
+  };
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -899,6 +946,18 @@ function Admin() {
                 </span>
               )}
             </button>
+            <button
+              type="button"
+              className={`admin-section-btn ${adminSection === 'announcements' ? 'active' : ''}`}
+              onClick={() => {
+                setAdminSection('announcements');
+                setSearchParams({ tab: 'announcements' });
+                loadAnnouncementData();
+              }}
+            >
+              <BellRing size={15} />
+              <span>จัดการประกาศอัปเดต</span>
+            </button>
           </div>
 
           {adminSection === 'widgets' && (
@@ -936,6 +995,29 @@ function Admin() {
               <RotateCw size={14} className={isLoadingTickets ? 'spin' : ''} />
               <span>รีเฟรชข้อมูล</span>
             </button>
+          )}
+
+          {adminSection === 'announcements' && (
+            <div style={{ display: 'flex', gap: '0.65rem' }}>
+              <button
+                type="button"
+                onClick={() => setShowAnnouncementPreview(true)}
+                className="btn-island"
+                disabled={!announcementForm}
+              >
+                <Eye size={14} />
+                <span>ดูตัวอย่าง Popup</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAnnouncement}
+                disabled={isSavingAnnouncement || !announcementForm}
+                className="btn-island accent"
+              >
+                {isSavingAnnouncement ? <Loader2 size={14} className="spin" /> : <Save size={14} />}
+                <span>{isSavingAnnouncement ? 'กำลังบันทึก...' : 'บันทึกประกาศ'}</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -1884,7 +1966,256 @@ function Admin() {
         </div>
       )}
 
-      {/* Main Content: Support Tickets View */}
+      {/* Main Content: Announcements View */}
+      {adminSection === 'announcements' && (
+        <div className="admin-perks-dashboard animate-fade-up">
+          <div className="doppel-shell" style={{ padding: '1.75rem', background: 'var(--surface-1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid var(--border-primary)', paddingBottom: '1.25rem' }}>
+              <div>
+                <span className="eyebrow" style={{ color: '#a855f7' }}>ระบบประกาศอัปเดต</span>
+                <h2 style={{ margin: '0.2rem 0 0.35rem 0', fontSize: '1.4rem', fontWeight: 800 }}>แก้ไขหน้าต่างแจ้งเตือน (What's New Popup)</h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
+                  ปรับแต่งข้อความและรายการฟีเจอร์ที่จะเด้งแจ้งเตือนผู้ชม/สตรีมเมอร์เมื่อเปิดเข้าสู่หน้าหลัก
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAnnouncementPreview(true)}
+                  className="btn-island"
+                  disabled={!announcementForm}
+                >
+                  <Eye size={15} />
+                  <span>ดูตัวอย่าง Popup</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAnnouncement}
+                  disabled={isSavingAnnouncement || !announcementForm}
+                  className="btn-island accent"
+                >
+                  {isSavingAnnouncement ? <Loader2 size={15} className="spin" /> : <Save size={15} />}
+                  <span>{isSavingAnnouncement ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}</span>
+                </button>
+              </div>
+            </div>
+
+            {isLoadingAnnouncement ? (
+              <div style={{ textAlign: 'center', padding: '4rem 1rem', color: 'var(--text-secondary)' }}>
+                <Loader2 size={32} className="spin" style={{ margin: '0 auto 1rem auto' }} />
+                <p>กำลังโหลดข้อมูลประกาศอัปเดต...</p>
+              </div>
+            ) : !announcementForm ? (
+              <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
+                <p>ไม่พบข้อมูลประกาศ</p>
+                <button type="button" onClick={loadAnnouncementData} className="btn-island accent">
+                  โหลดข้อมูลใหม่
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {/* General Info Card */}
+                <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-primary)', borderRadius: '12px', padding: '1.25rem' }}>
+                  <h4 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Sparkles size={16} style={{ color: '#a855f7' }} /> ข้อมูลหัวเรื่อง & เวอร์ชัน
+                  </h4>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+                        Version (เช่น 1.2.0)
+                      </label>
+                      <input
+                        type="text"
+                        value={announcementForm.version || ''}
+                        onChange={e => setAnnouncementForm(p => ({ ...p, version: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 12px', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', color: 'var(--text-primary)', borderRadius: '6px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+                        Update ID (เปลี่ยนเมื่อต้องการให้เด้งใหม่กับทุกคน)
+                      </label>
+                      <input
+                        type="text"
+                        value={announcementForm.id || ''}
+                        onChange={e => setAnnouncementForm(p => ({ ...p, id: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 12px', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', color: 'var(--text-primary)', borderRadius: '6px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+                        ป้ายกำกับ (Badge เช่น 🔥 NEW UPDATE)
+                      </label>
+                      <input
+                        type="text"
+                        value={announcementForm.badge || ''}
+                        onChange={e => setAnnouncementForm(p => ({ ...p, badge: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 12px', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', color: 'var(--text-primary)', borderRadius: '6px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+                        วันที่อัปเดต (Date)
+                      </label>
+                      <input
+                        type="text"
+                        value={announcementForm.date || ''}
+                        onChange={e => setAnnouncementForm(p => ({ ...p, date: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 12px', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', color: 'var(--text-primary)', borderRadius: '6px' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+                      หัวข้อหลักประกาศ (Title)
+                    </label>
+                    <input
+                      type="text"
+                      value={announcementForm.title || ''}
+                      onChange={e => setAnnouncementForm(p => ({ ...p, title: e.target.value }))}
+                      style={{ width: '100%', padding: '9px 12px', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', color: 'var(--text-primary)', borderRadius: '6px', fontSize: '0.95rem', fontWeight: 700 }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+                      คำโปรย / คำอธิบายย่อย (Subtitle)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={announcementForm.subtitle || ''}
+                      onChange={e => setAnnouncementForm(p => ({ ...p, subtitle: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 12px', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', color: 'var(--text-primary)', borderRadius: '6px', resize: 'vertical' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Sections List */}
+                <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-primary)', borderRadius: '12px', padding: '1.25rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Layers size={16} style={{ color: '#0ea5e9' }} /> หมวดหมู่การอัปเดต (Sections & Items)
+                    </h4>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    {(announcementForm.sections || []).map((sec, secIdx) => (
+                      <div key={secIdx} style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid var(--border-secondary)', borderRadius: '10px', padding: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '0.85rem' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>ชื่อหมวดหมู่</label>
+                            <input
+                              type="text"
+                              value={sec.title || ''}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setAnnouncementForm(p => {
+                                  const next = { ...p };
+                                  next.sections[secIdx].title = val;
+                                  return next;
+                                });
+                              }}
+                              style={{ width: '100%', padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', color: '#fff', borderRadius: '5px' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>ป้าย Badge</label>
+                            <input
+                              type="text"
+                              value={sec.badge || ''}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setAnnouncementForm(p => {
+                                  const next = { ...p };
+                                  next.sections[secIdx].badge = val;
+                                  return next;
+                                });
+                              }}
+                              style={{ width: '100%', padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', color: '#fff', borderRadius: '5px' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>สีธีม (Hex)</label>
+                            <input
+                              type="text"
+                              value={sec.color || ''}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setAnnouncementForm(p => {
+                                  const next = { ...p };
+                                  next.sections[secIdx].color = val;
+                                  return next;
+                                });
+                              }}
+                              style={{ width: '100%', padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', color: '#fff', borderRadius: '5px' }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Items textarea (one per line) */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
+                            รายการฟีเจอร์ย่อย (1 บรรทัด = 1 ข้อความ สามารถใช้ "หัวข้อ: รายละเอียด" ได้)
+                          </label>
+                          <textarea
+                            rows={4}
+                            value={(sec.items || []).join('\n')}
+                            onChange={e => {
+                              const lines = e.target.value.split('\n').filter(Boolean);
+                              setAnnouncementForm(p => {
+                                const next = { ...p };
+                                next.sections[secIdx].items = lines;
+                                return next;
+                              });
+                            }}
+                            style={{ width: '100%', padding: '8px 10px', background: 'var(--surface-2)', border: '1px solid var(--border-secondary)', color: '#fff', borderRadius: '5px', lineHeight: 1.6, resize: 'vertical' }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bottom Actions */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowAnnouncementPreview(true)}
+                    className="btn-island"
+                  >
+                    <Eye size={15} />
+                    <span>ดูตัวอย่าง Popup</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveAnnouncement}
+                    disabled={isSavingAnnouncement}
+                    className="btn-island accent"
+                  >
+                    {isSavingAnnouncement ? <Loader2 size={15} className="spin" /> : <Save size={15} />}
+                    <span>{isSavingAnnouncement ? 'กำลังบันทึก...' : 'บันทึกประกาศ'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Update Announcement Modal Live Preview */}
+      {showAnnouncementPreview && announcementForm && (
+        <UpdateModal
+          isOpen={true}
+          onClose={() => setShowAnnouncementPreview(false)}
+          customData={announcementForm}
+        />
+      )}
       {adminSection === 'tickets' && (
         <div className="admin-perks-dashboard animate-fade-up">
           {/* Top Stat Cards */}

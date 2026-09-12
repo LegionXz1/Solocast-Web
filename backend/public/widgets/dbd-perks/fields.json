@@ -1,14 +1,4 @@
 {
-  "role": {
-    "type": "dropdown",
-    "label": "เลือกบทบาท (Role)",
-    "value": "survivor",
-    "options": {
-      "survivor": "Survivor (ผู้รอดชีวิต)",
-      "killer": "Killer (ฆาตกร)"
-    },
-    "group": "Game Settings"
-  },
   "perkCount": {
     "type": "slider",
     "label": "จำนวนเปิร์คที่สุ่ม (Perks Count)",
@@ -50,11 +40,11 @@
   },
   "iconScale": {
     "type": "slider",
-    "label": "ขนาดไอคอนเปิร์ค (Icon Size px)",
-    "value": 94,
-    "min": 60,
-    "max": 140,
-    "step": 2,
+    "label": "ขนาดไอคอนเปิร์ค (Icon Size px สำหรับจอ 1080p)",
+    "value": 280,
+    "min": 120,
+    "max": 450,
+    "step": 10,
     "group": "Display Settings"
   },
   "displayDuration": {
@@ -66,10 +56,16 @@
     "step": 1,
     "group": "Display Settings"
   },
-  "rewardName": {
+  "rewardNameSurvivor": {
     "type": "text",
-    "label": "ชื่อรางวัล Channel Points (Reward Name)",
-    "value": "สุ่มเปิร์ค DBD",
+    "label": "ชื่อรางวัล Channel Points: สุ่ม Survivor (ผู้รอดชีวิต)",
+    "value": "สุ่มเปิร์ค ผู้รอดชีวิต",
+    "group": "Twitch & Bot Settings"
+  },
+  "rewardNameKiller": {
+    "type": "text",
+    "label": "ชื่อรางวัล Channel Points: สุ่ม Killer (ฆาตกร)",
+    "value": "สุ่มเปิร์ค ฆาตกร",
     "group": "Twitch & Bot Settings"
   },
   "enableChat": {

@@ -441,7 +441,11 @@
       "showUserPill": true,
       "showPerkName": true,
       "showCharacterName": true,
-      "iconScale": 140
+      "iconScale": 280,
+      "enableVisualOverlay": true,
+      "showDiamondBg": true,
+      "rewardNameSurvivor": "สุ่ม Perk Sur ให้",
+      "rewardNameKiller": "สุ่ม Perk Killer ให้"
     },
     "785915826": {
       "role": "killer",
@@ -458,6 +462,9 @@
       "enableVisualOverlay": true,
       "showDiamondBg": true,
       "excludedPerks": []
+    },
+    "default": {
+      "iconScale": 200
     }
   },
   "spotify-sr": {

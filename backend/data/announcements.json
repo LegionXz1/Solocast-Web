@@ -1,0 +1,35 @@
+{
+  "id": "v1.2.0-dbd-hd-broadcast",
+  "version": "1.2.0",
+  "date": "12 กันยายน 2026",
+  "badge": "🔥 NEW UPDATE",
+  "title": "อัปเดตใหม่! DBD Perks Ultra HD & Broadcast Scale",
+  "subtitle": "ยกระดับภาพเปิร์คคมชัดระดับ 512px Super-Resolution, ขยายขนาดใหญ่สะใจ, และระบบแยก Channel Points อิสระ",
+  "sections": [
+    {
+      "title": "Dead by Daylight Perks Overlay",
+      "badge": "Gaming Overlay",
+      "color": "#A855F7",
+      "icon": "Dices",
+      "items": [
+        "Channel Point: ตั้งชื่อแต้มช่องสำหรับ Survivor และ Killer แยกกันได้โดยตรง ไม่ต้องคอยสลับในเว็บ",
+        "Overlays: ปรับความคมชัดของภาพ และขยายขนาด"
+      ]
+    },
+    {
+      "title": "ระบบและการแสดงผล (System & Studio)",
+      "badge": "Performance",
+      "color": "#0EA5E9",
+      "icon": "Sparkles",
+      "items": [
+        "Live Preview Studio เต็มจอ: ขยายดูพรีวิวสดแบบเต็มจอ 16:9 ก่อนขึ้นสตรีมจริง",
+        "Zero-Latency : ซิงค์คำสั่งแลกแต้มและการสุ่มขึ้นจอ OBS ทันทีแบบเรียลไทม์ ลดดีเลย์",
+        "ระบบประวัติการสุ่ม (Roll History): บันทึกประวัติการสุ่มของผู้ใช้แต่ละคนอัตโนมัติ"
+      ]
+    }
+  ],
+  "cta": {
+    "text": "เข้าสู่แผงควบคุมสตรีมเมอร์",
+    "link": "/dashboard"
+  }
+}

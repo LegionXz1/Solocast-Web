@@ -14,6 +14,7 @@ import {
   Check
 } from 'lucide-react';
 import ChickenMascot from '../components/ChickenMascot';
+import UpdateModal from '../components/UpdateModal';
 
 const SERVICES = [
   {
@@ -130,17 +131,36 @@ const HOW_IT_WORKS = [
 export default function Landing() {
   const navigate = useNavigate();
   const [activeServiceTab, setActiveServiceTab] = useState('dbd-perks');
+  const [showUpdateModal, setShowUpdateModal] = useState(null);
 
   const activeService = SERVICES.find((s) => s.id === activeServiceTab) || SERVICES[0];
 
   return (
     <div className="landing-container animate-fade-up">
+      {/* Update Announcement Popup Modal */}
+      <UpdateModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+      />
+
       {/* 1. HERO SECTION */}
       <section className="hero-section hero-layout">
         <div className="hero-content">
-          <div className="hero-badge-pill">
-            <span className="pill-dot" />
-            <span>FastChick STREAMER WIDGETS</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+            <div className="hero-badge-pill" style={{ marginBottom: 0 }}>
+              <span className="pill-dot" />
+              <span>FastChick STREAMER WIDGETS</span>
+            </div>
+            <button
+              type="button"
+              className="hero-update-badge-btn"
+              onClick={() => setShowUpdateModal(true)}
+              title="ดูรายละเอียดการอัปเดตระบบล่าสุด"
+            >
+              <Sparkles size={13} style={{ color: '#f59e0b' }} />
+              <span>มีอะไรใหม่ใน v1.2</span>
+              <span className="hero-update-badge-hot">NEW</span>
+            </button>
           </div>
           <h1 className="hero-title">
             ยกระดับไลฟ์สตรีมด้วย <span className="gradient-text">FastChick </span>
