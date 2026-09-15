@@ -1659,7 +1659,7 @@ function Dashboard() {
                   ? 'Twitch & Chat'
                   : meta.category === 'spotify'
                     ? 'Spotify Music'
-                    : 'DBD & Games';
+                    : 'Games';
 
                 return (
                   <div
