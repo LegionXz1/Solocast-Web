@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Landing from './pages/Landing';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
@@ -66,6 +67,7 @@ function App() {
               </Suspense>
             </ErrorBoundary>
           </main>
+          <Footer />
         </Router>
       </AuthProvider>
     </ThemeProvider>

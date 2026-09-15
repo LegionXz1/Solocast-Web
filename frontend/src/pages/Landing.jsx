@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Zap,
@@ -90,8 +90,8 @@ const SERVICES = [
 const PLATFORM_FEATURES = [
   {
     icon: Zap,
-    title: 'Zero Latency WebSockets',
-    desc: 'เชื่อมต่อ Twitch EventSub โดยตรงผ่าน WebSockets บนเครื่องของคุณ คำสั่งและกิจกรรมแสดงบนหน้าจอทันทีแบบไร้ดีเลย์'
+    title: 'Zero Latency',
+    desc: 'เชื่อมต่อ Twitch โดยตรง คำสั่งและกิจกรรมแสดงบนหน้าจอทันทีแบบไร้ดีเลย์'
   },
   {
     icon: Palette,
@@ -101,12 +101,12 @@ const PLATFORM_FEATURES = [
   {
     icon: ShieldCheck,
     title: '100% Secure & Privacy',
-    desc: 'โทเคนและการตั้งค่าถูกเก็บรักษาอย่างปลอดภัยบนเครื่องของคุณ ไม่มีการส่งข้อมูลสำคัญออกไปยังเซิร์ฟเวอร์ภายนอก'
+    desc: 'โทเคนและการตั้งค่าถูกเก็บรักษาอย่างปลอดภัย ไม่มีการส่งข้อมูลสำคัญออกไปยังเซิร์ฟเวอร์ภายนอก'
   },
   {
     icon: Sparkles,
-    title: 'Auto-Wiki DB Synchronizer',
-    desc: 'ระบบสแครปและอัปเดตข้อมูล Perks และ Killers จาก Official DBD Wiki มาเก็บไว้ในเครื่องอัตโนมัติ ไม่ต้องกรอกมือ'
+    title: 'Auto Updated',
+    desc: 'อัปเดตข้อมูล Perks และ Killers จาก Official DBD Wiki'
   }
 ];
 
@@ -135,8 +135,46 @@ export default function Landing() {
 
   const activeService = SERVICES.find((s) => s.id === activeServiceTab) || SERVICES[0];
 
+  // Scroll Progress & Viewport Reveal Observer
+  useEffect(() => {
+    const handleScroll = () => {
+      const bar = document.getElementById('scrollProgressBar');
+      if (bar) {
+        const scrollTop = window.scrollY || document.documentElement.scrollTop;
+        const docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const progress = docHeight > 0 ? scrollTop / docHeight : 0;
+        bar.style.transform = `scaleX(${progress})`;
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+
+    // IntersectionObserver for entrance reveal on scroll
+    const elements = document.querySelectorAll('.scroll-reveal');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-revealed');
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -30px 0px' }
+    );
+
+    elements.forEach((el) => observer.observe(el));
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      elements.forEach((el) => observer.unobserve(el));
+    };
+  }, []);
+
   return (
     <div className="landing-container animate-fade-up">
+      {/* Dynamic Reading Scroll Progress Bar */}
+      <div className="scroll-progress-bar" id="scrollProgressBar" aria-hidden="true" />
+
       {/* Update Announcement Popup Modal */}
       <UpdateModal
         isOpen={showUpdateModal}
@@ -217,7 +255,7 @@ export default function Landing() {
 
       {/* 2. SERVICES & SPOTLIGHT SHOWCASE */}
       <section id="services" className="services-section">
-        <div className="section-header text-center">
+        <div className="section-header text-center scroll-reveal">
           <span className="eyebrow">SERVICES & OVERLAYS</span>
           <h2 className="section-title">วิดเจ็ตสตรีมเมอร์ระดับพรีเมียม</h2>
           <p className="section-subtitle">
@@ -226,7 +264,7 @@ export default function Landing() {
         </div>
 
         {/* Services Tab Switcher */}
-        <div className="services-tabs-container">
+        <div className="services-tabs-container scroll-reveal scroll-stagger-1">
           <div className="services-tabs-pills">
             {SERVICES.map((s) => {
               const Icon = s.icon;
@@ -246,7 +284,7 @@ export default function Landing() {
         </div>
 
         {/* Active Service Spotlight Showcase Card */}
-        <div className="doppel-shell service-showcase-shell">
+        <div className="doppel-shell service-showcase-shell scroll-reveal scroll-stagger-2">
           <div className="doppel-core service-showcase-grid">
             {/* Left: Info */}
             <div className="service-info-col">
@@ -314,7 +352,7 @@ export default function Landing() {
                 >
                   {/* 1. DBD Perks */}
                   {activeService.id === 'dbd-perks' && (
-                    <div className="perk-image-showcase-container">
+                    <div key="dbd-perks" className="perk-image-showcase-container showcase-fade-in">
                       <img
                         src="/dbd-perks-showcase.webp"
                         alt="Dead by Daylight Perks Roulette Display"
@@ -329,7 +367,7 @@ export default function Landing() {
 
                   {/* 2. Killer Roulette */}
                   {activeService.id === 'random-killer' && (
-                    <div className="killer-image-showcase-container">
+                    <div key="random-killer" className="killer-image-showcase-container showcase-fade-in">
                       <img
                         src="/random-killer-showcase.webp"
                         alt="Dead by Daylight Random Killer Overlay"
@@ -344,7 +382,7 @@ export default function Landing() {
 
                   {/* 3. Shoutout Banner */}
                   {activeService.id === 'twitch-shoutout' && (
-                    <div className="shoutout-image-showcase-container">
+                    <div key="twitch-shoutout" className="shoutout-image-showcase-container showcase-fade-in">
                       <img
                         src="/twitch-shoutout-showcase.webp"
                         alt="Twitch Shoutout Banner Overlay"
@@ -359,7 +397,7 @@ export default function Landing() {
 
                   {/* 4. Loyalty Stamp Card */}
                   {activeService.id === 'loyalty-card' && (
-                    <div className="loyalty-image-showcase-container">
+                    <div key="loyalty-card" className="loyalty-image-showcase-container showcase-fade-in">
                       <img
                         src="/loyalty-card-showcase.webp"
                         alt="Twitch Loyalty Stamp Card Overlay"
@@ -380,7 +418,7 @@ export default function Landing() {
 
       {/* 3. PLATFORM FEATURES GRID */}
       <section className="features-section">
-        <div className="section-header text-center">
+        <div className="section-header text-center scroll-reveal">
           <span className="eyebrow">FASTCHICK ADVANTAGES</span>
           <h2 className="section-title">ทำไมสตรีมเมอร์ถึงเลือกใช้ FastChick?</h2>
           <p className="section-subtitle">
@@ -392,7 +430,7 @@ export default function Landing() {
           {PLATFORM_FEATURES.map((feat, idx) => {
             const Icon = feat.icon;
             return (
-              <div key={idx} className="feature-card">
+              <div key={idx} className={`feature-card scroll-reveal scroll-stagger-${idx + 1}`}>
                 <div className="feature-icon-wrapper">
                   <Icon size={22} className="feature-icon" />
                 </div>
@@ -405,7 +443,7 @@ export default function Landing() {
       </section>
 
       {/* 4. HOW IT WORKS 3-STEP */}
-      <section className="instructions-section doppel-shell">
+      <section className="instructions-section doppel-shell scroll-reveal">
         <div className="doppel-core">
           <div className="section-header">
             <span className="eyebrow">HOW TO USE</span>
@@ -415,7 +453,7 @@ export default function Landing() {
 
           <div className="steps-grid">
             {HOW_IT_WORKS.map((st, i) => (
-              <div key={i} className="step-card">
+              <div key={i} className={`step-card scroll-reveal scroll-stagger-${i + 1}`}>
                 <span className="step-number">{st.step}</span>
                 <h3 className="step-card-title">{st.title}</h3>
                 <p className="step-card-desc">{st.desc}</p>
@@ -426,7 +464,7 @@ export default function Landing() {
       </section>
 
       {/* 5. CALL TO ACTION BANNER */}
-      <section className="cta-banner doppel-shell">
+      <section className="cta-banner doppel-shell scroll-reveal">
         <div className="doppel-core cta-content">
           <div className="cta-text-side">
             <h2 className="cta-title">พร้อมยกระดับไลฟ์สตรีมของคุณแล้วหรือยัง?</h2>

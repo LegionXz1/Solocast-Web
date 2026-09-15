@@ -1427,19 +1427,7 @@ function Dashboard() {
               )}
 
               {status.connected ? (
-                <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.6rem',
-                  padding: '0.45rem 1.1rem',
-                  borderRadius: '9999px',
-                  background: '#12151e',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  color: '#f8fafc',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.3)'
-                }}>
+                <div className="dashboard-status-pill">
                   <div className="status-dot connected" style={{ width: '8px', height: '8px' }} />
                   <span>@{status.username}</span>
                   <span style={{
@@ -1473,49 +1461,19 @@ function Dashboard() {
             marginBottom: '1.5rem',
             flexWrap: 'wrap'
           }}>
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.4rem 0.85rem',
-              borderRadius: '8px',
-              background: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              fontSize: '0.8rem',
-              color: '#94a3b8'
-            }}>
+            <div className="dashboard-stat-chip">
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#3b82f6' }}></span>
-              <span>วิดเจ็ตทั้งหมด: <strong style={{ color: '#f8fafc' }}>{widgets.length}</strong></span>
+              <span>วิดเจ็ตทั้งหมด: <strong>{widgets.length}</strong></span>
             </div>
 
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.4rem 0.85rem',
-              borderRadius: '8px',
-              background: 'rgba(16, 185, 129, 0.08)',
-              border: '1px solid rgba(16, 185, 129, 0.2)',
-              fontSize: '0.8rem',
-              color: '#34d399'
-            }}>
+            <div className="dashboard-stat-chip chip-ready">
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }}></span>
-              <span>พร้อมใช้งานใน OBS: <strong style={{ color: '#f8fafc' }}>{widgets.filter(w => getWidgetStatus(w.id).active).length}</strong></span>
+              <span>พร้อมใช้งานใน OBS: <strong>{widgets.filter(w => getWidgetStatus(w.id).active).length}</strong></span>
             </div>
 
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.4rem 0.85rem',
-              borderRadius: '8px',
-              background: 'rgba(245, 158, 11, 0.08)',
-              border: '1px solid rgba(245, 158, 11, 0.2)',
-              fontSize: '0.8rem',
-              color: '#fbbf24'
-            }}>
+            <div className="dashboard-stat-chip chip-fav">
               <Star size={13} fill="#f59e0b" color="#f59e0b" />
-              <span>รายการโปรด: <strong style={{ color: '#f8fafc' }}>{favorites.length}</strong></span>
+              <span>รายการโปรด: <strong>{favorites.length}</strong></span>
             </div>
           </div>
 
@@ -1594,9 +1552,9 @@ function Dashboard() {
                 value={overlaySort}
                 onChange={(e) => setOverlaySort(e.target.value)}
               >
-                <option value="recent" style={{ background: '#12151e', color: '#fff' }}>เรียงตาม: ล่าสุด</option>
-                <option value="name" style={{ background: '#12151e', color: '#fff' }}>เรียงตาม: ชื่อ</option>
-                <option value="active" style={{ background: '#12151e', color: '#fff' }}>เรียงตาม: สถานะเปิดใช้งาน</option>
+                <option value="recent">เรียงตาม: ล่าสุด</option>
+                <option value="name">เรียงตาม: ชื่อ</option>
+                <option value="active">เรียงตาม: สถานะเปิดใช้งาน</option>
               </select>
             </div>
           </div>
@@ -1630,14 +1588,8 @@ function Dashboard() {
               ))}
             </div>
           ) : filteredWidgets.length === 0 ? (
-            <div style={{
-              textAlign: 'center',
-              padding: '4rem 1rem',
-              background: '#12151e',
-              borderRadius: '16px',
-              border: '1px dashed rgba(255, 255, 255, 0.1)'
-            }}>
-              <p style={{ color: '#94a3b8', fontSize: '1rem', margin: 0 }}>
+            <div className="dashboard-empty-state">
+              <p style={{ color: 'var(--text-muted)', fontSize: '1rem', margin: 0 }}>
                 ไม่พบ Overlay ตามเงื่อนไขค้นหาที่ระบุ
               </p>
             </div>
@@ -1843,7 +1795,7 @@ function Dashboard() {
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontWeight: 800, fontSize: '1.05rem', color: '#f8fafc' }}>
+                        <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)' }}>
                           {curWidget?.name || selectedWidget}
                         </span>
                         {curWs.active ? (
@@ -2500,7 +2452,7 @@ function Dashboard() {
                                       <Calculator size={20} />
                                     </div>
                                     <div>
-                                      <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#f8fafc' }}>
+                                      <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                                         แผงควบคุมสถิติ Real-Time (Live Counter Controller)
                                       </h4>
                                       <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
@@ -2518,7 +2470,7 @@ function Dashboard() {
                                     padding: '0.3rem 0.85rem'
                                   }}>
                                     <span style={{ fontSize: '0.78rem', color: '#f59e0b', fontWeight: 700 }}>คำสั่งแชท:</span>
-                                    <code style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 800 }}>{fieldData.commandPrefix || '!count'}</code>
+                                    <code style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: 800 }}>{fieldData.commandPrefix || '!count'}</code>
                                   </div>
                                 </div>
 
@@ -2527,8 +2479,7 @@ function Dashboard() {
                                   display: 'grid',
                                   gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                                   gap: '1rem',
-                                  background: 'rgba(0, 0, 0, 0.3)',
-                                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                                  background: 'var(--surface-1)', border: '1px solid var(--border-primary)',
                                   borderRadius: '12px',
                                   padding: '1.2rem',
                                   alignItems: 'center'
@@ -2552,7 +2503,7 @@ function Dashboard() {
                                       </span>
                                     </div>
                                     <div>
-                                      <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.2rem' }}>
+                                      <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
                                         {fieldData.counterTitle || 'จำนวนครั้งที่กรี๊ด'}
                                       </div>
                                       <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
@@ -2666,7 +2617,7 @@ function Dashboard() {
                                   fontSize: '0.75rem',
                                   color: '#94a3b8'
                                 }}>
-                                  <span style={{ fontWeight: 700, color: '#f8fafc' }}>คำสั่งแชทด่วน (คลิกเพื่อคัดลอก):</span>
+                                  <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>คำสั่งแชทด่วน (คลิกเพื่อคัดลอก):</span>
                                   {[`${fieldData.commandPrefix || '!count'} +1`, `${fieldData.commandPrefix || '!count'} -1`, `${fieldData.commandPrefix || '!count'} set 10`, `${fieldData.commandPrefix || '!count'} reset`].map(cmd => (
                                     <button
                                       key={cmd}
