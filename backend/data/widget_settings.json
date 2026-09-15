@@ -534,5 +534,22 @@
       "currentCount": 0,
       "unitText": "ครั้ง"
     }
+  },
+  "valorant-agent": {
+    "default": {
+      "roleFilter": "all",
+      "mode": "single",
+      "displayDuration": 9,
+      "soundVolume": 40,
+      "enableSound": true,
+      "rewardName": "สุ่มตัวละคร Valorant",
+      "chatCommand": "!agent",
+      "enableChatReply": true,
+      "chatTemplate": "[Valorant] @{username} สุ่มได้ตัวละคร: {agent} ({role})!",
+      "showAbilities": true,
+      "showRoleBadge": true,
+      "showRequester": true,
+      "excludedAgents": []
+    }
   }
 }

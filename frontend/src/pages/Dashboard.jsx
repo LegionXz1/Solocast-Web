@@ -26,6 +26,7 @@ import {
   Ticket,
   Dices,
   Skull,
+  Crosshair,
   User,
   Award,
   Gift,
@@ -87,6 +88,14 @@ const WIDGET_META = {
     pattern: 'chevron',
     category: 'game',
     tag: 'DBD Perks'
+  },
+  'valorant-agent': {
+    icon: <Crosshair size={20} />,
+    desc: 'สุ่มตัวละคร Valorant Roulette พร้อมเสียงพากย์และ Role',
+    gradient: 'linear-gradient(135deg, #FF4655, #0F1923)',
+    pattern: 'stripes',
+    category: 'game',
+    tag: 'Valorant Agent'
   },
   'twitch-shoutout': {
     icon: <Megaphone size={20} />,
@@ -295,6 +304,14 @@ function Dashboard() {
   // Random Killer State & Search
   const [killersList, setKillersList] = useState([]);
   const [killerSearchQuery, setKillerSearchQuery] = useState('');
+
+  // Valorant Agent State & Filter
+  const [valorantAgentsList, setValorantAgentsList] = useState([]);
+  const [valRoleTab, setValRoleTab] = useState('all');
+  const [valSearchQuery, setValSearchQuery] = useState('');
+  const [isRollingValorant, setIsRollingValorant] = useState(false);
+  const [isSyncingValorant, setIsSyncingValorant] = useState(false);
+  const [syncValSuccess, setSyncValSuccess] = useState('');
 
   // Widget Status State (User toggle & Admin global lock)
   const [widgetStatusOverview, setWidgetStatusOverview] = useState({ global: {}, user: {} });
@@ -555,6 +572,20 @@ function Dashboard() {
         .catch(err => console.error('Error fetching DBD killers:', err));
     }
   }, [selectedWidget, killersList]);
+
+  // 4.3 โหลดข้อมูลตัวละคร Valorant เมื่อเปิด Widget valorant-agent
+  useEffect(() => {
+    if (selectedWidget === 'valorant-agent' && valorantAgentsList.length === 0) {
+      fetch(`${API_BASE}/api/widgets/valorant-agent/agents`)
+        .then(res => res.ok ? res.json() : { agents: [] })
+        .then(data => {
+          if (data && Array.isArray(data.agents)) {
+            setValorantAgentsList(data.agents);
+          }
+        })
+        .catch(err => console.error('Error fetching Valorant agents:', err));
+    }
+  }, [selectedWidget, valorantAgentsList]);
 
   // 4.3 โหลดข้อมูล Spotify เมื่อเลือก Widget spotify-sr
   const fetchSpotifyData = useCallback(async () => {
@@ -862,8 +893,56 @@ function Dashboard() {
       });
     } else if (selectedWidget === 'custom-counter') {
       handleCounterUpdate('inc', 1);
+    } else if (selectedWidget === 'valorant-agent') {
+      handleRollValorant(typeof overrideRole === 'string' ? overrideRole : (fieldData.mode || 'single'));
     } else {
       handleSimulateRedemption();
+    }
+  };
+
+  const handleRollValorant = async (overrideMode) => {
+    setIsRollingValorant(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/widgets/valorant-agent/roll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user: status.userId,
+          username: status.username || 'Streamer',
+          roleFilter: fieldData.roleFilter || 'all',
+          mode: overrideMode || fieldData.mode || 'single',
+          excludedAgents: fieldData.excludedAgents || []
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.historyItem) {
+        setRollHistory(prev => [data.historyItem, ...prev].slice(0, 100));
+      }
+    } catch (err) {
+      console.error('Error rolling Valorant agent:', err);
+    } finally {
+      setTimeout(() => setIsRollingValorant(false), 800);
+    }
+  };
+
+  const handleSyncValorant = async () => {
+    setIsSyncingValorant(true);
+    setSyncValSuccess('');
+    try {
+      const res = await fetch(`${API_BASE}/api/widgets/valorant-agent/sync`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setValorantAgentsList(data.data.agents || []);
+        setSyncValSuccess(`อัปเดตตัวละครสำเร็จ! (ทั้งหมด ${data.data.total} ตัว)`);
+        setTimeout(() => setSyncValSuccess(''), 4000);
+      } else {
+        alert('ไม่สามารถอัปเดตตัวละครได้: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error('Error syncing Valorant agents:', err);
+      alert('เกิดข้อผิดพลาดในการดึงข้อมูลตัวละคร Valorant: ' + err.message);
+    } finally {
+      setIsSyncingValorant(false);
     }
   };
 
@@ -1469,7 +1548,7 @@ function Dashboard() {
                 className={`my-overlays-tab ${overlayTab === 'game' ? 'active' : ''}`}
                 onClick={() => setOverlayTab('game')}
               >
-                DBD & Games ({widgets.filter(w => (WIDGET_META[w.id]?.category || '') === 'game').length})
+                Games ({widgets.filter(w => (WIDGET_META[w.id]?.category || '') === 'game').length})
               </button>
               <button
                 type="button"
@@ -2167,6 +2246,33 @@ function Dashboard() {
                                     </span>
                                   </button>
                                 </div>
+                              ) : selectedWidget === 'valorant-agent' ? (
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRollValorant('single')}
+                                    disabled={isRollingValorant}
+                                    className="btn-preview-action accent"
+                                    style={{ background: 'linear-gradient(135deg, #FF4655, #D13644)', borderColor: '#FF4655', color: '#fff' }}
+                                    title="สุ่มตัวละคร 1 ตัวทันที"
+                                  >
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                      <Crosshair size={14} /> {isRollingValorant ? 'กำลังสุ่ม...' : '🎯 สุ่มเดี่ยว 1 ตัว'}
+                                    </span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRollValorant('team')}
+                                    disabled={isRollingValorant}
+                                    className="btn-preview-action"
+                                    style={{ borderColor: 'rgba(0, 240, 255, 0.4)', color: '#00F0FF' }}
+                                    title="สุ่มฟูลทีม 5 คนครบตำแหน่ง"
+                                  >
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                      <Users size={14} /> สุ่มฟูลทีม 5 คน
+                                    </span>
+                                  </button>
+                                </div>
                               ) : selectedWidget === 'spotify-sr' ? (
                                 <button
                                   type="button"
@@ -2344,7 +2450,9 @@ function Dashboard() {
                                   ? 'สรุปยอดสะสม (Leaderboard)'
                                   : selectedWidget === 'dbd-perks'
                                     ? 'จัดการเปิร์ค & Blacklist'
-                                    : 'จัดการคิลเลอร์ & Blacklist'}
+                                    : selectedWidget === 'valorant-agent'
+                                      ? 'จัดการตัวละคร & Blacklist'
+                                      : 'จัดการคิลเลอร์ & Blacklist'}
                               </span>
                             </button>
                             <button
@@ -2984,6 +3092,231 @@ function Dashboard() {
                                                 whiteSpace: 'nowrap'
                                               }}>
                                                 ตัดออก
+                                              </span>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+
+                            {/* Valorant Agents Searchable Blacklist / Custom Pool Section */}
+                            {selectedWidget === 'valorant-agent' && (() => {
+                              const excludedList = Array.isArray(fieldData.excludedAgents) ? fieldData.excludedAgents : [];
+                              const query = (valSearchQuery || '').trim().toLowerCase();
+                              const currentRole = valRoleTab || 'all';
+
+                              const filteredAgents = valorantAgentsList.filter(a => {
+                                const matchRole = currentRole === 'all' || (a.role && a.role.name.toLowerCase() === currentRole.toLowerCase());
+                                if (!matchRole) return false;
+                                if (!query) return true;
+                                return (a.name && a.name.toLowerCase().includes(query)) ||
+                                  (a.role && a.role.name.toLowerCase().includes(query));
+                              });
+
+                              const excludedCount = valorantAgentsList.filter(a => excludedList.includes(a.id) || excludedList.includes(a.name) || excludedList.includes(a.name.toLowerCase())).length;
+                              const activeCount = valorantAgentsList.length - excludedCount;
+
+                              const handleToggleAgent = (agent) => {
+                                const agentId = agent.id || agent.name.toLowerCase();
+                                let next;
+                                if (excludedList.includes(agentId) || excludedList.includes(agent.name)) {
+                                  next = excludedList.filter(id => id !== agentId && id !== agent.name);
+                                } else {
+                                  next = [...excludedList, agentId];
+                                }
+                                handleFieldChange('excludedAgents', next);
+                              };
+
+                              const handleExcludeAllSearch = () => {
+                                const toAdd = filteredAgents.map(a => a.id).filter(id => !excludedList.includes(id));
+                                if (toAdd.length > 0) {
+                                  handleFieldChange('excludedAgents', [...excludedList, ...toAdd]);
+                                }
+                              };
+
+                              const handleResetExclusions = () => {
+                                handleFieldChange('excludedAgents', []);
+                              };
+
+                              return (
+                                <div className="val-blacklist-box">
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
+                                    <div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#FF4655', fontWeight: 800, fontSize: '1.05rem', letterSpacing: '1px' }}>
+                                        <Crosshair size={18} />
+                                        <span>เลือกตัวละครที่ต้องการ / ตัดออกจากการสุ่ม (Agent Pool & Blacklist)</span>
+                                      </div>
+                                      <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                        คลิกที่การ์ดตัวละครเพื่อสลับสถานะ <strong>"เปิดให้สุ่ม"</strong> หรือ <strong>"ตัดออก (Banned)"</strong> ระบบจะจำกัดเฉพาะตัวที่คุณต้องการเล่นทันที
+                                      </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                      {syncValSuccess && (
+                                        <span style={{ fontSize: '0.78rem', color: '#30D158', fontWeight: 600 }}>
+                                          {syncValSuccess}
+                                        </span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={handleSyncValorant}
+                                        disabled={isSyncingValorant}
+                                        className="btn-preview-action"
+                                        style={{ fontSize: '0.78rem', borderColor: 'rgba(255, 70, 85, 0.4)', color: '#FF4655' }}
+                                        title="ซิงค์ข้อมูลตัวละครสดๆ จาก Riot / Valorant API"
+                                      >
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                          <RotateCw size={13} className={isSyncingValorant ? 'spin' : ''} />
+                                          {isSyncingValorant ? 'กำลังซิงค์...' : 'ซิงค์ข้อมูล Agent สด'}
+                                        </span>
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Role Filter Tabs & Search Row */}
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                                    {/* Role Tabs */}
+                                    <div style={{ display: 'inline-flex', background: 'rgba(255, 255, 255, 0.05)', padding: '3px', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '4px' }}>
+                                      {[
+                                        { id: 'all', label: 'ทั้งหมด (All)' },
+                                        { id: 'duelist', label: 'Duelist', color: '#FF4655' },
+                                        { id: 'initiator', label: 'Initiator', color: '#E5B869' },
+                                        { id: 'controller', label: 'Controller', color: '#9B5DE5' },
+                                        { id: 'sentinel', label: 'Sentinel', color: '#00F0FF' }
+                                      ].map(tab => (
+                                        <button
+                                          key={tab.id}
+                                          type="button"
+                                          onClick={() => setValRoleTab(tab.id)}
+                                          style={{
+                                            border: 'none',
+                                            padding: '5px 12px',
+                                            fontSize: '0.78rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            background: valRoleTab === tab.id ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
+                                            color: valRoleTab === tab.id ? (tab.color || '#fff') : 'var(--text-secondary)',
+                                            borderRadius: '2px',
+                                            transition: 'all 0.15s ease'
+                                          }}
+                                        >
+                                          {tab.label}
+                                        </button>
+                                      ))}
+                                    </div>
+
+                                    {/* Search Input */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '200px', maxWidth: '340px', background: 'var(--surface-3)', border: '1px solid var(--border-secondary)', padding: '4px 10px', borderRadius: '4px' }}>
+                                      <Search size={14} style={{ color: 'var(--text-secondary)' }} />
+                                      <input
+                                        type="text"
+                                        placeholder="ค้นหาชื่อตัวละคร (เช่น Jett, Omen)..."
+                                        value={valSearchQuery}
+                                        onChange={(e) => setValSearchQuery(e.target.value)}
+                                        style={{ border: 'none', background: 'transparent', color: 'var(--text-primary)', fontSize: '0.8rem', width: '100%', outline: 'none' }}
+                                      />
+                                      {valSearchQuery && (
+                                        <button type="button" onClick={() => setValSearchQuery('')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: 0 }}>
+                                          <X size={13} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Stats Row & Quick Actions */}
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.85rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                      <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '2px', background: 'rgba(48, 209, 88, 0.12)', color: '#30D158', border: '1px solid rgba(48, 209, 88, 0.25)' }}>
+                                        สุ่มได้: {activeCount} ตัว
+                                      </span>
+                                      {excludedCount > 0 && (
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '2px', background: 'rgba(255, 69, 58, 0.12)', color: '#FF453A', border: '1px solid rgba(255, 69, 58, 0.25)' }}>
+                                          ตัดออก: {excludedCount} ตัว
+                                        </span>
+                                      )}
+                                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                        (แสดง {filteredAgents.length} จาก {valorantAgentsList.length} ตัวละคร)
+                                      </span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                      {valSearchQuery && filteredAgents.length > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={handleExcludeAllSearch}
+                                          className="btn-preview-action"
+                                          style={{ fontSize: '0.72rem' }}
+                                        >
+                                          <Ban size={11} /> ตัดออกทั้งหมดในผลค้นหา ({filteredAgents.length})
+                                        </button>
+                                      )}
+                                      {excludedCount > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={handleResetExclusions}
+                                          className="btn-preview-action"
+                                          style={{ fontSize: '0.72rem' }}
+                                        >
+                                          <RotateCw size={11} /> รีเซ็ต (เปิดสุ่มทุกตัว)
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Agents Grid */}
+                                  {filteredAgents.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-secondary)' }}>
+                                      <Search size={32} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+                                      <p style={{ margin: 0, fontSize: '0.85rem' }}>ไม่พบตัวละครที่ตรงกับ "{valSearchQuery}"</p>
+                                    </div>
+                                  ) : (
+                                    <div className="val-agent-grid">
+                                      {filteredAgents.map((agent) => {
+                                        const isExcluded = excludedList.includes(agent.id) || excludedList.includes(agent.name) || excludedList.includes(agent.name.toLowerCase());
+                                        const roleName = (agent.role?.name || '').toLowerCase();
+                                        return (
+                                          <div
+                                            key={agent.id || agent.uuid}
+                                            className={`val-agent-card ${isExcluded ? 'excluded' : ''}`}
+                                            onClick={() => handleToggleAgent(agent)}
+                                            title={isExcluded ? `คลิกเพื่อเปิดให้สุ่ม ${agent.name}` : `คลิกเพื่อตัด ${agent.name} ออกจากการสุ่ม`}
+                                          >
+                                            <div className="val-agent-thumb-wrapper">
+                                              <img
+                                                src={agent.icon || agent.bustPortrait}
+                                                alt={agent.name}
+                                                className="val-agent-thumb-img"
+                                                loading="lazy"
+                                                onError={(e) => { e.target.style.opacity = '0.4'; }}
+                                              />
+                                            </div>
+
+                                            <div className="val-agent-name">{agent.name}</div>
+
+                                            <div className={`val-agent-role-pill ${roleName}`}>
+                                              {agent.role?.icon && (
+                                                <img src={agent.role.icon} alt={agent.role.name} />
+                                              )}
+                                              <span>{agent.role?.name || 'Agent'}</span>
+                                            </div>
+
+                                            {isExcluded && (
+                                              <span style={{
+                                                fontSize: '0.68rem',
+                                                color: '#FF453A',
+                                                fontWeight: 700,
+                                                background: 'rgba(255, 69, 58, 0.15)',
+                                                border: '1px solid rgba(255, 69, 58, 0.35)',
+                                                padding: '2px 8px',
+                                                borderRadius: '2px',
+                                                marginTop: '6px',
+                                                letterSpacing: '0.5px'
+                                              }}>
+                                                ตัดออก (BANNED)
                                               </span>
                                             )}
                                           </div>
@@ -3725,6 +4058,96 @@ function Dashboard() {
                                 {rollHistory.map((item) => {
                                   const isLoyalty = selectedWidget === 'loyalty-card' || item.count !== undefined;
                                   const isDbd = selectedWidget === 'dbd-perks' || Array.isArray(item.perks);
+                                  const isValorant = selectedWidget === 'valorant-agent' || Boolean(item.agent || item.agents);
+
+                                  if (isValorant) {
+                                    const isTeam = item.mode === 'team' || (Array.isArray(item.agents) && item.agents.length > 0);
+                                    return (
+                                      <div key={item.id} className="roll-history-card" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.75rem', borderLeft: '3px solid #FF4655' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                                            <img
+                                              src={item.avatar || `/api/twitch/avatar/${encodeURIComponent(item.username || '')}`}
+                                              alt={item.username || 'User'}
+                                              style={{ width: '38px', height: '38px', objectFit: 'cover', border: '1px solid var(--border-secondary)', borderRadius: '6px' }}
+                                              onError={(e) => {
+                                                e.target.src = 'https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7ba-40d2-965a-52834b6f79e8-profile_image-300x300.png';
+                                              }}
+                                            />
+                                            <div>
+                                              <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                @{item.username || 'Streamer'}
+                                              </div>
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '2px' }}>
+                                                <span style={{
+                                                  fontSize: '0.7rem',
+                                                  fontWeight: 700,
+                                                  padding: '2px 7px',
+                                                  background: 'rgba(255, 70, 85, 0.12)',
+                                                  color: '#FF4655',
+                                                  border: '1px solid rgba(255, 70, 85, 0.3)',
+                                                  borderRadius: '3px',
+                                                  display: 'inline-flex',
+                                                  alignItems: 'center',
+                                                  gap: '3px'
+                                                }}>
+                                                  <Crosshair size={11} /> {isTeam ? 'ทีม 5 คน (Team Comp)' : 'สุ่มเดี่ยว (Solo Agent)'}
+                                                </span>
+                                                {item.rewardTitle && (
+                                                  <span className="roll-info-reward" style={{ fontSize: '0.72rem' }}>
+                                                    <Gift size={11} /> {item.rewardTitle}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          <div className="roll-time" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                            <Clock size={13} style={{ color: 'var(--text-secondary)' }} /> {formatTime(item.timestamp)}
+                                          </div>
+                                        </div>
+
+                                        {isTeam && Array.isArray(item.agents) ? (
+                                          <div className="val-history-agents-row">
+                                            {item.agents.map((ag, aIdx) => {
+                                              const roleClass = (ag.role || '').toLowerCase();
+                                              return (
+                                                <div key={aIdx} className="val-history-agent-badge">
+                                                  <img src={ag.icon} alt={ag.name} onError={(e) => { e.target.style.display = 'none'; }} />
+                                                  <div>
+                                                    <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)' }}>{ag.name}</div>
+                                                    <span className={`val-agent-role-pill ${roleClass}`} style={{ fontSize: '0.62rem', padding: '1px 5px' }}>
+                                                      {ag.role}
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        ) : (
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', padding: '0.4rem 0.6rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '4px' }}>
+                                            {item.agentImg && (
+                                              <img
+                                                src={item.agentImg}
+                                                alt={item.agent || 'Agent'}
+                                                style={{ width: '44px', height: '44px', objectFit: 'contain', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}
+                                              />
+                                            )}
+                                            <div>
+                                              <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '0.5px' }}>
+                                                {item.agent || item.result}
+                                              </div>
+                                              {item.role && (
+                                                <span className={`val-agent-role-pill ${(item.role || '').toLowerCase()}`}>
+                                                  {item.role}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  }
 
                                   if (isDbd && Array.isArray(item.perks) && item.perks.length > 0) {
                                     return (
@@ -3769,15 +4192,34 @@ function Dashboard() {
                                         </div>
 
                                         <div className="roll-dbd-perks" style={{ width: '100%' }}>
-                                          {item.perks.map((p, idx) => (
-                                            <div key={idx} className="roll-dbd-perk-item" title={p.description || p.name}>
-                                              <img src={p.icon ? (p.icon.startsWith('http') ? p.icon : `${API_BASE}${p.icon}`) : ''} alt={p.name} className="roll-dbd-perk-thumb" />
-                                              <span style={{ fontWeight: 600 }}>{p.name}</span>
-                                              {p.character && (
-                                                <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', opacity: 0.85 }}>({p.character})</span>
-                                              )}
-                                            </div>
-                                          ))}
+                                          {item.perks.map((p, idx) => {
+                                            const cleanDesc = p.description ? p.description.replace(/<[^>]*>?/gm, '').replace(/&#160;/g, ' ').replace(/&quot;/g, '"') : '';
+                                            return (
+                                              <div
+                                                key={idx}
+                                                className="roll-dbd-perk-item"
+                                                title={`${p.name}${p.character ? ` (${p.character})` : ''}${cleanDesc ? `\n\n${cleanDesc}` : ''}`}
+                                              >
+                                                <div className="roll-dbd-perk-thumb-wrap">
+                                                  <img
+                                                    src={p.icon ? (p.icon.startsWith('http') ? p.icon : `${API_BASE}${p.icon}`) : ''}
+                                                    alt={p.name}
+                                                    className="roll-dbd-perk-thumb"
+                                                    loading="lazy"
+                                                    onError={(e) => {
+                                                      e.target.style.display = 'none';
+                                                    }}
+                                                  />
+                                                </div>
+                                                <div className="roll-dbd-perk-details">
+                                                  <div className="roll-dbd-perk-name">{p.name}</div>
+                                                  {p.character && (
+                                                    <div className="roll-dbd-perk-char">{p.character}</div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
                                         </div>
                                       </div>
                                     );

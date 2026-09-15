@@ -13,6 +13,7 @@ import crypto from 'crypto';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { syncDbdPerks } from './scripts/scrape_dbd_perks.js';
+import { syncValorantAgents } from './scripts/sync_valorant_agents.js';
 import { initDatabase, syncStore, saveAllItems, syncTickets, saveAllTickets, deleteTicketFromMongo } from './database.js';
 import * as spotify from './spotify.js';
 import compression from 'compression';
@@ -1495,6 +1496,197 @@ app.post('/api/widgets/dbd-perks/simulate', (req, res) => {
   }
 });
 
+// ============================================================
+// 🎯 Valorant Agent Randomizer Widget Endpoints
+// ============================================================
+const VALORANT_AGENTS_FILE = path.join(__dirname, 'data', 'valorant_agents.json');
+function loadValorantAgents() {
+  try {
+    if (fs.existsSync(VALORANT_AGENTS_FILE)) {
+      return JSON.parse(fs.readFileSync(VALORANT_AGENTS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.warn('[Valorant] Error reading valorant_agents.json:', e);
+  }
+  return { agents: [], total: 0, roles: {} };
+}
+
+// ดึงฐานข้อมูลตัวละคร Valorant ทั้งหมด
+app.get('/api/widgets/valorant-agent/agents', (req, res) => {
+  try {
+    const data = loadValorantAgents();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ซิงค์ตัวละคร Valorant สดๆ จาก Riot / Valorant API
+app.post('/api/widgets/valorant-agent/sync', async (req, res) => {
+  try {
+    console.log('[Valorant API] 🔄 Live syncing agents from Valorant API...');
+    const data = await syncValorantAgents();
+    io.emit('valorant_agents_updated', data);
+    res.json({ success: true, data });
+  } catch (e) {
+    console.error('[Valorant API] Sync error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ฟังก์ชันสุ่มตัวละคร Valorant (ใช้ร่วมกันทั้ง Dashboard, Chat และ Channel Points)
+async function performValorantRoll({ userId, username, roleFilter = 'all', mode = 'single', excludedAgents = [], source = 'api' }) {
+  const data = loadValorantAgents();
+  const allAgents = data.agents || [];
+  if (allAgents.length === 0) {
+    throw new Error('No Valorant agents available in database');
+  }
+
+  // กรองตาม Role
+  let eligible = allAgents;
+  const cleanFilter = (roleFilter || 'all').toLowerCase().trim();
+  if (cleanFilter && cleanFilter !== 'all') {
+    eligible = eligible.filter(a => a.role && a.role.name.toLowerCase() === cleanFilter);
+  }
+
+  // กรองตัวที่ถูก Exclude / Ban
+  if (Array.isArray(excludedAgents) && excludedAgents.length > 0) {
+    const excludeSet = new Set(excludedAgents.map(x => String(x).toLowerCase().trim()));
+    const filtered = eligible.filter(a => !excludeSet.has(a.id) && !excludeSet.has(a.name.toLowerCase()));
+    if (filtered.length > 0) eligible = filtered;
+  }
+
+  if (eligible.length === 0) {
+    eligible = allAgents;
+  }
+
+  const requester = username || 'Streamer';
+  const avatar = `/api/twitch/avatar/${encodeURIComponent(requester)}`;
+
+  let rollResult = null;
+
+  if (mode === 'team') {
+    // สุ่มทีม 5 ตัว: พยายามจัดให้มี Duelist, Initiator, Controller, Sentinel ครบ
+    const rolesList = ['duelist', 'initiator', 'controller', 'sentinel'];
+    const chosen = [];
+    const usedIds = new Set();
+
+    for (const r of rolesList) {
+      const pool = allAgents.filter(a => a.role && a.role.name.toLowerCase() === r && !usedIds.has(a.id));
+      if (pool.length > 0) {
+        const picked = pool[Math.floor(Math.random() * pool.length)];
+        chosen.push(picked);
+        usedIds.add(picked.id);
+      }
+    }
+
+    // เติมตัวที่ 5 (Flex/Wildcard)
+    const remaining = allAgents.filter(a => !usedIds.has(a.id));
+    if (remaining.length > 0) {
+      const picked = remaining[Math.floor(Math.random() * remaining.length)];
+      chosen.push(picked);
+      usedIds.add(picked.id);
+    }
+
+    rollResult = {
+      mode: 'team',
+      agents: chosen,
+      username: requester,
+      avatar,
+      timestamp: Date.now()
+    };
+  } else {
+    // สุ่มเดี่ยว 1 ตัว
+    const picked = eligible[Math.floor(Math.random() * eligible.length)];
+    rollResult = {
+      mode: 'single',
+      agent: picked,
+      username: requester,
+      avatar,
+      timestamp: Date.now()
+    };
+  }
+
+  // ส่ง Event ไปยัง OBS Overlay และ Dashboard
+  const ev = {
+    type: 'valorant_agent_roll',
+    userId,
+    data: rollResult
+  };
+
+  if (userId) {
+    io.to('user_' + userId).emit('onEventReceived', ev);
+  } else {
+    io.emit('onEventReceived', ev);
+  }
+
+  // บันทึกประวัติการสุ่มลง roll_history
+  const userKey = userId || 'default';
+  if (!rollHistoryStore['valorant-agent']) rollHistoryStore['valorant-agent'] = {};
+  if (!rollHistoryStore['valorant-agent'][userKey]) rollHistoryStore['valorant-agent'][userKey] = [];
+
+  const historyItem = {
+    id: 'roll_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+    timestamp: Date.now(),
+    username: requester,
+    avatar,
+    mode: rollResult.mode,
+    agent: rollResult.agent ? rollResult.agent.name : null,
+    agentImg: rollResult.agent ? (rollResult.agent.bustPortrait || rollResult.agent.icon) : null,
+    role: rollResult.agent ? rollResult.agent.role.name : 'Team',
+    agents: rollResult.agents ? rollResult.agents.map(a => ({ name: a.name, role: a.role.name, icon: a.icon })) : null,
+    result: rollResult.agent ? `${rollResult.agent.name} (${rollResult.agent.role.name})` : rollResult.agents.map(a => a.name).join(', ')
+  };
+
+  rollHistoryStore['valorant-agent'][userKey] = [historyItem, ...rollHistoryStore['valorant-agent'][userKey]].slice(0, 100);
+  saveRollHistory(rollHistoryStore);
+
+  if (userId) {
+    io.to('user_' + userId).emit('widget_roll_history_item', { widgetId: 'valorant-agent', item: historyItem });
+  } else {
+    io.emit('widget_roll_history_item', { widgetId: 'valorant-agent', item: historyItem });
+  }
+
+  console.log(`[Valorant Randomizer] 🎯 Rolled: ${historyItem.result} for ${requester} (user: ${userKey})`);
+  return { success: true, result: rollResult, historyItem };
+}
+
+// Endpoint สั่งสุ่มตัวละคร Valorant จาก Dashboard
+app.post('/api/widgets/valorant-agent/roll', async (req, res) => {
+  try {
+    const { user, username, roleFilter, mode, excludedAgents } = req.body || {};
+    const result = await performValorantRoll({
+      userId: user,
+      username,
+      roleFilter,
+      mode,
+      excludedAgents,
+      source: 'dashboard'
+    });
+    res.json(result);
+  } catch (e) {
+    console.error('[Valorant API] Roll error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// จำลองการสุ่มตัวละคร Valorant สำหรับทดสอบ Widget
+app.post('/api/widgets/valorant-agent/simulate', async (req, res) => {
+  try {
+    const { user, username, roleFilter, mode } = req.body || {};
+    const result = await performValorantRoll({
+      userId: user,
+      username: username || 'Streamer (Test)',
+      roleFilter: roleFilter || 'all',
+      mode: mode || 'single',
+      source: 'simulation'
+    });
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 const clientId = process.env.TWITCH_CLIENT_ID;
 const clientSecret = process.env.TWITCH_CLIENT_SECRET;
 const redirectUri = process.env.TWITCH_REDIRECT_URI || 'http://localhost:3000/auth/twitch/callback';
@@ -2128,6 +2320,38 @@ function startEventSub(userId) {
     } catch (sErr) {
       console.warn('[Spotify SR] Redemption check warning:', sErr?.message || sErr);
     }
+
+    // ตรวจสอบการแลกแต้มสำหรับ Valorant Agent Randomizer
+    try {
+      if (isWidgetActiveForUser(userId, 'valorant-agent')) {
+        let vs = widgetSettingsStore['valorant-agent']?.[userId];
+        if (!vs) {
+          const ids = getAssociatedUserIdentifiers(userId);
+          for (const id of ids) {
+            if (widgetSettingsStore['valorant-agent']?.[id]) {
+              vs = widgetSettingsStore['valorant-agent'][id];
+              break;
+            }
+          }
+        }
+        if (!vs) vs = widgetSettingsStore['valorant-agent']?.['default'] || {};
+
+        const targetReward = (vs.rewardName || 'สุ่มตัวละคร Valorant').trim().toLowerCase();
+        const currReward = (e.rewardTitle || '').trim().toLowerCase();
+        if (currReward && (currReward === targetReward || currReward.includes(targetReward) || currReward.includes('สุ่มตัวละคร valorant') || currReward.includes('สุ่ม valorant'))) {
+          await performValorantRoll({
+            userId,
+            username: e.userDisplayName || e.userName,
+            roleFilter: vs.roleFilter || 'all',
+            mode: vs.mode || 'single',
+            excludedAgents: vs.excludedAgents || [],
+            source: 'channel_points'
+          });
+        }
+      }
+    } catch (vErr) {
+      console.warn('[Valorant Redemption] Error:', vErr?.message || vErr);
+    }
   } catch (rErr) {
     console.error(`[EventSub] Error in redemption handler for ${userId}:`, rErr);
   }
@@ -2404,6 +2628,54 @@ function extractSongRequestQuery(text, customPrefix) {
           query: srMatch.query,
           source: 'chat'
         });
+      } else if (cmd === '!agent' || cmd === '!val' || cmd === '!randomagent') {
+        // คำสั่งสุ่มตัวละคร Valorant (!agent, !val, !randomagent)
+        if (!isWidgetActiveForUser(userId, 'valorant-agent')) {
+          console.log(`[Valorant Widget] ⚠️ Valorant Agent widget is DISABLED for user ${userId}, ignoring chat command`);
+        } else {
+          try {
+            let vs = widgetSettingsStore['valorant-agent']?.[userId];
+            if (!vs) {
+              const ids = getAssociatedUserIdentifiers(userId);
+              for (const id of ids) {
+                if (widgetSettingsStore['valorant-agent']?.[id]) {
+                  vs = widgetSettingsStore['valorant-agent'][id];
+                  break;
+                }
+              }
+            }
+            if (!vs) vs = widgetSettingsStore['valorant-agent']?.['default'] || {};
+
+            const rollOut = await performValorantRoll({
+              userId,
+              username: e.chatterDisplayName || e.chatterName,
+              roleFilter: vs.roleFilter || 'all',
+              mode: vs.mode || 'single',
+              excludedAgents: vs.excludedAgents || [],
+              source: 'chat'
+            });
+
+            if (vs.enableChatReply !== false) {
+              const resData = rollOut.result;
+              let replyMsg = '';
+              if (resData.mode === 'team') {
+                replyMsg = `🎯 @${e.chatterDisplayName || e.chatterName} สุ่มทีม Valorant ได้: ${resData.agents.map(a => a.name).join(', ')}!`;
+              } else {
+                const agent = resData.agent;
+                let tpl = vs.chatTemplate || '[Valorant] @{username} สุ่มได้ตัวละคร: {agent} ({role})!';
+                replyMsg = tpl
+                  .replace('{username}', e.chatterDisplayName || e.chatterName)
+                  .replace('{agent}', agent.name)
+                  .replace('{role}', agent.role.name);
+              }
+              await apiClient?.asUser(userId, async (ctx) => {
+                await ctx.chat.sendChatMessage(userId, replyMsg);
+              });
+            }
+          } catch (vErr) {
+            console.error('[Valorant Chat Command] Error:', vErr);
+          }
+        }
       } else {
         // ส่งข้อความแชททั่วไปเข้าห้อง Socket เผื่อ Widget อื่นใช้งาน
         const chatEv = {

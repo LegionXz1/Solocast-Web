@@ -1,0 +1,91 @@
+{
+  "mode": {
+    "type": "dropdown",
+    "label": "โหมดการสุ่มเริ่มต้น (Default Roll Mode)",
+    "value": "single",
+    "options": {
+      "single": "สุ่มเดี่ยว 1 ตัว (Single Agent)",
+      "team": "สุ่มฟูลทีม 5 คน (Team Composition)"
+    },
+    "group": "Game Settings"
+  },
+  "roleFilter": {
+    "type": "dropdown",
+    "label": "จำกัดตำแหน่งที่สุ่ม (Role Restriction)",
+    "value": "all",
+    "options": {
+      "all": "สุ่มได้ทุกตำแหน่ง (All Roles)",
+      "duelist": "เฉพาะ Duelist (สายเข้าทำ)",
+      "initiator": "เฉพาะ Initiator (สายเปิดข้อมูล)",
+      "controller": "เฉพาะ Controller (สายวางควัน)",
+      "sentinel": "เฉพาะ Sentinel (สายตั้งรับ/คุมพื้นที่)"
+    },
+    "group": "Game Settings"
+  },
+  "displayDuration": {
+    "type": "slider",
+    "label": "ระยะเวลาแสดงผลบนหน้าจอ (วินาที)",
+    "value": 9,
+    "min": 4,
+    "max": 30,
+    "step": 1,
+    "group": "Display Settings"
+  },
+  "showRoleBadge": {
+    "type": "checkbox",
+    "label": "แสดงสัญลักษณ์และชื่อตำแหน่ง (Show Role Badge)",
+    "value": true,
+    "group": "Display Settings"
+  },
+  "showAbilities": {
+    "type": "checkbox",
+    "label": "แสดงไอคอนสกิลประจำตัว 4 สกิล (Show Abilities Icons)",
+    "value": true,
+    "group": "Display Settings"
+  },
+  "showRequester": {
+    "type": "checkbox",
+    "label": "แสดงแถบชื่อผู้ขอ / ผู้แลกแต้ม (Show Requester Badge)",
+    "value": true,
+    "group": "Display Settings"
+  },
+  "enableSound": {
+    "type": "checkbox",
+    "label": "เปิดเสียงเอฟเฟกต์ SFX (Enable Sound Effects)",
+    "value": true,
+    "group": "Audio Settings"
+  },
+  "soundVolume": {
+    "type": "slider",
+    "label": "ระดับความดังเสียง SFX (%)",
+    "value": 40,
+    "min": 0,
+    "max": 100,
+    "step": 5,
+    "group": "Audio Settings"
+  },
+  "rewardName": {
+    "type": "text",
+    "label": "ชื่อรางวัล Channel Points ใน Twitch (Twitch Reward Name)",
+    "value": "สุ่มตัวละคร Valorant",
+    "group": "Twitch Integration"
+  },
+  "chatCommand": {
+    "type": "text",
+    "label": "คำสั่งในแชท Twitch (Chat Command เช่น !agent, !val)",
+    "value": "!agent",
+    "group": "Twitch Integration"
+  },
+  "enableChatReply": {
+    "type": "checkbox",
+    "label": "ให้บอทส่งข้อความตอบกลับผลลัพธ์ในแชท Twitch",
+    "value": true,
+    "group": "Twitch Integration"
+  },
+  "chatTemplate": {
+    "type": "text",
+    "label": "รูปแบบข้อความตอบกลับในแชท (Chat Reply Template)",
+    "value": "[Valorant] @{username} สุ่มได้ตัวละคร: {agent} ({role})!",
+    "group": "Twitch Integration"
+  }
+}

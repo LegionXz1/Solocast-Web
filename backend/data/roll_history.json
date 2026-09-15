@@ -4613,5 +4613,171 @@
         "avatar": "/api/twitch/avatar/wa_wawiwa"
       }
     ]
+  },
+  "valorant-agent": {
+    "148596257": [
+      {
+        "id": "roll_1789461991363_iil58",
+        "timestamp": 1789461991363,
+        "username": "LegionXIZ",
+        "avatar": "/api/twitch/avatar/LegionXIZ",
+        "mode": "single",
+        "agent": "Raze",
+        "agentImg": "https://media.valorant-api.com/agents/f94c3b30-42be-e959-889c-5aa313dba261/fullportrait.png",
+        "role": "Duelist",
+        "agents": null,
+        "result": "Raze (Duelist)"
+      },
+      {
+        "id": "roll_1789245756398_82itu",
+        "timestamp": 1789245756398,
+        "username": "LegionXIZ",
+        "avatar": "/api/twitch/avatar/LegionXIZ",
+        "mode": "single",
+        "agent": "Harbor",
+        "agentImg": "https://media.valorant-api.com/agents/95b78ed7-4637-86d9-7e41-71ba8c293152/fullportrait.png",
+        "role": "Controller",
+        "agents": null,
+        "result": "Harbor (Controller)"
+      },
+      {
+        "id": "roll_1789245749863_m2wsc",
+        "timestamp": 1789245749863,
+        "username": "LegionXIZ",
+        "avatar": "/api/twitch/avatar/LegionXIZ",
+        "mode": "single",
+        "agent": "KAY/O",
+        "agentImg": "https://media.valorant-api.com/agents/601dbbe7-43ce-be57-2a40-4abd24953621/fullportrait.png",
+        "role": "Initiator",
+        "agents": null,
+        "result": "KAY/O (Initiator)"
+      }
+    ],
+    "default": [
+      {
+        "id": "roll_1789244905845_upzx8",
+        "timestamp": 1789244905845,
+        "username": "Streamer (Test)",
+        "avatar": "/api/twitch/avatar/Streamer%20(Test)",
+        "mode": "single",
+        "agent": "Waylay",
+        "agentImg": "https://media.valorant-api.com/agents/df1cb487-4902-002e-5c17-d28e83e78588/fullportrait.png",
+        "role": "Duelist",
+        "agents": null,
+        "result": "Waylay (Duelist)"
+      },
+      {
+        "id": "roll_1789244694082_w6daj",
+        "timestamp": 1789244694082,
+        "username": "TestTester",
+        "avatar": "/api/twitch/avatar/TestTester",
+        "mode": "team",
+        "agent": null,
+        "agentImg": null,
+        "role": "Team",
+        "agents": [
+          {
+            "name": "Yoru",
+            "role": "Duelist",
+            "icon": "https://media.valorant-api.com/agents/7f94d92c-4234-0a36-9646-3a87eb8b5c89/displayicon.png"
+          },
+          {
+            "name": "Skye",
+            "role": "Initiator",
+            "icon": "https://media.valorant-api.com/agents/6f2a04ca-43e0-be17-7f36-b3908627744d/displayicon.png"
+          },
+          {
+            "name": "Viper",
+            "role": "Controller",
+            "icon": "https://media.valorant-api.com/agents/707eab51-4836-f488-046a-cda6bf494859/displayicon.png"
+          },
+          {
+            "name": "Deadlock",
+            "role": "Sentinel",
+            "icon": "https://media.valorant-api.com/agents/cc8b64c8-4b25-4ff9-6e7f-37b4da43d235/displayicon.png"
+          },
+          {
+            "name": "Breach",
+            "role": "Initiator",
+            "icon": "https://media.valorant-api.com/agents/5f8d3a7f-467b-97f3-062c-13acf203c006/displayicon.png"
+          }
+        ],
+        "result": "Yoru, Skye, Viper, Deadlock, Breach"
+      },
+      {
+        "id": "roll_1789244684192_lw43j",
+        "timestamp": 1789244684192,
+        "username": "TestTester",
+        "avatar": "/api/twitch/avatar/TestTester",
+        "mode": "single",
+        "agent": "Jett",
+        "agentImg": "https://media.valorant-api.com/agents/add6443a-41bd-e414-f6ad-e58d267f4e95/fullportrait.png",
+        "role": "Duelist",
+        "agents": null,
+        "result": "Jett (Duelist)"
+      },
+      {
+        "id": "roll_1789244621336_c7d88",
+        "timestamp": 1789244621336,
+        "username": "TestTester",
+        "avatar": "/api/twitch/avatar/TestTester",
+        "mode": "single",
+        "agent": "Waylay",
+        "agentImg": "https://media.valorant-api.com/agents/df1cb487-4902-002e-5c17-d28e83e78588/fullportrait.png",
+        "role": "Duelist",
+        "agents": null,
+        "result": "Waylay (Duelist)"
+      },
+      {
+        "id": "roll_1789243112627_asqb4",
+        "timestamp": 1789243112627,
+        "username": "TestSquad",
+        "avatar": "/api/twitch/avatar/TestSquad",
+        "mode": "team",
+        "agent": null,
+        "agentImg": null,
+        "role": "Team",
+        "agents": [
+          {
+            "name": "Yoru",
+            "role": "Duelist",
+            "icon": "https://media.valorant-api.com/agents/7f94d92c-4234-0a36-9646-3a87eb8b5c89/displayicon.png"
+          },
+          {
+            "name": "Breach",
+            "role": "Initiator",
+            "icon": "https://media.valorant-api.com/agents/5f8d3a7f-467b-97f3-062c-13acf203c006/displayicon.png"
+          },
+          {
+            "name": "Clove",
+            "role": "Controller",
+            "icon": "https://media.valorant-api.com/agents/1dbf2edd-4729-0984-3115-daa5eed44993/displayicon.png"
+          },
+          {
+            "name": "Killjoy",
+            "role": "Sentinel",
+            "icon": "https://media.valorant-api.com/agents/1e58de9c-4950-5125-93e9-a0aee9f98746/displayicon.png"
+          },
+          {
+            "name": "Gekko",
+            "role": "Initiator",
+            "icon": "https://media.valorant-api.com/agents/e370fa57-4757-3604-3648-499e1f642d3f/displayicon.png"
+          }
+        ],
+        "result": "Yoru, Breach, Clove, Killjoy, Gekko"
+      },
+      {
+        "id": "roll_1789242250313_kgp97",
+        "timestamp": 1789242250313,
+        "username": "TestStreamer",
+        "avatar": "/api/twitch/avatar/TestStreamer",
+        "mode": "single",
+        "agent": "Reyna",
+        "agentImg": "https://media.valorant-api.com/agents/a3bfb853-43b2-7238-a4f1-ad90e9e46bcc/fullportrait.png",
+        "role": "Duelist",
+        "agents": null,
+        "result": "Reyna (Duelist)"
+      }
+    ]
   }
 }
