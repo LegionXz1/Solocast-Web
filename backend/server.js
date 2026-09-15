@@ -144,6 +144,30 @@ function getAssociatedUserIdentifiers(input) {
   return set;
 }
 
+const ADMIN_USERS_FILE = path.join(__dirname, 'data', 'admin_users.json');
+
+function loadAdminUsers() {
+  try {
+    if (fs.existsSync(ADMIN_USERS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(ADMIN_USERS_FILE, 'utf8'));
+      if (Array.isArray(data)) return data;
+    }
+  } catch (e) {
+    console.error('Error loading admin_users.json:', e.message);
+  }
+  return [];
+}
+
+function saveAdminUsers(data) {
+  try {
+    const dir = path.dirname(ADMIN_USERS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(ADMIN_USERS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving admin_users.json:', e.message);
+  }
+}
+
 function isUserAdmin(userId, username) {
   if (!userId && !username) return false;
   const ids = new Set([
@@ -151,18 +175,27 @@ function isUserAdmin(userId, username) {
     ...getAssociatedUserIdentifiers(username)
   ]);
 
-  // 1. Matches Broadcaster TWITCH_USER_ID
+  // 1. Matches Broadcaster TWITCH_USER_ID (System Owner)
   if (process.env.TWITCH_USER_ID && ids.has(String(process.env.TWITCH_USER_ID).trim().toLowerCase())) {
     return true;
   }
-  // 2. Matches ADMIN_TWITCH_USERS whitelist
+  // 2. Matches ADMIN_TWITCH_USERS whitelist in .env
   if (process.env.ADMIN_TWITCH_USERS) {
     const list = process.env.ADMIN_TWITCH_USERS.split(',').map(s => s.trim().toLowerCase().replace(/^@/, '')).filter(Boolean);
     for (const a of list) {
       if (ids.has(a)) return true;
     }
   }
-  // 3. Matches session isAdmin
+  // 3. Matches dynamic admin_users.json database
+  const dynamicAdmins = loadAdminUsers();
+  for (const adm of dynamicAdmins) {
+    const admUser = String(adm.username || adm.userId || adm || '').trim().toLowerCase().replace(/^@/, '');
+    const admId = String(adm.userId || '').trim().toLowerCase();
+    if (ids.has(admUser) || (admId && ids.has(admId))) {
+      return true;
+    }
+  }
+  // 4. Matches session isAdmin
   for (const sess of Object.values(sessions)) {
     if (sess && sess.isAdmin) {
       const sUid = String(sess.userId || '').toLowerCase();
@@ -1040,6 +1073,246 @@ app.get('/api/admin/users', checkAdminAuth, (req, res) => {
     res.json(users);
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ==========================================================================
+// 🛡️ Admin Roles Management Endpoints (จัดการสิทธิ์ผู้ดูแลระบบ)
+// ==========================================================================
+
+// GET /api/admin/admins — ดึงรายชื่อผู้ดูแลระบบทั้งหมด และรายชื่อผู้ใช้ที่เคยล็อกอิน
+app.get('/api/admin/admins', checkAdminAuth, (req, res) => {
+  try {
+    const adminMap = new Map();
+
+    // 1. Root Broadcaster จาก .env
+    const rootBroadcasterId = process.env.TWITCH_USER_ID ? String(process.env.TWITCH_USER_ID).trim() : '';
+    if (rootBroadcasterId) {
+      let bName = 'Broadcaster (Owner)';
+      for (const s of Object.values(sessions)) {
+        if (s && String(s.userId) === rootBroadcasterId) {
+          bName = s.username || s.displayName || bName;
+          break;
+        }
+      }
+      adminMap.set(rootBroadcasterId.toLowerCase(), {
+        identifier: rootBroadcasterId,
+        userId: rootBroadcasterId,
+        username: bName,
+        displayName: bName,
+        isOwner: true,
+        source: 'env_broadcaster',
+        addedAt: null,
+        addedBy: 'System'
+      });
+    }
+
+    // 2. Env Whitelist Admins
+    if (process.env.ADMIN_TWITCH_USERS) {
+      const list = process.env.ADMIN_TWITCH_USERS.split(',').map(s => s.trim().toLowerCase().replace(/^@/, '')).filter(Boolean);
+      for (const item of list) {
+        if (!adminMap.has(item)) {
+          adminMap.set(item, {
+            identifier: item,
+            username: item,
+            displayName: item,
+            isOwner: true,
+            source: 'env_whitelist',
+            addedAt: null,
+            addedBy: 'System'
+          });
+        }
+      }
+    }
+
+    // 3. Dynamic Admins จาก admin_users.json
+    const dynamicAdmins = loadAdminUsers();
+    for (const adm of dynamicAdmins) {
+      const key = String(adm.username || adm.userId || '').toLowerCase().replace(/^@/, '');
+      if (key && !adminMap.has(key)) {
+        adminMap.set(key, {
+          identifier: adm.username || adm.userId,
+          userId: adm.userId || '',
+          username: adm.username || '',
+          displayName: adm.displayName || adm.username || '',
+          note: adm.note || '',
+          isOwner: false,
+          source: 'database',
+          addedAt: adm.addedAt || null,
+          addedBy: adm.addedBy || 'Admin'
+        });
+      }
+    }
+
+    // รวบรวมรายชื่อผู้ใช้ที่เคยล็อกอินเข้าระบบสำหรับตัวเลือก Dropdown
+    const knownUsersMap = new Map();
+    for (const s of Object.values(sessions)) {
+      if (s && s.userId) {
+        const uid = String(s.userId);
+        if (!knownUsersMap.has(uid)) {
+          knownUsersMap.set(uid, {
+            userId: uid,
+            username: s.username || '',
+            displayName: s.displayName || s.username || uid
+          });
+        }
+      }
+    }
+
+    const admins = Array.from(adminMap.values());
+    const knownUsers = Array.from(knownUsersMap.values()).sort((a, b) =>
+      (a.displayName || a.username).localeCompare(b.displayName || b.username)
+    );
+
+    res.json({ success: true, admins, knownUsers });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// POST /api/admin/admins — เพิ่มผู้ดูแลระบบใหม่
+app.post('/api/admin/admins', checkAdminAuth, (req, res) => {
+  try {
+    const rawUsername = (req.body?.username || '').trim().replace(/^@/, '');
+    const note = (req.body?.note || '').trim();
+
+    if (!rawUsername) {
+      return res.status(400).json({ success: false, error: 'กรุณากรอกชื่อผู้ใช้ Twitch (Username) ที่ต้องการตั้งเป็นแอดมิน' });
+    }
+
+    const cleanUser = rawUsername.toLowerCase();
+
+    // ตรวจสอบว่าตรงกับ Root Broadcaster / Env Admins หรือไม่
+    if (process.env.TWITCH_USER_ID && cleanUser === String(process.env.TWITCH_USER_ID).toLowerCase()) {
+      return res.status(400).json({ success: false, error: 'ผู้ใช้นี้เป็นเจ้าของระบบ (Owner) อยู่แล้ว' });
+    }
+    if (process.env.ADMIN_TWITCH_USERS) {
+      const envList = process.env.ADMIN_TWITCH_USERS.split(',').map(s => s.trim().toLowerCase().replace(/^@/, ''));
+      if (envList.includes(cleanUser)) {
+        return res.status(400).json({ success: false, error: 'ผู้ใช้นี้มีสิทธิ์แอดมินในระบบอยู่แล้ว (ผ่านการตั้งค่า .env)' });
+      }
+    }
+
+    const currentAdmins = loadAdminUsers();
+    const exists = currentAdmins.some(a => {
+      const u = String(a.username || a.userId || '').toLowerCase().replace(/^@/, '');
+      return u === cleanUser;
+    });
+
+    if (exists) {
+      return res.status(400).json({ success: false, error: `บัญชี @${rawUsername} เป็นแอดมินอยู่แล้ว` });
+    }
+
+    // ค้นหาข้อมูลใน Session ที่มีอยู่เพื่อดึง User ID และ Display Name ที่ถูกต้อง
+    let matchedUserId = '';
+    let matchedDisplayName = rawUsername;
+    for (const sess of Object.values(sessions)) {
+      if (sess && (String(sess.username || '').toLowerCase() === cleanUser || String(sess.userId || '') === cleanUser)) {
+        matchedUserId = sess.userId || '';
+        matchedDisplayName = sess.displayName || sess.username || matchedDisplayName;
+        break;
+      }
+    }
+
+    const newAdmin = {
+      id: crypto.randomUUID(),
+      username: rawUsername,
+      userId: matchedUserId,
+      displayName: matchedDisplayName,
+      note,
+      addedAt: Date.now(),
+      addedBy: req.user?.username || 'Admin'
+    };
+
+    currentAdmins.push(newAdmin);
+    saveAdminUsers(currentAdmins);
+
+    // อัปเดต Active Session ของผู้ใช้นี้ทันทีแบบ Real-Time
+    let updatedSessionsCount = 0;
+    for (const sess of Object.values(sessions)) {
+      if (sess) {
+        const u = String(sess.username || '').toLowerCase();
+        const uid = String(sess.userId || '').toLowerCase();
+        if (u === cleanUser || (matchedUserId && uid === matchedUserId.toLowerCase())) {
+          sess.isAdmin = true;
+          updatedSessionsCount++;
+        }
+      }
+    }
+    if (updatedSessionsCount > 0) {
+      saveSessions(sessions);
+    }
+
+    console.log(`[Admin Management] User @${rawUsername} was granted Admin role by @${req.user?.username || 'Admin'}`);
+
+    res.json({
+      success: true,
+      admin: newAdmin,
+      message: `เพิ่ม @${rawUsername} เป็นผู้ดูแลระบบเรียบร้อยแล้ว!`
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// DELETE /api/admin/admins/:identifier — ปลดสิทธิ์ผู้ดูแลระบบ
+app.delete('/api/admin/admins/:identifier', checkAdminAuth, (req, res) => {
+  try {
+    const identifier = decodeURIComponent(req.params.identifier || '').trim().replace(/^@/, '');
+    if (!identifier) {
+      return res.status(400).json({ success: false, error: 'ไม่พบข้อมูลผู้ใช้ที่ต้องการปลดสิทธิ์' });
+    }
+
+    const cleanId = identifier.toLowerCase();
+
+    // ป้องกันการปลดสิทธิ์ Root Broadcaster และ Env Whitelist
+    if (process.env.TWITCH_USER_ID && cleanId === String(process.env.TWITCH_USER_ID).toLowerCase()) {
+      return res.status(400).json({ success: false, error: 'ไม่สามารถปลดสิทธิ์เจ้าของระบบ (System Owner) ได้' });
+    }
+    if (process.env.ADMIN_TWITCH_USERS) {
+      const envList = process.env.ADMIN_TWITCH_USERS.split(',').map(s => s.trim().toLowerCase().replace(/^@/, ''));
+      if (envList.includes(cleanId)) {
+        return res.status(400).json({ success: false, error: 'ไม่สามารถปลดสิทธิ์แอดมินที่ตั้งค่าจาก .env ได้ (กรุณาแก้ไขในไฟล์ .env)' });
+      }
+    }
+
+    const currentAdmins = loadAdminUsers();
+    const index = currentAdmins.findIndex(a => {
+      const u = String(a.username || '').toLowerCase().replace(/^@/, '');
+      const uid = String(a.userId || '').toLowerCase();
+      const aid = String(a.id || '').toLowerCase();
+      return u === cleanId || uid === cleanId || aid === cleanId;
+    });
+
+    if (index === -1) {
+      return res.status(404).json({ success: false, error: 'ไม่พบผู้ดูแลระบบนี้ในฐานข้อมูล' });
+    }
+
+    const removed = currentAdmins.splice(index, 1)[0];
+    saveAdminUsers(currentAdmins);
+
+    // อัปเดตสิทธิ์ใน Active Sessions ทันที
+    for (const sess of Object.values(sessions)) {
+      if (sess) {
+        const u = String(sess.username || '').toLowerCase();
+        const uid = String(sess.userId || '').toLowerCase();
+        const remU = String(removed.username || '').toLowerCase();
+        const remUid = String(removed.userId || '').toLowerCase();
+        if ((remU && u === remU) || (remUid && uid === remUid)) {
+          sess.isAdmin = isUserAdmin(sess.userId, sess.username);
+        }
+      }
+    }
+    saveSessions(sessions);
+
+    console.log(`[Admin Management] User @${removed.username || identifier} Admin role revoked by @${req.user?.username || 'Admin'}`);
+
+    res.json({
+      success: true,
+      message: `ปลดสิทธิ์ผู้ดูแลระบบ @${removed.username || identifier} เรียบร้อยแล้ว`
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 

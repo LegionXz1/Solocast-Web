@@ -1406,22 +1406,10 @@ function Dashboard() {
                 <button
                   type="button"
                   onClick={() => navigate('/admin?tab=widgets')}
-                  className="btn-island"
-                  style={{
-                    padding: '0.55rem 1.1rem',
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                    background: 'rgba(239, 68, 68, 0.12)',
-                    color: '#f87171',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.45rem',
-                    cursor: 'pointer'
-                  }}
+                  className="dashboard-admin-primary-btn"
                   title="ไปที่หน้า Admin เพื่อจัดการเปิด/ปิด Widget ทั้งระบบ"
                 >
-                  <ShieldCheck size={15} />
+                  <ShieldCheck size={16} />
                   <span>จัดการ Widget (Admin)</span>
                 </button>
               )}
@@ -1430,16 +1418,7 @@ function Dashboard() {
                 <div className="dashboard-status-pill">
                   <div className="status-dot connected" style={{ width: '8px', height: '8px' }} />
                   <span>@{status.username}</span>
-                  <span style={{
-                    fontSize: '0.65rem',
-                    padding: '1px 6px',
-                    borderRadius: '4px',
-                    background: 'rgba(48, 209, 88, 0.15)',
-                    color: '#30D158',
-                    fontWeight: 700
-                  }}>
-                    ONLINE
-                  </span>
+                  <span className="dashboard-online-badge">ONLINE</span>
                 </div>
               ) : (
                 <a
@@ -1453,27 +1432,51 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Quick Stats Bar */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.85rem',
-            marginBottom: '1.5rem',
-            flexWrap: 'wrap'
-          }}>
-            <div className="dashboard-stat-chip">
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#3b82f6' }}></span>
-              <span>วิดเจ็ตทั้งหมด: <strong>{widgets.length}</strong></span>
+          {/* Unified Broadcast Console Deck */}
+          <div className="dashboard-console-bar">
+            <div className="console-module">
+              <span className="console-label">สัญญาณถ่ายทอดสด</span>
+              <div className="console-val-group">
+                <span className={`console-status-dot ${status.connected ? 'is-live' : 'is-offline'}`} />
+                <span className="console-value">{status.connected ? `@${status.username}` : 'Twitch Offline'}</span>
+                <span className={`console-badge ${status.connected ? 'online' : 'offline'}`}>
+                  {status.connected ? 'ON-AIR' : 'STANDBY'}
+                </span>
+              </div>
             </div>
 
-            <div className="dashboard-stat-chip chip-ready">
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }}></span>
-              <span>พร้อมใช้งานใน OBS: <strong>{widgets.filter(w => getWidgetStatus(w.id).active).length}</strong></span>
+            <div className="console-divider" />
+
+            <div className="console-module">
+              <span className="console-label">โอเวอร์เลย์ทั้งหมด</span>
+              <div className="console-val-group">
+                <span className="console-metric">{widgets.length}</span>
+                <span className="console-unit">WIDGETS</span>
+              </div>
             </div>
 
-            <div className="dashboard-stat-chip chip-fav">
-              <Star size={13} fill="#f59e0b" color="#f59e0b" />
-              <span>รายการโปรด: <strong>{favorites.length}</strong></span>
+            <div className="console-divider" />
+
+            <div className="console-module console-highlight">
+              <span className="console-label">พร้อมแสดงใน OBS</span>
+              <div className="console-val-group">
+                <span className="console-signal-dot" />
+                <span className="console-metric active-metric">
+                  {widgets.filter(w => getWidgetStatus(w.id).active).length}
+                </span>
+                <span className="console-unit">ACTIVE SOURCES</span>
+              </div>
+            </div>
+
+            <div className="console-divider" />
+
+            <div className="console-module">
+              <span className="console-label">รายการโปรด</span>
+              <div className="console-val-group">
+                <Star size={14} fill="#f59e0b" color="#f59e0b" />
+                <span className="console-metric">{favorites.length}</span>
+                <span className="console-unit">PRESETS</span>
+              </div>
             </div>
           </div>
 
@@ -1492,57 +1495,48 @@ function Dashboard() {
                 className={`my-overlays-tab ${overlayTab === 'twitch' ? 'active' : ''}`}
                 onClick={() => setOverlayTab('twitch')}
               >
-                Twitch & Chat ({widgets.filter(w => (WIDGET_META[w.id]?.category || '') === 'twitch').length})
-              </button>
-              <button
-                type="button"
-                className={`my-overlays-tab ${overlayTab === 'spotify' ? 'active' : ''}`}
-                onClick={() => setOverlayTab('spotify')}
-              >
-                Spotify Music ({widgets.filter(w => (WIDGET_META[w.id]?.category || '') === 'spotify').length})
+                Twitch & Chat
               </button>
               <button
                 type="button"
                 className={`my-overlays-tab ${overlayTab === 'game' ? 'active' : ''}`}
                 onClick={() => setOverlayTab('game')}
               >
-                Games ({widgets.filter(w => (WIDGET_META[w.id]?.category || '') === 'game').length})
+                เกม (Games)
+              </button>
+              <button
+                type="button"
+                className={`my-overlays-tab ${overlayTab === 'spotify' ? 'active' : ''}`}
+                onClick={() => setOverlayTab('spotify')}
+              >
+                Spotify
               </button>
               <button
                 type="button"
                 className={`my-overlays-tab ${overlayTab === 'favorites' ? 'active' : ''}`}
                 onClick={() => setOverlayTab('favorites')}
               >
-                <Star size={14} fill={overlayTab === 'favorites' ? '#f59e0b' : 'none'} color={overlayTab === 'favorites' ? '#f59e0b' : '#94a3b8'} />
-                รายการโปรด ({favorites.length})
+                ★ รายการโปรด ({favorites.length})
               </button>
             </div>
 
             <div className="my-overlays-controls">
               <div className="my-overlays-search-box">
-                <Search size={15} className="search-icon" />
+                <Search size={14} className="search-icon" />
                 <input
                   type="text"
-                  placeholder="ค้นหา Overlays..."
+                  placeholder="ค้นหาชื่อ หรือคำอธิบาย..."
                   value={overlaySearch}
                   onChange={(e) => setOverlaySearch(e.target.value)}
                 />
                 {overlaySearch && (
                   <button
                     type="button"
+                    className="my-overlays-search-clear"
                     onClick={() => setOverlaySearch('')}
-                    style={{
-                      position: 'absolute',
-                      right: '0.75rem',
-                      background: 'none',
-                      border: 'none',
-                      color: '#64748b',
-                      cursor: 'pointer',
-                      padding: 0,
-                      display: 'flex'
-                    }}
+                    title="ล้างคำค้นหา"
                   >
-                    <X size={14} />
+                    <X size={12} />
                   </button>
                 )}
               </div>
@@ -1667,7 +1661,7 @@ function Dashboard() {
                           )}
                           <span>
                             {!wStatus.hasAccess
-                              ? 'เฉพาะผู้ได้รับสิทธิ์'
+                              ? 'เฉพาะผู้มีสิทธิ์'
                               : !wStatus.globalEnabled
                                 ? 'ล็อคระบบ'
                                 : wStatus.userEnabled
@@ -1678,47 +1672,32 @@ function Dashboard() {
                       </div>
                     </div>
 
-                    {/* Middle Section: Fixed uniform height */}
+                    {/* Middle Section: Clean Uniform Description & Single Status Dot */}
                     <div className="clean-card-middle">
-                      {/* Description */}
                       <p className="clean-card-desc">
                         {meta.desc || 'ปรับแต่งข้อความ สี แอนิเมชัน และการแสดงผลบน OBS Studio'}
                       </p>
 
-                      {/* Badges Row */}
-                      <div className="clean-card-badges-row">
-                        {!wStatus.hasAccess ? (
-                          <span className="clean-badge clean-badge-restricted" style={{
-                            background: 'rgba(245, 158, 11, 0.12)',
-                            color: '#fbbf24',
-                            border: '1px solid rgba(245, 158, 11, 0.3)'
-                          }}>
-                            🔒 เฉพาะผู้ได้รับสิทธิ์
-                          </span>
-                        ) : wStatus.active ? (
-                          <span className="clean-badge clean-badge-active">
-                            <span className="clean-badge-dot"></span>
-                            พร้อมใช้ใน OBS
-                          </span>
-                        ) : !wStatus.globalEnabled ? (
-                          <span className="clean-badge clean-badge-admin">
-                            🔒 แอดมินปิดปรับปรุง
-                          </span>
-                        ) : (
-                          <span className="clean-badge clean-badge-disabled">
-                            ⛔ ปิดใช้งาน
-                          </span>
-                        )}
-                        {meta.tag && (
-                          <span className="clean-badge clean-badge-tag">
-                            {meta.tag}
-                          </span>
-                        )}
-                        {isFav && (
-                          <span className="clean-badge" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
-                            ★ โปรด
-                          </span>
-                        )}
+                      {/* Single Status Indicator Dot - Clean, No Pill Bloat */}
+                      <div className="card-status-indicator">
+                        <span className={`status-signal-dot ${
+                          !wStatus.hasAccess
+                            ? 'dot-restricted'
+                            : !wStatus.globalEnabled
+                              ? 'dot-maintenance'
+                              : wStatus.active
+                                ? 'dot-live'
+                                : 'dot-idle'
+                        }`} />
+                        <span className="status-signal-text">
+                          {!wStatus.hasAccess
+                            ? 'เฉพาะผู้ได้รับสิทธิ์'
+                            : !wStatus.globalEnabled
+                              ? 'แอดมินปิดปรับปรุง'
+                              : wStatus.active
+                                ? 'พร้อมใช้ใน OBS'
+                                : 'ปิดใช้งาน'}
+                        </span>
                       </div>
                     </div>
 

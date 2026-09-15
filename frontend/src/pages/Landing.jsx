@@ -135,20 +135,8 @@ export default function Landing() {
 
   const activeService = SERVICES.find((s) => s.id === activeServiceTab) || SERVICES[0];
 
-  // Scroll Progress & Viewport Reveal Observer
+  // Viewport Reveal Observer
   useEffect(() => {
-    const handleScroll = () => {
-      const bar = document.getElementById('scrollProgressBar');
-      if (bar) {
-        const scrollTop = window.scrollY || document.documentElement.scrollTop;
-        const docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-        const progress = docHeight > 0 ? scrollTop / docHeight : 0;
-        bar.style.transform = `scaleX(${progress})`;
-      }
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-
     // IntersectionObserver for entrance reveal on scroll
     const elements = document.querySelectorAll('.scroll-reveal');
     const observer = new IntersectionObserver(
@@ -165,16 +153,12 @@ export default function Landing() {
     elements.forEach((el) => observer.observe(el));
 
     return () => {
-      window.removeEventListener('scroll', handleScroll);
       elements.forEach((el) => observer.unobserve(el));
     };
   }, []);
 
   return (
     <div className="landing-container animate-fade-up">
-      {/* Dynamic Reading Scroll Progress Bar */}
-      <div className="scroll-progress-bar" id="scrollProgressBar" aria-hidden="true" />
-
       {/* Update Announcement Popup Modal */}
       <UpdateModal
         isOpen={showUpdateModal}

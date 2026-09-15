@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   HelpCircle,
@@ -11,7 +11,8 @@ import {
   Menu,
   X,
   User,
-  ExternalLink
+  ExternalLink,
+  ChevronDown
 } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import { useAuth } from '../context/AuthContext';
@@ -22,6 +23,19 @@ export default function Navbar() {
   const navigate = useNavigate();
   const { user, logout, loading } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const userDropdownRef = useRef(null);
+
+  // Close user dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target)) {
+        setIsUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const navLinks = [
     { label: 'หน้าแรก', path: '/', icon: Home },
@@ -85,24 +99,20 @@ export default function Navbar() {
           </nav>
         </div>
 
-        {/* Right Section: ThemeToggle & User Profile / Login */}
+        {/* Right Section: ThemeToggle & Compact User Dropdown / Login */}
         <div className="navbar-actions-group">
           <ThemeToggle />
 
           {loading ? null : user ? (
-            <div className="navbar-user-profile">
-              {user.isAdmin && (
-                <Link
-                  to="/admin"
-                  className={`navbar-admin-btn ${location.pathname.startsWith('/admin') ? 'active' : ''}`}
-                  title="เข้าสู่แผงควบคุมผู้ดูแลระบบ"
-                >
-                  <ShieldCheck size={14} />
-                  <span>Admin</span>
-                </Link>
-              )}
-
-              <div className="navbar-user-badge" title={`เข้าสู่ระบบด้วย @${user.username}`}>
+            <div className="navbar-user-dropdown-container" ref={userDropdownRef}>
+              <button
+                type="button"
+                className={`navbar-user-trigger ${isUserDropdownOpen ? 'active' : ''}`}
+                onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                aria-expanded={isUserDropdownOpen}
+                aria-haspopup="true"
+                title={`เมนูผู้ใช้งาน @${user.username}`}
+              >
                 <img
                   src={`${API_BASE}/api/twitch/avatar/${encodeURIComponent(user.username)}`}
                   alt={user.displayName || user.username}
@@ -112,17 +122,82 @@ export default function Navbar() {
                   }}
                 />
                 <span className="navbar-username">@{user.displayName || user.username}</span>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="navbar-logout-btn"
-                title="ออกจากระบบ"
-              >
-                <LogOut size={14} />
-                <span className="navbar-logout-text">ออกจากระบบ</span>
+                {user.isAdmin && (
+                  <span className="navbar-admin-tag" title="ผู้ดูแลระบบ FastChick">
+                    <ShieldCheck size={11} /> Admin
+                  </span>
+                )}
+                <ChevronDown size={14} className={`navbar-chevron ${isUserDropdownOpen ? 'rotated' : ''}`} />
               </button>
+
+              {/* Dropdown Menu Modal/Card */}
+              {isUserDropdownOpen && (
+                <div className="navbar-user-dropdown-menu animate-fade-in" role="menu">
+                  {/* User Info Header */}
+                  <div className="navbar-dropdown-header">
+                    <div className="navbar-dropdown-avatar-wrap">
+                      <img
+                        src={`${API_BASE}/api/twitch/avatar/${encodeURIComponent(user.username)}`}
+                        alt={user.username}
+                        className="navbar-dropdown-avatar"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                      <span className="navbar-dropdown-status-dot" title="เชื่อมต่อ Twitch สำเร็จ" />
+                    </div>
+                    <div className="navbar-dropdown-user-details">
+                      <span className="navbar-dropdown-name">{user.displayName || user.username}</span>
+                      <span className="navbar-dropdown-handle">@{user.username}</span>
+                    </div>
+                  </div>
+
+                  <div className="navbar-dropdown-divider" />
+
+                  {/* Dropdown Navigation Links */}
+                  <div className="navbar-dropdown-items">
+                    <Link
+                      to="/dashboard"
+                      className={`navbar-dropdown-item ${location.pathname === '/dashboard' ? 'active' : ''}`}
+                      onClick={() => setIsUserDropdownOpen(false)}
+                      role="menuitem"
+                    >
+                      <LayoutDashboard size={15} />
+                      <span>แผงควบคุม Overlays</span>
+                    </Link>
+
+                    {user.isAdmin && (
+                      <Link
+                        to="/admin"
+                        className={`navbar-dropdown-item admin-item ${location.pathname.startsWith('/admin') ? 'active' : ''}`}
+                        onClick={() => setIsUserDropdownOpen(false)}
+                        role="menuitem"
+                      >
+                        <ShieldCheck size={15} />
+                        <span>จัดการระบบ (Admin Panel)</span>
+                      </Link>
+                    )}
+                  </div>
+
+                  <div className="navbar-dropdown-divider" />
+
+                  {/* Sign Out Button */}
+                  <div className="navbar-dropdown-footer">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserDropdownOpen(false);
+                        handleLogout();
+                      }}
+                      className="navbar-dropdown-logout-btn"
+                      role="menuitem"
+                    >
+                      <LogOut size={14} />
+                      <span>ออกจากระบบ</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <button

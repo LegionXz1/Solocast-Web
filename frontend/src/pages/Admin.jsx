@@ -4,7 +4,7 @@ import {
   CheckCircle2, AlertTriangle, X, ExternalLink, Plus, Trash2, 
   RotateCw, Loader2, Search, Skull, UserCheck, Layers, Ban, Check, Key, Lock, Unlock,
   LifeBuoy, MessageSquare, Clock, ShieldCheck, MessageCircle, Send, Edit3, Filter,
-  User, Users, Save, BellRing, Eye, Sparkles
+  User, Users, Save, BellRing, Eye, Sparkles, Crown, UserPlus
 } from 'lucide-react';
 
 import { API_BASE } from '../config';
@@ -170,6 +170,27 @@ function Admin() {
   const [isSavingTicket, setIsSavingTicket] = useState(false);
   const [deleteConfirmTicket, setDeleteConfirmTicket] = useState(null);
   const [isDeletingTicket, setIsDeletingTicket] = useState(false);
+
+  // Admin Roles Management State
+  const [adminsList, setAdminsList] = useState([]);
+  const [knownUsersList, setKnownUsersList] = useState([]);
+  const [isLoadingAdmins, setIsLoadingAdmins] = useState(false);
+  const [newAdminUsername, setNewAdminUsername] = useState('');
+  const [newAdminNote, setNewAdminNote] = useState('');
+  const [isAddingAdmin, setIsAddingAdmin] = useState(false);
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
+  const [deleteConfirmAdmin, setDeleteConfirmAdmin] = useState(null);
+  const [isDeletingAdmin, setIsDeletingAdmin] = useState(false);
+
+  const filteredAdmins = useMemo(() => {
+    if (!adminSearchQuery.trim()) return adminsList;
+    const q = adminSearchQuery.trim().toLowerCase();
+    return adminsList.filter(a =>
+      (a.username || '').toLowerCase().includes(q) ||
+      (a.displayName || '').toLowerCase().includes(q) ||
+      (a.note || '').toLowerCase().includes(q)
+    );
+  }, [adminsList, adminSearchQuery]);
 
   const loadAnnouncementData = async () => {
     setIsLoadingAnnouncement(true);
@@ -353,6 +374,88 @@ function Admin() {
     }
   };
 
+  // Fetch Admins List
+  const fetchAdminsList = async () => {
+    setIsLoadingAdmins(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/admins`, {
+        headers: getAuthHeader()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setAdminsList(data.admins || []);
+          setKnownUsersList(data.knownUsers || []);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching admins list:', err);
+    } finally {
+      setIsLoadingAdmins(false);
+    }
+  };
+
+  // Add New Admin
+  const handleAddAdmin = async (e) => {
+    if (e) e.preventDefault();
+    const username = newAdminUsername.trim().replace(/^@/, '');
+    if (!username) {
+      showToast('กรุณากรอกชื่อผู้ใช้ Twitch', 'error');
+      return;
+    }
+    setIsAddingAdmin(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/admins`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify({
+          username,
+          note: newAdminNote.trim()
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(data.message || `เพิ่ม @${username} เป็นผู้ดูแลระบบเรียบร้อยแล้ว!`, 'success');
+        setNewAdminUsername('');
+        setNewAdminNote('');
+        fetchAdminsList();
+      } else {
+        showToast(data.error || 'ไม่สามารถเพิ่มแอดมินได้', 'error');
+      }
+    } catch (err) {
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+    } finally {
+      setIsAddingAdmin(false);
+    }
+  };
+
+  // Revoke / Delete Admin
+  const handleDeleteAdmin = async (identifier) => {
+    if (!identifier) return;
+    setIsDeletingAdmin(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/admins/${encodeURIComponent(identifier)}`, {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(data.message || 'ปลดสิทธิ์ผู้ดูแลระบบเรียบร้อยแล้ว', 'success');
+        setDeleteConfirmAdmin(null);
+        fetchAdminsList();
+      } else {
+        showToast(data.error || 'ไม่สามารถปลดสิทธิ์ได้', 'error');
+      }
+    } catch (err) {
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+    } finally {
+      setIsDeletingAdmin(false);
+    }
+  };
+
   // Sync DBD Perks from Wiki
   const handleSyncDbd = async () => {
     setIsSyncingDbd(true);
@@ -482,6 +585,7 @@ function Admin() {
         fetchDbdPerks();
         fetchSupportTickets();
         fetchAdminUsers();
+        fetchAdminsList();
       } else {
         setIsAuthorized(false);
       }
@@ -958,6 +1062,30 @@ function Admin() {
               <BellRing size={15} />
               <span>จัดการประกาศอัปเดต</span>
             </button>
+            <button
+              type="button"
+              className={`admin-section-btn ${adminSection === 'admins' ? 'active' : ''}`}
+              onClick={() => {
+                setAdminSection('admins');
+                setSearchParams({ tab: 'admins' });
+                fetchAdminsList();
+              }}
+            >
+              <ShieldCheck size={15} />
+              <span>จัดการสิทธิ์แอดมิน</span>
+              {adminsList.length > 0 && (
+                <span style={{
+                  fontSize: '0.7rem',
+                  background: adminSection === 'admins' ? 'var(--accent-contrast)' : 'var(--surface-3)',
+                  color: adminSection === 'admins' ? 'var(--accent-color)' : 'var(--text-primary)',
+                  padding: '1px 6px',
+                  marginLeft: '2px',
+                  borderRadius: 'var(--radius-xs)'
+                }}>
+                  {adminsList.length}
+                </span>
+              )}
+            </button>
           </div>
 
           {adminSection === 'widgets' && (
@@ -1018,6 +1146,18 @@ function Admin() {
                 <span>{isSavingAnnouncement ? 'กำลังบันทึก...' : 'บันทึกประกาศ'}</span>
               </button>
             </div>
+          )}
+
+          {adminSection === 'admins' && (
+            <button
+              type="button"
+              onClick={fetchAdminsList}
+              disabled={isLoadingAdmins}
+              className="btn-island"
+            >
+              <RotateCw size={14} className={isLoadingAdmins ? 'spin' : ''} />
+              <span>รีเฟรชรายชื่อ</span>
+            </button>
           )}
         </div>
       </div>
@@ -2516,6 +2656,268 @@ function Admin() {
         </div>
       )}
 
+      {/* 5. ADMIN ROLES & USER MANAGEMENT VIEW */}
+      {adminSection === 'admins' && (
+        <div className="admin-roles-dashboard animate-fade-up">
+          {/* Header Info Banner */}
+          <div className="admin-roles-header-banner doppel-shell" style={{ marginBottom: '1.5rem', padding: '1.25rem 1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+                  <ShieldCheck size={22} style={{ color: 'var(--accent-color)' }} />
+                  <span>จัดการสิทธิ์ผู้ดูแลระบบ (Admin Role Management)</span>
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  กำหนดรายชื่อสตรีมเมอร์หรือทีมงานที่ได้รับสิทธิ์เข้าถึงหน้า Admin เพื่อจัดการวิดเจ็ต ประกาศ และระบบต่างๆ ได้ทันที
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <span className="admin-badge-owner" style={{ padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Crown size={14} /> เจ้าของระบบ: {adminsList.filter(a => a.isOwner).length}
+                </span>
+                <span className="admin-badge-admin" style={{ padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <ShieldCheck size={14} /> แอดมินทั่วไป: {adminsList.filter(a => !a.isOwner).length}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Add Admin Form Card */}
+          <div className="doppel-shell" style={{ marginBottom: '1.75rem', padding: '1.5rem' }}>
+            <h4 style={{ margin: '0 0 1rem 0', fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+              <UserPlus size={18} style={{ color: 'var(--accent-color)' }} />
+              <span>เพิ่มผู้ดูแลระบบคนใหม่ (+ Add Admin)</span>
+            </h4>
+
+            <form onSubmit={handleAddAdmin} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', alignItems: 'flex-end' }}>
+              {/* Twitch Username Input */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  ชื่อบัญชี Twitch (Twitch Username) *
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontWeight: 700 }}>
+                    @
+                  </span>
+                  <input
+                    type="text"
+                    value={newAdminUsername}
+                    onChange={(e) => setNewAdminUsername(e.target.value)}
+                    placeholder="เช่น streamer_name หรือ twitch_user"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem 0.85rem 0.6rem 2rem',
+                      background: 'var(--surface-2)',
+                      border: '1px solid var(--border-primary)',
+                      borderRadius: '8px',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.9rem',
+                      fontWeight: 600
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Quick Pick from Connected Users */}
+              {knownUsersList.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    หรือเลือกจากผู้ใช้ที่เคยล็อกอิน:
+                  </label>
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setNewAdminUsername(e.target.value);
+                      }
+                    }}
+                    defaultValue=""
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem 0.85rem',
+                      background: 'var(--surface-2)',
+                      border: '1px solid var(--border-primary)',
+                      borderRadius: '8px',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.88rem'
+                    }}
+                  >
+                    <option value="">-- เลือกด่วนจากประวัติการล็อกอิน --</option>
+                    {knownUsersList.map(u => (
+                      <option key={u.userId} value={u.username}>
+                        {u.displayName || u.username} (@{u.username})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Note / Memo */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  บันทึกข้อความ / ตำแหน่ง (Optional Note)
+                </label>
+                <input
+                  type="text"
+                  value={newAdminNote}
+                  onChange={(e) => setNewAdminNote(e.target.value)}
+                  placeholder="เช่น ทีมงาน Mod, ผู้ช่วยสตรีม"
+                  style={{
+                    width: '100%',
+                    padding: '0.6rem 0.85rem',
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border-primary)',
+                    borderRadius: '8px',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.9rem'
+                  }}
+                />
+              </div>
+
+              {/* Submit Button */}
+              <div>
+                <button
+                  type="submit"
+                  disabled={isAddingAdmin || !newAdminUsername.trim()}
+                  className="btn-island accent"
+                  style={{ width: '100%', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                >
+                  {isAddingAdmin ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}
+                  <span>{isAddingAdmin ? 'กำลังเพิ่ม...' : 'เพิ่มเป็นแอดมิน'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Admins Table / List Card */}
+          <div className="doppel-shell" style={{ padding: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+                <Users size={18} style={{ color: 'var(--accent-color)' }} />
+                <span>รายชื่อผู้ดูแลระบบทั้งหมด ({adminsList.length})</span>
+              </h4>
+
+              {/* Search Box */}
+              <div style={{ position: 'relative', minWidth: '240px' }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  value={adminSearchQuery}
+                  onChange={(e) => setAdminSearchQuery(e.target.value)}
+                  placeholder="ค้นหาชื่อหรือตำแหน่งแอดมิน..."
+                  style={{
+                    width: '100%',
+                    padding: '0.45rem 0.85rem 0.45rem 1.9rem',
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border-primary)',
+                    borderRadius: '6px',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.82rem'
+                  }}
+                />
+              </div>
+            </div>
+
+            {isLoadingAdmins ? (
+              <div style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--text-muted)' }}>
+                <Loader2 size={24} className="spin" style={{ margin: '0 auto 0.5rem auto' }} />
+                <p style={{ margin: 0, fontSize: '0.85rem' }}>กำลังโหลดรายชื่อผู้ดูแลระบบ...</p>
+              </div>
+            ) : filteredAdmins.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--text-muted)' }}>
+                <ShieldCheck size={32} style={{ margin: '0 auto 0.75rem auto', opacity: 0.4 }} />
+                <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600 }}>ไม่พบข้อมูลผู้ดูแลระบบตามคำค้นหา</p>
+              </div>
+            ) : (
+              <div className="admin-roles-table-wrap">
+                <table className="admin-roles-table">
+                  <thead>
+                    <tr>
+                      <th>ผู้ใช้งาน (User)</th>
+                      <th>ระดับสิทธิ์ (Role)</th>
+                      <th>บันทึก / ตำแหน่ง</th>
+                      <th>วันที่แต่งตั้ง</th>
+                      <th>ผู้แต่งตั้ง</th>
+                      <th style={{ textAlign: 'right' }}>จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAdmins.map((adm) => (
+                      <tr key={adm.identifier || adm.username}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                            <div className="admin-avatar-box">
+                              {adm.isOwner ? (
+                                <Crown size={16} style={{ color: '#F59E0B' }} />
+                              ) : (
+                                <ShieldCheck size={16} style={{ color: 'var(--accent-color)' }} />
+                              )}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                                {adm.displayName || adm.username}
+                              </div>
+                              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                                @{adm.username}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          {adm.isOwner ? (
+                            <span className="admin-badge-owner">
+                              <Crown size={12} /> เจ้าของระบบ (Owner)
+                            </span>
+                          ) : (
+                            <span className="admin-badge-admin">
+                              <ShieldCheck size={12} /> ผู้ดูแลระบบ (Admin)
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.82rem', color: adm.note ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                            {adm.note || '-'}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                            {adm.addedAt ? new Date(adm.addedAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) : 'การตั้งค่าระบบ (.env)'}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            {adm.addedBy ? `@${adm.addedBy}` : 'System'}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          {adm.isOwner ? (
+                            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0.3rem 0.6rem' }}>
+                              สิทธิ์เจ้าของ
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmAdmin(adm)}
+                              className="code-action-btn danger"
+                              style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}
+                              title="ปลดสิทธิ์แอดมินคนนี้"
+                            >
+                              <Trash2 size={13} />
+                              <span>ปลดสิทธิ์</span>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirm Modal */}
       {showDeleteModal && (
         <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
@@ -3013,6 +3415,40 @@ function Admin() {
                 style={{ padding: '0.65rem 1.25rem' }}
               >
                 {isDeletingTicket ? 'กำลังลบ...' : 'ยืนยันการลบ'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Admin Confirm Modal */}
+      {deleteConfirmAdmin && (
+        <div className="modal-overlay" onClick={() => setDeleteConfirmAdmin(null)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.75rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={20} style={{ color: '#EF4444' }} /> ยืนยันการปลดสิทธิ์แอดมิน
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+              คุณแน่ใจหรือไม่ว่าต้องการปลดสิทธิ์ผู้ดูแลระบบของ <strong>@{deleteConfirmAdmin.username}</strong> ({deleteConfirmAdmin.displayName})?
+              เมื่อปลดสิทธิ์แล้ว ผู้ใช้นี้จะไม่สามารถเข้าถึงแผงควบคุม Admin ได้อีก
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmAdmin(null)}
+                className="btn-island"
+                style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)' }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingAdmin}
+                onClick={() => handleDeleteAdmin(deleteConfirmAdmin.username || deleteConfirmAdmin.userId)}
+                className="btn-danger"
+                style={{ padding: '0.65rem 1.25rem' }}
+              >
+                {isDeletingAdmin ? 'กำลังปลดสิทธิ์...' : 'ยืนยันปลดสิทธิ์'}
               </button>
             </div>
           </div>
