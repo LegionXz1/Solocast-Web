@@ -64,6 +64,23 @@ export function AuthProvider({ children }) {
     checkSession();
   }, [token]);
 
+  // Real-time listener for admin role changes (e.g. revoke or promote)
+  useEffect(() => {
+    let socket;
+    try {
+      import('socket.io-client').then(({ io }) => {
+        socket = io(API_BASE, { transports: ['websocket', 'polling'] });
+        socket.on('admin_status_changed', () => {
+          checkSession();
+        });
+      }).catch(() => {});
+    } catch (e) {}
+
+    return () => {
+      if (socket) socket.disconnect();
+    };
+  }, []);
+
   const logout = async () => {
     try {
       const activeToken = token || localStorage.getItem('solocast_user_token');
