@@ -67,7 +67,7 @@ export default function Navbar() {
           <Link to="/" className="navbar-logo" onClick={() => setIsMobileMenuOpen(false)}>
             <img
               src="/electric-chicken.webp"
-              alt="FastChick Mascot"
+              alt="FASTCHICK Mascot"
               className="navbar-mascot-img"
               style={{
                 width: '28px',
@@ -76,7 +76,7 @@ export default function Navbar() {
                 filter: 'drop-shadow(0 2px 5px rgba(245, 158, 11, 0.35))'
               }}
             />
-            <span className="navbar-logo-text">FastChick</span>
+            <span className="navbar-logo-text">FASTCHICK</span>
             <span className="navbar-logo-badge">by LegionX</span>
           </Link>
 
@@ -123,7 +123,7 @@ export default function Navbar() {
                 />
                 <span className="navbar-username">@{user.displayName || user.username}</span>
                 {user.isAdmin && (
-                  <span className="navbar-admin-tag" title="ผู้ดูแลระบบ FastChick">
+                  <span className="navbar-admin-tag" title="ผู้ดูแลระบบ FASTCHICK">
                     <ShieldCheck size={11} /> Admin
                   </span>
                 )}

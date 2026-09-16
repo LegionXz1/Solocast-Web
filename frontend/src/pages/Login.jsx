@@ -30,7 +30,7 @@ export default function Login() {
         <span className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
           <Lock size={12} /> ระบบความปลอดภัย TWITCH OAUTH
         </span>
-        <h1 className="hero-title" style={{ fontSize: '2.4rem' }}>เข้าสู่ระบบ FastChick</h1>
+        <h1 className="hero-title" style={{ fontSize: '2.4rem' }}>เข้าสู่ระบบ FASTCHICK</h1>
         <p className="hero-desc" style={{ textAlign: 'center', maxWidth: 520 }}>
           เชื่อมต่อบัญชี Twitch ของคุณเพื่อเข้าถึงการตั้งค่า Widgets
         </p>

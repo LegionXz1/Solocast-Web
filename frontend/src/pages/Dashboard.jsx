@@ -59,7 +59,7 @@ const socket = io(WS_BASE);
 const WIDGET_META = {
   'custom-counter': {
     icon: <Calculator size={20} />,
-    desc: 'ตัวนับสถิติอเนกประสงค์ นับตาย/กรี๊ด/ดื่มน้ำ ควบคุมผ่านเว็บและแชท',
+    desc: 'ตัวนับสถิติ ควบคุมผ่านเว็บและแชท',
     gradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
     pattern: 'chevron',
     category: 'twitch',
@@ -83,7 +83,7 @@ const WIDGET_META = {
   },
   'dbd-perks': {
     icon: <Dices size={20} />,
-    desc: 'สุ่มเปิร์ค Survivor & Killer DBD รวดเร็ว',
+    desc: 'สุ่มเปิร์ค Survivor & Killer DBD',
     gradient: 'linear-gradient(135deg, #ea580c, #c2410c)',
     pattern: 'chevron',
     category: 'game',
@@ -1181,6 +1181,10 @@ function Dashboard() {
     setTimeout(() => setCopiedCardId(null), 2500);
   };
 
+  const activeWidgetsCount = useMemo(() => {
+    return widgets.filter(w => getWidgetStatus(w.id).active).length;
+  }, [widgets, getWidgetStatus]);
+
   const filteredWidgets = useMemo(() => {
     return widgets.filter(w => {
       const meta = WIDGET_META[w.id] || {};
@@ -1188,6 +1192,8 @@ function Dashboard() {
 
       if (overlayTab === 'favorites') {
         if (!favorites.includes(w.id)) return false;
+      } else if (overlayTab === 'active') {
+        if (!getWidgetStatus(w.id).active) return false;
       } else if (overlayTab === 'twitch') {
         if (cat !== 'twitch') return false;
       } else if (overlayTab === 'spotify') {
@@ -1414,13 +1420,7 @@ function Dashboard() {
                 </button>
               )}
 
-              {status.connected ? (
-                <div className="dashboard-status-pill">
-                  <div className="status-dot connected" style={{ width: '8px', height: '8px' }} />
-                  <span>@{status.username}</span>
-                  <span className="dashboard-online-badge">ONLINE</span>
-                </div>
-              ) : (
+              {!status.connected && (
                 <a
                   href={`${API_BASE}/auth/twitch`}
                   className="my-overlays-btn-primary"
@@ -1434,20 +1434,12 @@ function Dashboard() {
 
           {/* Unified Broadcast Console Deck */}
           <div className="dashboard-console-bar">
-            <div className="console-module">
-              <span className="console-label">สัญญาณถ่ายทอดสด</span>
-              <div className="console-val-group">
-                <span className={`console-status-dot ${status.connected ? 'is-live' : 'is-offline'}`} />
-                <span className="console-value">{status.connected ? `@${status.username}` : 'Twitch Offline'}</span>
-                <span className={`console-badge ${status.connected ? 'online' : 'offline'}`}>
-                  {status.connected ? 'ON-AIR' : 'STANDBY'}
-                </span>
-              </div>
-            </div>
-
-            <div className="console-divider" />
-
-            <div className="console-module">
+            <div
+              className="console-module"
+              style={{ cursor: 'pointer' }}
+              onClick={() => setOverlayTab('all')}
+              title="คลิกเพื่อดูโอเวอร์เลย์ทั้งหมด"
+            >
               <span className="console-label">โอเวอร์เลย์ทั้งหมด</span>
               <div className="console-val-group">
                 <span className="console-metric">{widgets.length}</span>
@@ -1457,23 +1449,30 @@ function Dashboard() {
 
             <div className="console-divider" />
 
-            <div className="console-module console-highlight">
+            <div
+              className="console-module"
+              style={{ cursor: 'pointer' }}
+              onClick={() => setOverlayTab('active')}
+              title="คลิกเพื่อกรองเฉพาะโอเวอร์เลย์ที่เปิดใช้งาน"
+            >
               <span className="console-label">พร้อมแสดงใน OBS</span>
               <div className="console-val-group">
-                <span className="console-signal-dot" />
-                <span className="console-metric active-metric">
-                  {widgets.filter(w => getWidgetStatus(w.id).active).length}
-                </span>
+                <span className="console-metric">{activeWidgetsCount}</span>
                 <span className="console-unit">ACTIVE SOURCES</span>
               </div>
             </div>
 
             <div className="console-divider" />
 
-            <div className="console-module">
+            <div
+              className="console-module"
+              style={{ cursor: 'pointer' }}
+              onClick={() => setOverlayTab('favorites')}
+              title="คลิกเพื่อดูรายการโปรด"
+            >
               <span className="console-label">รายการโปรด</span>
               <div className="console-val-group">
-                <Star size={14} fill="#f59e0b" color="#f59e0b" />
+                <Star size={14} color="#94a3b8" />
                 <span className="console-metric">{favorites.length}</span>
                 <span className="console-unit">PRESETS</span>
               </div>
@@ -1492,24 +1491,31 @@ function Dashboard() {
               </button>
               <button
                 type="button"
+                className={`my-overlays-tab ${overlayTab === 'active' ? 'active' : ''}`}
+                onClick={() => setOverlayTab('active')}
+              >
+                เปิดใช้งาน ({activeWidgetsCount})
+              </button>
+              <button
+                type="button"
                 className={`my-overlays-tab ${overlayTab === 'twitch' ? 'active' : ''}`}
                 onClick={() => setOverlayTab('twitch')}
               >
-                Twitch & Chat
+                สตรีม
               </button>
               <button
                 type="button"
                 className={`my-overlays-tab ${overlayTab === 'game' ? 'active' : ''}`}
                 onClick={() => setOverlayTab('game')}
               >
-                เกม (Games)
+                เกม
               </button>
               <button
                 type="button"
                 className={`my-overlays-tab ${overlayTab === 'spotify' ? 'active' : ''}`}
                 onClick={() => setOverlayTab('spotify')}
               >
-                Spotify
+                เพลง
               </button>
               <button
                 type="button"
@@ -1602,10 +1608,10 @@ function Dashboard() {
                 const isUserToggleLoading = widgetToggleLoading[w.id + '_user'];
                 const isCopied = copiedCardId === w.id;
                 const categoryLabel = meta.category === 'twitch'
-                  ? 'Twitch & Chat'
+                  ? 'สตรีม'
                   : meta.category === 'spotify'
-                    ? 'Spotify Music'
-                    : 'Games';
+                    ? 'เพลง'
+                    : 'เกม';
 
                 return (
                   <div
@@ -1672,64 +1678,64 @@ function Dashboard() {
                       </div>
                     </div>
 
-                    {/* Middle Section: Clean Uniform Description & Single Status Dot */}
+                    {/* Middle Section: Clean Uniform Description */}
                     <div className="clean-card-middle">
                       <p className="clean-card-desc">
                         {meta.desc || 'ปรับแต่งข้อความ สี แอนิเมชัน และการแสดงผลบน OBS Studio'}
                       </p>
+                    </div>
 
-                      {/* Single Status Indicator Dot - Clean, No Pill Bloat */}
+                    {/* Footer Actions: Left: Single Status Dot | Right: Action Buttons */}
+                    <div className="clean-card-footer" onClick={(e) => e.stopPropagation()}>
                       <div className="card-status-indicator">
-                        <span className={`status-signal-dot ${
-                          !wStatus.hasAccess
-                            ? 'dot-restricted'
-                            : !wStatus.globalEnabled
-                              ? 'dot-maintenance'
-                              : wStatus.active
-                                ? 'dot-live'
-                                : 'dot-idle'
-                        }`} />
+                        <span className={`status-signal-dot ${!wStatus.hasAccess
+                          ? 'dot-restricted'
+                          : !wStatus.globalEnabled
+                            ? 'dot-maintenance'
+                            : wStatus.active
+                              ? 'dot-live'
+                              : 'dot-idle'
+                          }`} />
                         <span className="status-signal-text">
                           {!wStatus.hasAccess
-                            ? 'เฉพาะผู้ได้รับสิทธิ์'
+                            ? 'จำกัดสิทธิ์'
                             : !wStatus.globalEnabled
-                              ? 'แอดมินปิดปรับปรุง'
+                              ? 'ปิดปรับปรุง'
                               : wStatus.active
-                                ? 'พร้อมใช้ใน OBS'
+                                ? 'พร้อมใช้'
                                 : 'ปิดใช้งาน'}
                         </span>
                       </div>
-                    </div>
 
-                    {/* Footer Actions */}
-                    <div className="clean-card-footer" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        className={`clean-card-copy-btn ${isCopied ? 'copied' : ''}`}
-                        title={isCopied ? "คัดลอก OBS URL สำเร็จ!" : "คัดลอก OBS Browser Source URL"}
-                        onClick={(e) => handleCopyCardUrl(w.id, e)}
-                      >
-                        {isCopied ? (
-                          <>
-                            <Check size={13} color="#34d399" />
-                            <span>คัดลอกแล้ว</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy size={13} />
-                            <span>OBS Link</span>
-                          </>
-                        )}
-                      </button>
+                      <div className="clean-card-btn-group">
+                        <button
+                          type="button"
+                          className={`clean-card-copy-btn ${isCopied ? 'copied' : ''}`}
+                          title={isCopied ? "คัดลอก OBS URL สำเร็จ!" : "คัดลอก OBS Browser Source URL"}
+                          onClick={(e) => handleCopyCardUrl(w.id, e)}
+                        >
+                          {isCopied ? (
+                            <>
+                              <Check size={13} color="#34d399" />
+                              <span>คัดลอกแล้ว</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={13} />
+                              <span>OBS Link</span>
+                            </>
+                          )}
+                        </button>
 
-                      <button
-                        type="button"
-                        className="clean-card-edit-btn"
-                        onClick={() => handleOpenWidget(w.id)}
-                      >
-                        <span>ปรับแต่ง</span>
-                        <ArrowRight size={13} />
-                      </button>
+                        <button
+                          type="button"
+                          className="clean-card-edit-btn"
+                          onClick={() => handleOpenWidget(w.id)}
+                        >
+                          <span>ปรับแต่ง</span>
+                          <ArrowRight size={13} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -4282,7 +4288,7 @@ function Dashboard() {
 
                     {/* Headline */}
                     <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', color: 'var(--accent-color)', textTransform: 'uppercase', marginBottom: '0.85rem', opacity: 0.9 }}>
-                      FastChick Overlay Studio
+                      FASTCHICK Overlay Studio
                     </div>
                     <h2 style={{ fontSize: '2.1rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1.2, marginBottom: '1rem', maxWidth: '500px' }}>
                       เริ่มต้นสตรีมที่

@@ -3281,7 +3281,7 @@ app.put('/api/support/tickets/:ticketId', checkAdminAuth, (req, res) => {
     if (adminReply !== undefined) {
       ticket.adminReply = adminReply;
       ticket.adminRepliedAt = adminReply ? now : null;
-      ticket.adminUser = adminReply ? (adminUser || req.user?.displayName || req.user?.username || 'FastChick Admin') : null;
+      ticket.adminUser = adminReply ? (adminUser || req.user?.displayName || req.user?.username || 'FASTCHICK Admin') : null;
     }
     ticket.updatedAt = now;
 

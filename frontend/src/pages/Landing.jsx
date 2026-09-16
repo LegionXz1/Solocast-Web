@@ -171,7 +171,7 @@ export default function Landing() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
             <div className="hero-badge-pill" style={{ marginBottom: 0 }}>
               <span className="pill-dot" />
-              <span>FastChick STREAMER WIDGETS</span>
+              <span>FASTCHICK STREAMER WIDGETS</span>
             </div>
             <button
               type="button"
@@ -185,7 +185,7 @@ export default function Landing() {
             </button>
           </div>
           <h1 className="hero-title">
-            ยกระดับไลฟ์สตรีมด้วย <span className="gradient-text">FastChick </span>
+            ยกระดับไลฟ์สตรีมด้วย <span className="gradient-text">FASTCHICK </span>
           </h1>
           <p className="hero-desc">
             แพลตฟอร์มรวมวิดเจ็ตและระบบสร้างสรรค์ความสนุกสำหรับสตรีมเมอร์ Twitch เชื่อมต่อง่าย ทำงานแบบเรียลไทม์ ไร้ดีเลย์ และสวยงามบนหน้าจอสตรีมมิ่ง
@@ -222,7 +222,7 @@ export default function Landing() {
             </div>
             <div className="trust-item">
               <CheckCircle2 size={15} className="trust-icon" />
-              <span>Zero-Latency WebSockets</span>
+              <span>Zero-Latency</span>
             </div>
             <div className="trust-item">
               <CheckCircle2 size={15} className="trust-icon" />
@@ -404,7 +404,7 @@ export default function Landing() {
       <section className="features-section">
         <div className="section-header text-center scroll-reveal">
           <span className="eyebrow">FASTCHICK ADVANTAGES</span>
-          <h2 className="section-title">ทำไมสตรีมเมอร์ถึงเลือกใช้ FastChick?</h2>
+          <h2 className="section-title">ทำไมสตรีมเมอร์ถึงเลือกใช้ FASTCHICK?</h2>
           <p className="section-subtitle">
             ออกแบบมาเพื่อประสิทธิภาพสูงสุดบน OBS ไร้ดีเลย์ ไม่ดึงสเปกเครื่องสตรีม
           </p>

@@ -73,7 +73,7 @@ window.addEventListener('onEventReceived', function (obj) {
     headerText: {
       type: "text",
       label: "ข้อความหัวข้อเริ่มต้น",
-      value: "FastChick Widget",
+      value: "FASTCHICK Widget",
       group: "ตั้งค่าทั่วไป"
     },
     accentColor: {

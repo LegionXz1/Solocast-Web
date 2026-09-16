@@ -32,7 +32,7 @@ const ISSUE_CATEGORIES = [
   { id: 'bug', label: 'บั๊ก / ข้อผิดพลาดของระบบ', icon: Bug, desc: 'ระบบทำงานไม่ถูกต้อง หรือแสดงผลผิดพลาด' },
   { id: 'perks', label: 'เปิร์ก DBD หรือ Killer ขาดหาย', icon: AlertCircle, desc: 'รายชื่อเปิร์กไม่ครบ หรือชื่อ/รูปภาพไม่ตรงกับในเกม' },
   { id: 'obs', label: 'ปัญหาการเชื่อมต่อ OBS Studio', icon: Tv, desc: 'Browser Source ไม่แสดงผล หรือไม่ตอบสนอง' },
-  { id: 'feature', label: 'ข้อเสนอแนะฟีเจอร์ใหม่', icon: Lightbulb, desc: 'ไอเดียหรือฟังก์ชันที่คุณอยากให้เพิ่มเข้ามาใน FastChick' },
+  { id: 'feature', label: 'ข้อเสนอแนะฟีเจอร์ใหม่', icon: Lightbulb, desc: 'ไอเดียหรือฟังก์ชันที่คุณอยากให้เพิ่มเข้ามาใน FASTCHICK' },
   { id: 'other', label: 'คำถามหรือเรื่องอื่นๆ', icon: HelpCircle, desc: 'สอบถามเรื่องการใช้งานทั่วไป หรือประสานงาน' }
 ];
 
@@ -222,7 +222,7 @@ export default function Support() {
       {/* Header */}
       <div className="hero-section" style={{ marginBottom: '1.25rem' }}>
         <span className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-          <AlertCircle size={13} /> ศูนย์รับแจ้งปัญหา & บริการผู้ใช้ FastChick
+          <AlertCircle size={13} /> ศูนย์รับแจ้งปัญหา & บริการผู้ใช้ FASTCHICK
         </span>
         <h1 className="hero-title">ศูนย์แจ้งปัญหาและช่วยเหลือ</h1>
         <p className="hero-desc">
@@ -781,7 +781,7 @@ export default function Support() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <ShieldCheck size={16} color="#10B981" />
                               <strong style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>
-                                การตอบกลับจากทีมงาน FastChick ({ticket.adminUser || 'Admin'})
+                                การตอบกลับจากทีมงาน FASTCHICK ({ticket.adminUser || 'Admin'})
                               </strong>
                             </div>
                             {ticket.adminRepliedAt && (
