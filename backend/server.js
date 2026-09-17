@@ -38,6 +38,20 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 
+// 🌐 Trust Proxy: จำเป็นอย่างยิ่งเมื่อเว็บรันอยู่หลัง Cloudflare / Render / Nginx Reverse Proxy
+// เพื่อให้ Express ทราบ IP จริงของผู้ใช้แต่ละคนผ่าน header cf-connecting-ip และ x-forwarded-for
+// ป้องกันปัญหาที่ Express เห็นทุกคนทั้งเว็บเป็น IP เดียวกันของ Cloudflare แล้วโดนบล็อกพร้อมกันหมด
+app.set('trust proxy', 1);
+
+// ฟังก์ชันดึง Client IP จริงจาก Cloudflare หรือ Reverse Proxy
+function getClientRealIp(req) {
+  return req.headers['cf-connecting-ip'] || 
+         req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+         req.ip || 
+         req.socket.remoteAddress || 
+         '127.0.0.1';
+}
+
 app.use(cors());
 app.use(compression({
   threshold: 1024,
@@ -55,23 +69,31 @@ app.use(helmet({
   frameguard: false // Allow widgets to be previewed in Dashboard iframes
 }));
 
-// 🛡️ Rate Limiting: General API Limiter (prevents DDoS & spam)
+// 🛡️ Rate Limiting: General API Limiter (ป้องกัน DDoS & Bot)
+// ปรับปรุงให้แยกตาม IP จริงของแต่ละคนผ่าน Cloudflare (cf-connecting-ip)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1500, // 1500 requests per 15 mins
+  max: 10000, // 10,000 requests ต่อ 15 นาที ต่อ 1 IP จริง (รองรับ OBS Studio + Dashboard หลายหน้าจอ)
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests from this IP, please try again after 15 minutes.' }
+  keyGenerator: (req) => getClientRealIp(req),
+  message: { error: 'Too many requests from your IP, please try again after a few minutes.' }
 });
 app.use('/api/', apiLimiter);
 
-// 🛡️ Rate Limiting: Stricter Limiter for Auth & Admin endpoints
+// 🛡️ Rate Limiting: เฉพาะจุดที่มีการยืนยันตัวตนหรือแอดมิน
+// ปรับปรุง: ไม่บล็อก /api/auth/me (เช็คเซสชันตอนเปิดเว็บ) และแยกตาม IP จริง
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100, // 100 attempts per 15 mins
+  max: 300, // 300 attempts ต่อ 15 นาที ต่อ 1 IP จริง
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many authentication attempts, please try again after 15 minutes.' }
+  keyGenerator: (req) => getClientRealIp(req),
+  skip: (req) => {
+    // ห้ามบล็อก /api/auth/me และ logout เพราะเป็น endpoint เช็คสถานะทั่วไปที่ถูกเรียกบ่อย
+    return req.path === '/me' || req.path === '/logout';
+  },
+  message: { error: 'Too many authentication attempts from your IP, please try again after 15 minutes.' }
 });
 app.use('/api/auth/', authLimiter);
 app.use('/api/admin/', authLimiter);
@@ -95,7 +117,13 @@ if (fs.existsSync(frontendDist)) {
     }
   }));
 }
-app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+app.use(express.static(path.join(__dirname, 'public'), {
+  index: false,
+  maxAge: '7d', // ให้ Cloudflare และ Browser แคชรูปภาพและ assets ไว้ 7 วัน ไม่ต้องดึงใหม่ทุกครั้ง
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
+  }
+}));
 
 // File-based Session Database (บันทึกข้อมูล Session ลงฮาร์ดดิสก์)
 const SESSIONS_FILE = path.join(__dirname, 'data', 'sessions.json');
@@ -191,6 +219,40 @@ function saveRevokedAdmins(data) {
   }
 }
 
+const ADMIN_KEY_CONFIG_FILE = path.join(__dirname, 'data', 'admin_key_config.json');
+
+function loadAdminKeyConfig() {
+  try {
+    if (fs.existsSync(ADMIN_KEY_CONFIG_FILE)) {
+      const data = JSON.parse(fs.readFileSync(ADMIN_KEY_CONFIG_FILE, 'utf8'));
+      if (data && typeof data === 'object') {
+        return {
+          enabled: data.enabled !== undefined ? data.enabled : true,
+          currentKey: data.currentKey || process.env.ADMIN_KEY || 'solocast_admin_2026',
+          sessions: Array.isArray(data.sessions) ? data.sessions : []
+        };
+      }
+    }
+  } catch (e) {
+    console.error('Error loading admin_key_config.json:', e.message);
+  }
+  return {
+    enabled: true,
+    currentKey: process.env.ADMIN_KEY || 'solocast_admin_2026',
+    sessions: []
+  };
+}
+
+function saveAdminKeyConfig(data) {
+  try {
+    const dir = path.dirname(ADMIN_KEY_CONFIG_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(ADMIN_KEY_CONFIG_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving admin_key_config.json:', e.message);
+  }
+}
+
 function isUserAdmin(userId, username) {
   if (!userId && !username) return false;
   const ids = new Set([
@@ -262,11 +324,51 @@ function checkAdminAuth(req, res, next) {
     req.user = session;
     return next();
   }
-  const adminKey = req.headers['x-admin-key'] || req.query.admin_key;
-  if (adminKey && process.env.ADMIN_KEY && adminKey === process.env.ADMIN_KEY) {
-    req.user = { username: 'Admin', isAdmin: true };
+
+  // Admin Key Verification
+  const adminKeyConfig = loadAdminKeyConfig();
+  if (!adminKeyConfig.enabled) {
+    return res.status(403).json({
+      error: '403 Forbidden: ระบบปิดการเข้าใช้งานด้วย Admin Key อยู่ในขณะนี้ (กรุณาล็อกอินผ่าน Twitch)',
+      loggedIn: Boolean(session)
+    });
+  }
+
+  const keyToken = req.headers['x-admin-key-token'] || req.query.admin_key_token;
+  const rawKey = req.headers['x-admin-key'] || req.query.admin_key;
+  const activeKey = adminKeyConfig.currentKey || process.env.ADMIN_KEY || 'solocast_admin_2026';
+
+  if (keyToken) {
+    const keySess = (adminKeyConfig.sessions || []).find(s => s.id === keyToken);
+    if (keySess) {
+      if (keySess.isRevoked) {
+        return res.status(403).json({
+          error: '403 Forbidden: เซสชัน Admin Key นี้ถูกเพิกถอนสิทธิ์แล้วโดยผู้ดูแลระบบ',
+          isKeyRevoked: true,
+          loggedIn: Boolean(session)
+        });
+      }
+      keySess.lastActiveAt = Date.now();
+      req.user = { username: `Admin (${keySess.ip || 'Key'})`, isAdmin: true, isKeySession: true, keySessionId: keySess.id };
+      return next();
+    }
+  }
+
+  if (rawKey && rawKey === activeKey) {
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '127.0.0.1';
+    const revokedSession = (adminKeyConfig.sessions || []).find(s => s.isRevoked && (s.ip === clientIp || s.id === keyToken));
+    if (revokedSession) {
+      return res.status(403).json({
+        error: '403 Forbidden: เซสชันของคุณถูกเพิกถอนสิทธิ์แล้วโดยผู้ดูแลระบบ',
+        isKeyRevoked: true,
+        loggedIn: Boolean(session)
+      });
+    }
+
+    req.user = { username: `Admin (${clientIp})`, isAdmin: true, isKeySession: true };
     return next();
   }
+
   return res.status(403).json({
     error: '403 Forbidden: เฉพาะผู้ดูแลระบบ (Admin / Broadcaster) เท่านั้นที่มีสิทธิ์เข้าถึง',
     loggedIn: Boolean(session)
@@ -313,11 +415,95 @@ app.post('/api/auth/logout', (req, res) => {
   res.json({ success: true });
 });
 
+// ตรวจสอบและสร้างเซสชันสำหรับ Admin Key
+app.post('/api/admin/verify-key', (req, res) => {
+  try {
+    const config = loadAdminKeyConfig();
+    const inputKey = (req.body?.adminKey || '').trim();
+    const activeKey = config.currentKey || process.env.ADMIN_KEY || 'solocast_admin_2026';
+
+    if (!config.enabled) {
+      return res.status(403).json({
+        success: false,
+        authorized: false,
+        error: 'ระบบปิดการเข้าใช้งานด้วย Admin Key อยู่ในขณะนี้ (กรุณาล็อกอินผ่าน Twitch)'
+      });
+    }
+
+    if (!inputKey || inputKey !== activeKey) {
+      return res.status(401).json({
+        success: false,
+        authorized: false,
+        error: 'รหัสผ่าน Admin Key ไม่ถูกต้อง'
+      });
+    }
+
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '127.0.0.1';
+    const userAgent = req.headers['user-agent'] || 'Unknown Browser';
+
+    const revokedRecent = (config.sessions || []).find(s => s.isRevoked && s.ip === clientIp && Date.now() - (s.revokedAt || 0) < 60000);
+    if (revokedRecent) {
+      return res.status(403).json({
+        success: false,
+        authorized: false,
+        error: 'เซสชันของคุณเพิ่งถูกเพิกถอนสิทธิ์โดยเจ้าของระบบ กรุณาติดต่อผู้ดูแลระบบ'
+      });
+    }
+
+    const sessionId = 'ksess_' + crypto.randomUUID();
+    const newSession = {
+      id: sessionId,
+      ip: clientIp,
+      userAgent,
+      createdAt: Date.now(),
+      lastActiveAt: Date.now(),
+      isRevoked: false
+    };
+
+    config.sessions = [newSession, ...(config.sessions || []).slice(0, 49)];
+    saveAdminKeyConfig(config);
+
+    console.log(`[Admin Key] New login session created: ${sessionId} for IP ${clientIp}`);
+
+    res.json({
+      success: true,
+      authorized: true,
+      keyToken: sessionId,
+      message: 'ยืนยันรหัสผ่าน Admin Key สำเร็จ'
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // Verify Admin Status สำหรับ Admin Page
 app.get('/api/admin/verify', (req, res) => {
   const session = getSessionFromReq(req);
+  const config = loadAdminKeyConfig();
+  const keyToken = req.headers['x-admin-key-token'] || req.query.admin_key_token;
   const adminKey = req.headers['x-admin-key'] || req.query.admin_key;
-  const isKeyValid = Boolean(adminKey && process.env.ADMIN_KEY && adminKey === process.env.ADMIN_KEY);
+  const activeKey = config.currentKey || process.env.ADMIN_KEY || 'solocast_admin_2026';
+
+  let isKeyValid = false;
+  let keySessionId = null;
+
+  if (config.enabled) {
+    if (keyToken) {
+      const ks = (config.sessions || []).find(s => s.id === keyToken);
+      if (ks && !ks.isRevoked) {
+        isKeyValid = true;
+        keySessionId = ks.id;
+        ks.lastActiveAt = Date.now();
+      }
+    } else if (adminKey && adminKey === activeKey) {
+      const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '127.0.0.1';
+      const revoked = (config.sessions || []).find(s => s.isRevoked && s.ip === clientIp);
+      if (!revoked) {
+        isKeyValid = true;
+      }
+    }
+  }
+
   const isAdmin = Boolean((session && session.isAdmin) || isKeyValid);
 
   res.json({
@@ -326,7 +512,8 @@ app.get('/api/admin/verify', (req, res) => {
     isTwitchConnected: Boolean(session),
     connectedUsername: session ? session.username : (isKeyValid ? 'Admin (Key)' : null),
     isBroadcaster: isAdmin,
-    authMethod: isKeyValid ? 'admin_key' : 'twitch'
+    authMethod: isKeyValid ? 'admin_key' : 'twitch',
+    keyToken: keySessionId
   });
 });
 
@@ -1378,6 +1565,158 @@ app.delete('/api/admin/admins/:identifier', checkAdminAuth, (req, res) => {
     res.json({
       success: true,
       message: `ปลดสิทธิ์ผู้ดูแลระบบ @${removed?.username || identifier} เรียบร้อยแล้ว`
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ==========================================
+// ADMIN KEY MANAGEMENT (จัดการ & ปลดคนเข้าผ่าน KEY)
+// ==========================================
+
+// GET /api/admin/key-manager — ดูสถานะ Key และรายการเซสชันทั้งหมด
+app.get('/api/admin/key-manager', checkAdminAuth, (req, res) => {
+  try {
+    const config = loadAdminKeyConfig();
+    res.json({
+      success: true,
+      enabled: config.enabled,
+      currentKey: config.currentKey,
+      sessions: config.sessions || []
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// POST /api/admin/key-manager/toggle — เปิด/ปิดการเข้าใช้งานด้วย Admin Key
+app.post('/api/admin/key-manager/toggle', checkAdminAuth, (req, res) => {
+  try {
+    const config = loadAdminKeyConfig();
+    config.enabled = req.body?.enabled !== undefined ? Boolean(req.body.enabled) : !config.enabled;
+    saveAdminKeyConfig(config);
+
+    if (!config.enabled && typeof io !== 'undefined') {
+      io.emit('admin_key_revoked', { all: true, reason: 'disabled' });
+    }
+
+    console.log(`[Admin Key] Access toggled to: ${config.enabled ? 'ENABLED' : 'DISABLED'} by @${req.user?.username || 'Admin'}`);
+
+    res.json({
+      success: true,
+      enabled: config.enabled,
+      message: config.enabled ? 'เปิดใช้งานการเข้าถึงด้วย Admin Key แล้ว' : 'ปิดการเข้าถึงด้วย Admin Key เรียบร้อย (ทุกคนที่เข้าผ่าน Key จะถูกตัดสิทธิ์ทันที)'
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// DELETE /api/admin/key-manager/sessions/:sessionId — ปลดสิทธิ์เซสชัน Admin Key เฉพาะคน
+app.delete('/api/admin/key-manager/sessions/:sessionId', checkAdminAuth, (req, res) => {
+  try {
+    const sessionId = req.params.sessionId;
+    const config = loadAdminKeyConfig();
+    const sessionIndex = (config.sessions || []).findIndex(s => s.id === sessionId);
+
+    if (sessionIndex === -1) {
+      return res.status(404).json({ success: false, error: 'ไม่พบเซสชันนี้ในระบบ' });
+    }
+
+    const targetSession = config.sessions[sessionIndex];
+    targetSession.isRevoked = true;
+    targetSession.revokedAt = Date.now();
+    targetSession.revokedBy = req.user?.username || 'Admin';
+    saveAdminKeyConfig(config);
+
+    if (typeof io !== 'undefined') {
+      io.emit('admin_key_revoked', { sessionId: targetSession.id, ip: targetSession.ip });
+    }
+
+    console.log(`[Admin Key] Session ${sessionId} (${targetSession.ip}) revoked by @${req.user?.username || 'Admin'}`);
+
+    res.json({
+      success: true,
+      message: `ปลดสิทธิ์และเตะเซสชัน IP ${targetSession.ip} ออกจากระบบเรียบร้อยแล้ว`
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// POST /api/admin/key-manager/revoke-all — เตะทุกคนที่เข้าผ่าน Admin Key ออกทั้งหมด
+app.post('/api/admin/key-manager/revoke-all', checkAdminAuth, (req, res) => {
+  try {
+    const config = loadAdminKeyConfig();
+    let count = 0;
+    (config.sessions || []).forEach(s => {
+      if (!s.isRevoked) {
+        s.isRevoked = true;
+        s.revokedAt = Date.now();
+        s.revokedBy = req.user?.username || 'Admin';
+        count++;
+      }
+    });
+    saveAdminKeyConfig(config);
+
+    if (typeof io !== 'undefined') {
+      io.emit('admin_key_revoked', { all: true, reason: 'revoked_all' });
+    }
+
+    console.log(`[Admin Key] All ${count} active Key sessions revoked by @${req.user?.username || 'Admin'}`);
+
+    res.json({
+      success: true,
+      revokedCount: count,
+      message: `เตะและปลดสิทธิ์เซสชัน Admin Key ทั้งหมด (${count} เซสชัน) เรียบร้อยแล้ว`
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// POST /api/admin/key-manager/rotate-key — สร้าง Admin Key ใหม่ทันที
+app.post('/api/admin/key-manager/rotate-key', checkAdminAuth, (req, res) => {
+  try {
+    const config = loadAdminKeyConfig();
+    const newKey = 'FC_' + crypto.randomBytes(12).toString('hex');
+    config.currentKey = newKey;
+    process.env.ADMIN_KEY = newKey;
+
+    let revokedCount = 0;
+    (config.sessions || []).forEach(s => {
+      if (!s.isRevoked) {
+        s.isRevoked = true;
+        s.revokedAt = Date.now();
+        s.revokedBy = req.user?.username || 'Admin';
+        revokedCount++;
+      }
+    });
+    saveAdminKeyConfig(config);
+
+    // อัปเดตลงไฟล์ .env เพื่อคงอยู่ถาวร
+    const envPath = path.join(__dirname, '.env');
+    if (fs.existsSync(envPath)) {
+      let envContent = fs.readFileSync(envPath, 'utf8');
+      if (envContent.includes('ADMIN_KEY=')) {
+        envContent = envContent.replace(/^ADMIN_KEY=.*$/m, `ADMIN_KEY=${newKey}`);
+      } else {
+        envContent += `\nADMIN_KEY=${newKey}`;
+      }
+      fs.writeFileSync(envPath, envContent, 'utf8');
+    }
+
+    if (typeof io !== 'undefined') {
+      io.emit('admin_key_revoked', { all: true, reason: 'rotated' });
+    }
+
+    console.log(`[Admin Key] Secret key rotated to new value by @${req.user?.username || 'Admin'}`);
+
+    res.json({
+      success: true,
+      newKey,
+      message: `สร้าง Admin Key ใหม่เรียบร้อยแล้ว (${newKey}) และตัดสิทธิ์ทุกคนที่ใช้ Key เดิมทันที`
     });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });

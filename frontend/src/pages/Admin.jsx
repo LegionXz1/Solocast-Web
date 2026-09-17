@@ -4,7 +4,7 @@ import {
   CheckCircle2, AlertTriangle, X, ExternalLink, Plus, Trash2, 
   RotateCw, Loader2, Search, Skull, UserCheck, Layers, Ban, Check, Key, Lock, Unlock,
   LifeBuoy, MessageSquare, Clock, ShieldCheck, MessageCircle, Send, Edit3, Filter,
-  User, Users, Save, BellRing, Eye, Sparkles, Crown, UserPlus
+  User, Users, Save, BellRing, Eye, EyeOff, Sparkles, Crown, UserPlus, Copy, Power, UserX, RefreshCw
 } from 'lucide-react';
 
 import { API_BASE } from '../config';
@@ -240,12 +240,34 @@ function Admin() {
   const [adminKeyInput, setAdminKeyInput] = useState('');
   const [keyError, setKeyError] = useState('');
 
+  // Admin Key Management State
+  const [keyConfig, setKeyConfig] = useState({ enabled: true, currentKey: '', sessions: [] });
+  const [isLoadingKeyConfig, setIsLoadingKeyConfig] = useState(false);
+  const [showKeySecret, setShowKeySecret] = useState(false);
+  const [isRotatingKey, setIsRotatingKey] = useState(false);
+  const [isRevokingKeySession, setIsRevokingKeySession] = useState(false);
+  const [isTogglingKey, setIsTogglingKey] = useState(false);
+  const [keySessionSearchQuery, setKeySessionSearchQuery] = useState('');
+
+  const filteredKeySessions = useMemo(() => {
+    const list = keyConfig.sessions || [];
+    if (!keySessionSearchQuery.trim()) return list;
+    const q = keySessionSearchQuery.trim().toLowerCase();
+    return list.filter(s =>
+      (s.ip || '').toLowerCase().includes(q) ||
+      (s.userAgent || '').toLowerCase().includes(q) ||
+      (s.id || '').toLowerCase().includes(q)
+    );
+  }, [keyConfig.sessions, keySessionSearchQuery]);
+
   const getAuthHeader = () => {
     const token = localStorage.getItem('solocast_user_token');
     const adminKey = localStorage.getItem('solocast_admin_key');
+    const adminKeyToken = localStorage.getItem('solocast_admin_key_token');
     const headers = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
     if (adminKey) headers['x-admin-key'] = adminKey;
+    if (adminKeyToken) headers['x-admin-key-token'] = adminKeyToken;
     return headers;
   };
 
@@ -254,12 +276,15 @@ function Admin() {
     if (!adminKeyInput.trim()) return;
     setKeyError('');
     try {
-      const res = await fetch(`${API_BASE}/api/admin/verify`, {
-        headers: { 'x-admin-key': adminKeyInput.trim() }
+      const res = await fetch(`${API_BASE}/api/admin/verify-key`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminKey: adminKeyInput.trim() })
       });
       const data = await res.json();
-      if (data.authorized) {
+      if (res.ok && data.authorized) {
         localStorage.setItem('solocast_admin_key', adminKeyInput.trim());
+        if (data.keyToken) localStorage.setItem('solocast_admin_key_token', data.keyToken);
         setIsAuthorized(true);
         setAuthStatus({
           checked: true,
@@ -270,12 +295,135 @@ function Admin() {
         fetchWidgets();
         fetchDbdPerks();
         fetchAdminUsers();
+        fetchAdminsList();
+        fetchKeyConfig();
         showToast('เข้าสู่ระบบแอดมินด้วย Admin Key สำเร็จ!', 'success');
       } else {
-        setKeyError('รหัสผ่าน Admin Key ไม่ถูกต้อง (ค่าเริ่มต้น: solocast_admin_2026)');
+        setKeyError(data.error || 'รหัสผ่าน Admin Key ไม่ถูกต้อง');
       }
     } catch (err) {
       setKeyError('เกิดข้อผิดพลาดในการตรวจสอบรหัส');
+    }
+  };
+
+  // Fetch Key Manager Config & Sessions
+  const fetchKeyConfig = async () => {
+    setIsLoadingKeyConfig(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/key-manager`, {
+        headers: getAuthHeader()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setKeyConfig({
+            enabled: data.enabled !== false,
+            currentKey: data.currentKey || '',
+            sessions: data.sessions || []
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching key config:', err);
+    } finally {
+      setIsLoadingKeyConfig(false);
+    }
+  };
+
+  // Toggle Admin Key Enable / Disable
+  const handleToggleKey = async () => {
+    setIsTogglingKey(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/key-manager/toggle`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ enabled: !keyConfig.enabled })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setKeyConfig(prev => ({ ...prev, enabled: data.enabled }));
+        showToast(data.message, data.enabled ? 'success' : 'info');
+        fetchKeyConfig();
+      } else {
+        showToast(data.error || 'เกิดข้อผิดพลาด', 'error');
+      }
+    } catch (err) {
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+    } finally {
+      setIsTogglingKey(false);
+    }
+  };
+
+  // Revoke a single Key Session (Kick individual person)
+  const handleRevokeKeySession = async (sessionId) => {
+    if (!sessionId) return;
+    setIsRevokingKeySession(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/key-manager/sessions/${encodeURIComponent(sessionId)}`, {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(data.message || 'ปลดสิทธิ์เซสชันเรียบร้อยแล้ว', 'success');
+        fetchKeyConfig();
+      } else {
+        showToast(data.error || 'ไม่สามารถปลดสิทธิ์เซสชันนี้ได้', 'error');
+      }
+    } catch (err) {
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+    } finally {
+      setIsRevokingKeySession(false);
+    }
+  };
+
+  // Revoke All Key Sessions (Kick everyone who entered via key)
+  const handleRevokeAllKeySessions = async () => {
+    if (!window.confirm('คุณต้องการเตะและปลดสิทธิ์ทุกคนที่เข้าใช้งานผ่าน Admin Key ในขณะนี้หรือไม่?')) return;
+    setIsRevokingKeySession(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/key-manager/revoke-all`, {
+        method: 'POST',
+        headers: getAuthHeader()
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(data.message, 'success');
+        fetchKeyConfig();
+      } else {
+        showToast(data.error || 'ไม่สามารถปลดสิทธิ์ได้', 'error');
+      }
+    } catch (err) {
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+    } finally {
+      setIsRevokingKeySession(false);
+    }
+  };
+
+  // Rotate Key (Generate new key + boot old key holders)
+  const handleRotateKey = async () => {
+    if (!window.confirm('คุณต้องการสร้าง Admin Key ใหม่ทันทีหรือไม่?\n(ทุกคนที่ถือหรือใช้งาน Key เดิมจะถูกเตะออกจากระบบทันที 100%)')) return;
+    setIsRotatingKey(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/key-manager/rotate-key`, {
+        method: 'POST',
+        headers: getAuthHeader()
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(data.message, 'success');
+        setKeyConfig(prev => ({ ...prev, currentKey: data.newKey }));
+        fetchKeyConfig();
+      } else {
+        showToast(data.error || 'ไม่สามารถสร้าง Key ใหม่ได้', 'error');
+      }
+    } catch (err) {
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+    } finally {
+      setIsRotatingKey(false);
     }
   };
 
@@ -586,6 +734,7 @@ function Admin() {
         fetchSupportTickets();
         fetchAdminUsers();
         fetchAdminsList();
+        fetchKeyConfig();
       } else {
         setIsAuthorized(false);
       }
@@ -597,6 +746,34 @@ function Admin() {
 
   useEffect(() => {
     verifyAuth();
+  }, []);
+
+  // Real-time listener for Admin Key revocation & changes
+  useEffect(() => {
+    let socket;
+    try {
+      import('socket.io-client').then(({ io }) => {
+        socket = io(API_BASE, { transports: ['websocket', 'polling'] });
+        socket.on('admin_key_revoked', (data) => {
+          const currentKeyToken = localStorage.getItem('solocast_admin_key_token');
+          const isKeyUser = !localStorage.getItem('solocast_user_token') && localStorage.getItem('solocast_admin_key');
+          if (isKeyUser) {
+            if (data.all || (currentKeyToken && data.sessionId === currentKeyToken)) {
+              localStorage.removeItem('solocast_admin_key');
+              localStorage.removeItem('solocast_admin_key_token');
+              setIsAuthorized(false);
+              showToast('เซสชัน Admin Key ของคุณถูกเพิกถอนสิทธิ์หรือเปลี่ยนรหัสผ่านแล้วโดยเจ้าของระบบ', 'error');
+              return;
+            }
+          }
+          fetchKeyConfig();
+        });
+      }).catch(() => {});
+    } catch (e) {}
+
+    return () => {
+      if (socket) socket.disconnect();
+    };
   }, []);
 
   // Fetch Admin Users list for Whitelist Picker
@@ -2905,6 +3082,281 @@ function Admin() {
                             >
                               <Trash2 size={13} />
                               <span>ปลดสิทธิ์</span>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* ========================================================= */}
+          {/* ADMIN KEY ACCESS & SESSION MANAGER (จัดการ & ปลดคนเข้าผ่าน KEY) */}
+          {/* ========================================================= */}
+          <div className="doppel-shell" style={{ padding: '1.5rem', marginTop: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+                  <Key size={18} style={{ color: 'var(--accent-color)' }} />
+                  <span>จัดการการเข้าถึงด้วย Admin Key (Access & Key Sessions)</span>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      background: keyConfig.enabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                      color: keyConfig.enabled ? '#10b981' : '#ef4444',
+                      border: `1px solid ${keyConfig.enabled ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                    }}
+                  >
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: keyConfig.enabled ? '#10b981' : '#ef4444' }} />
+                    {keyConfig.enabled ? 'เปิดใช้งานอยู่' : 'ปิดใช้งาน'}
+                  </span>
+                </h4>
+                <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                  ควบคุมกุญแจ Admin Key สำรอง, ดูประวัติ/อุปกรณ์ที่เข้าสู่ระบบผ่าน Key, และสามารถสั่งปลดสิทธิ์หรือเตะทุกคนที่เข้าผ่าน Key ออกได้ทันที
+                </p>
+              </div>
+
+              {/* Action Buttons Toolbar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={handleToggleKey}
+                  disabled={isTogglingKey}
+                  className={`btn-island ${keyConfig.enabled ? 'danger' : 'accent'}`}
+                  style={{ padding: '0.45rem 0.85rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  title={keyConfig.enabled ? 'ปิดการเข้าถึงด้วย Key ทั้งหมดทันที' : 'เปิดใช้งาน Key'}
+                >
+                  <Power size={14} />
+                  <span>{keyConfig.enabled ? 'ปิดรับ Admin Key' : 'เปิดรับ Admin Key'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleRotateKey}
+                  disabled={isRotatingKey}
+                  className="btn-island"
+                  style={{ padding: '0.45rem 0.85rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--surface-2)' }}
+                  title="สร้าง Admin Key ใหม่ทันที และเตะทุกคนที่ใช้ Key เดิมออกทั้งหมด"
+                >
+                  {isRotatingKey ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+                  <span>สุ่มสร้าง Key ใหม่</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleRevokeAllKeySessions}
+                  disabled={isRevokingKeySession || !keyConfig.sessions?.some(s => !s.isRevoked)}
+                  className="code-action-btn danger"
+                  style={{ padding: '0.45rem 0.85rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  title="เตะทุกคนที่กำลังใช้งานผ่าน Admin Key ออกจากระบบทันที"
+                >
+                  {isRevokingKeySession ? <Loader2 size={14} className="spin" /> : <UserX size={14} />}
+                  <span>เตะทุกคนที่เข้าผ่าน Key ({keyConfig.sessions?.filter(s => !s.isRevoked).length || 0})</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Current Key Card */}
+            <div style={{ 
+              background: 'var(--surface-2)', 
+              border: '1px solid var(--border-primary)', 
+              borderRadius: '8px', 
+              padding: '0.85rem 1.25rem', 
+              marginBottom: '1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '0.75rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                  รหัส ADMIN KEY ปัจจุบัน:
+                </span>
+                <code style={{ 
+                  fontFamily: 'monospace', 
+                  fontSize: '0.92rem', 
+                  fontWeight: 700, 
+                  color: 'var(--accent-color)', 
+                  background: 'var(--surface-1)', 
+                  padding: '0.25rem 0.6rem', 
+                  borderRadius: '4px',
+                  border: '1px solid var(--border-primary)',
+                  letterSpacing: showKeySecret ? 'normal' : '2px'
+                }}>
+                  {showKeySecret ? (keyConfig.currentKey || 'solocast_admin_2026') : '••••••••••••••••'}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => setShowKeySecret(!showKeySecret)}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  title={showKeySecret ? 'ซ่อนรหัส' : 'แสดงรหัส'}
+                >
+                  {showKeySecret ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(keyConfig.currentKey || '');
+                    showToast('คัดลอก Admin Key เรียบร้อยแล้ว!', 'success');
+                  }}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem' }}
+                  title="คัดลอกรหัส"
+                >
+                  <Copy size={13} />
+                  <span>คัดลอก</span>
+                </button>
+              </div>
+
+              <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                💡 หากสงสัยว่ามีคนรู้รหัสนี้ กดปุ่ม <b>"สุ่มสร้าง Key ใหม่"</b> เพื่อตัดการเชื่อมต่อทันที
+              </span>
+            </div>
+
+            {/* Sessions Table Header / Filter */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Clock size={15} style={{ color: 'var(--accent-color)' }} />
+                <span>ประวัติเซสชันที่เข้าสู่ระบบผ่าน Key ({keyConfig.sessions?.length || 0})</span>
+              </div>
+
+              <div style={{ position: 'relative', minWidth: '220px' }}>
+                <Search size={13} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  value={keySessionSearchQuery}
+                  onChange={(e) => setKeySessionSearchQuery(e.target.value)}
+                  placeholder="ค้นหา IP หรืออุปกรณ์..."
+                  style={{
+                    width: '100%',
+                    padding: '0.35rem 0.75rem 0.35rem 1.8rem',
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border-primary)',
+                    borderRadius: '6px',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.8rem'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Sessions Table */}
+            {isLoadingKeyConfig ? (
+              <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)' }}>
+                <Loader2 size={20} className="spin" style={{ margin: '0 auto 0.5rem auto' }} />
+                <p style={{ margin: 0, fontSize: '0.82rem' }}>กำลังโหลดข้อมูลเซสชัน...</p>
+              </div>
+            ) : filteredKeySessions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2.5rem 0', color: 'var(--text-muted)' }}>
+                <ShieldCheck size={28} style={{ margin: '0 auto 0.5rem auto', opacity: 0.4 }} />
+                <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600 }}>ยังไม่มีประวัติการเข้าสู่ระบบผ่าน Admin Key</p>
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>เมื่อมีผู้เข้าใช้งานผ่าน Key รายการจะปรากฏที่นี่พร้อมปุ่มสั่งปลดสิทธิ์ทันที</p>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="admin-roles-table">
+                  <thead>
+                    <tr>
+                      <th>IP Address / ID เซสชัน</th>
+                      <th>เบราว์เซอร์ / อุปกรณ์</th>
+                      <th>เข้าสู่ระบบเมื่อ</th>
+                      <th>สถานะเซสชัน</th>
+                      <th style={{ textAlign: 'right' }}>การจัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredKeySessions.map(sess => (
+                      <tr key={sess.id} style={{ opacity: sess.isRevoked ? 0.6 : 1 }}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <div style={{ 
+                              width: 8, 
+                              height: 8, 
+                              borderRadius: '50%', 
+                              background: sess.isRevoked ? '#94a3b8' : '#10b981',
+                              boxShadow: sess.isRevoked ? 'none' : '0 0 8px #10b981'
+                            }} />
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+                                {sess.ip || '127.0.0.1'}
+                              </div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                                ID: {sess.id?.substring(0, 16)}...
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={sess.userAgent}>
+                            {sess.userAgent || 'Unknown Device'}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+                            {sess.createdAt ? new Date(sess.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-'}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            {sess.createdAt ? new Date(sess.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
+                          </div>
+                        </td>
+                        <td>
+                          {sess.isRevoked ? (
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              color: '#ef4444',
+                              border: '1px solid rgba(239, 68, 68, 0.25)'
+                            }}>
+                              <Ban size={11} /> ถูกปลดสิทธิ์แล้ว
+                            </span>
+                          ) : (
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              color: '#10b981',
+                              border: '1px solid rgba(16, 185, 129, 0.25)'
+                            }}>
+                              <CheckCircle2 size={11} /> ใช้งานอยู่ (Active)
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          {sess.isRevoked ? (
+                            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0.3rem 0.5rem' }}>
+                              เพิกถอนแล้ว
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleRevokeKeySession(sess.id)}
+                              disabled={isRevokingKeySession}
+                              className="code-action-btn danger"
+                              style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}
+                              title="ปลดสิทธิ์และเตะเซสชันนี้ออกจากระบบทันที"
+                            >
+                              <Trash2 size={13} />
+                              <span>ปลดสิทธิ์ / เตะออก</span>
                             </button>
                           )}
                         </td>
