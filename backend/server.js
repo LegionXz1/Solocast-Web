@@ -25,6 +25,26 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, '.env') });
 
+// 📝 Diagnostic File Logger for Backend & Twitch Events
+const logFilePath = path.join(__dirname, 'server.log');
+const logFileStream = fs.createWriteStream(logFilePath, { flags: 'a' });
+function writeToLog(type, args) {
+  const msg = `[${new Date().toISOString()}] [${type}] ` + args.map(a => {
+    if (a instanceof Error) return a.stack || a.message;
+    if (typeof a === 'object') {
+      try { return JSON.stringify(a); } catch (_) { return String(a); }
+    }
+    return String(a);
+  }).join(' ') + '\n';
+  try { logFileStream.write(msg); } catch (_) {}
+}
+const _origLog = console.log;
+const _origErr = console.error;
+const _origWarn = console.warn;
+console.log = (...args) => { _origLog(...args); writeToLog('LOG', args); };
+console.error = (...args) => { _origErr(...args); writeToLog('ERR', args); };
+console.warn = (...args) => { _origWarn(...args); writeToLog('WARN', args); };
+
 // 🛡️ Process-Level Crash Protection
 process.on('unhandledRejection', (reason, promise) => {
   console.error('[Process] ⚠️ Unhandled Promise Rejection:', reason);
@@ -987,11 +1007,19 @@ app.post('/api/widgets/:id/settings', (req, res) => {
 
     // ส่งสัญญาณ Real-time ไปเฉพาะห้องของ User คนนี้เท่านั้น (OBS ของคนอื่นจะไม่ได้รับ)
     if (user) {
-      io.to('user_' + user).emit('widget_settings_updated', {
+      const cleanU = String(user).trim().toLowerCase().replace('@', '');
+      const allIds = getAssociatedUserIdentifiers(cleanU);
+      allIds.add(cleanU);
+      const settingsPayload = {
         widgetId,
         userId: user,
+        username: cleanU,
+        associatedUserIds: Array.from(allIds),
         settings: widgetSettingsStore[widgetId][userKey]
-      });
+      };
+      for (const id of allIds) {
+        io.to('user_' + id).emit('widget_settings_updated', settingsPayload);
+      }
     } else {
       io.emit('widget_settings_updated', {
         widgetId,
@@ -1088,6 +1116,150 @@ app.post('/api/widgets/custom-counter/update', (req, res) => {
 
     console.log(`[Custom Counter] 🔢 User ${userKey} counter updated: ${currentCount} -> ${newCount} (${computedDelta >= 0 ? '+' : ''}${computedDelta}) by ${updatedBy || 'Dashboard'}`);
     res.json({ success: true, count: newCount, delta: computedDelta, title, user: userKey });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ------------------------------------------------------------
+// 🏆 DBD Scoreboard Specific Endpoints
+// ------------------------------------------------------------
+app.get('/api/widgets/dbd-scoreboard/data', (req, res) => {
+  try {
+    const user = req.query.user || req.query.channel || 'default';
+    const cleanUser = String(user).trim().toLowerCase().replace('@', '');
+    const allIds = getAssociatedUserIdentifiers(cleanUser);
+    allIds.add(cleanUser);
+
+    let rawData = null;
+    for (const id of allIds) {
+      if (widgetStore['dbd-scoreboard']?.[id]?.['dbd_scoreboard_data']) {
+        rawData = widgetStore['dbd-scoreboard'][id]['dbd_scoreboard_data'];
+        break;
+      }
+    }
+    if (!rawData) {
+      rawData = widgetStore['dbd-scoreboard']?.['default']?.['dbd_scoreboard_data'];
+    }
+
+    let scoreData = { killerKills: 0, killerDraws: 0, killerEscapes: 0 };
+    if (rawData) {
+      try {
+        const parsed = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+        scoreData = {
+          killerKills: Number(parsed.killerKills) || 0,
+          killerDraws: Number(parsed.killerDraws) || 0,
+          killerEscapes: Number(parsed.killerEscapes) || 0
+        };
+      } catch (_) {}
+    }
+
+    let settings = null;
+    for (const id of allIds) {
+      if (widgetSettingsStore['dbd-scoreboard']?.[id]) {
+        settings = widgetSettingsStore['dbd-scoreboard'][id];
+        break;
+      }
+    }
+    if (!settings) {
+      settings = widgetSettingsStore['dbd-scoreboard']?.['default'] || {};
+    }
+
+    res.json({
+      scoreData,
+      settings
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/widgets/dbd-scoreboard/update', (req, res) => {
+  try {
+    const { user, action, target, value, updatedBy } = req.body || {};
+    const userKey = user || 'default';
+    const cleanUser = String(userKey).trim().toLowerCase().replace('@', '');
+    const allIds = getAssociatedUserIdentifiers(cleanUser);
+    allIds.add(cleanUser);
+
+    if (!widgetStore['dbd-scoreboard']) widgetStore['dbd-scoreboard'] = {};
+    if (!widgetStore['dbd-scoreboard'][cleanUser]) widgetStore['dbd-scoreboard'][cleanUser] = {};
+
+    let currentScores = { killerKills: 0, killerDraws: 0, killerEscapes: 0 };
+    const raw = widgetStore['dbd-scoreboard'][cleanUser]?.['dbd_scoreboard_data'];
+    if (raw) {
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        currentScores = {
+          killerKills: Number(parsed.killerKills) || 0,
+          killerDraws: Number(parsed.killerDraws) || 0,
+          killerEscapes: Number(parsed.killerEscapes) || 0
+        };
+      } catch (_) {}
+    }
+
+    let animTargetId = null;
+    let soundType = null;
+
+    if (action === 'win') {
+      currentScores.killerKills += 1;
+      animTargetId = 'killer-kills-val';
+      soundType = 'pop';
+    } else if (action === 'draw') {
+      currentScores.killerDraws += 1;
+      animTargetId = 'killer-draws-val';
+      soundType = 'pop';
+    } else if (action === 'lose') {
+      currentScores.killerEscapes += 1;
+      animTargetId = 'killer-escapes-val';
+      soundType = 'pop';
+    } else if (action === 'undo_win') {
+      currentScores.killerKills = Math.max(0, currentScores.killerKills - 1);
+      animTargetId = 'killer-kills-val';
+      soundType = 'undo';
+    } else if (action === 'undo_draw') {
+      currentScores.killerDraws = Math.max(0, currentScores.killerDraws - 1);
+      animTargetId = 'killer-draws-val';
+      soundType = 'undo';
+    } else if (action === 'undo_lose') {
+      currentScores.killerEscapes = Math.max(0, currentScores.killerEscapes - 1);
+      animTargetId = 'killer-escapes-val';
+      soundType = 'undo';
+    } else if (action === 'reset') {
+      currentScores.killerKills = 0;
+      currentScores.killerDraws = 0;
+      currentScores.killerEscapes = 0;
+      animTargetId = null;
+      soundType = 'reset';
+    } else if (action === 'set' && target) {
+      currentScores[target] = Math.max(0, Number(value) || 0);
+      animTargetId = target === 'killerKills' ? 'killer-kills-val' : target === 'killerDraws' ? 'killer-draws-val' : 'killer-escapes-val';
+      soundType = 'pop';
+    }
+
+    widgetStore['dbd-scoreboard'][cleanUser]['dbd_scoreboard_data'] = JSON.stringify(currentScores);
+    saveWidgetStore(widgetStore);
+
+    const payload = {
+      userId: userKey,
+      widgetId: 'dbd-scoreboard',
+      scoreData: currentScores,
+      animTargetId,
+      soundType,
+      updatedBy: updatedBy || 'Dashboard'
+    };
+
+    for (const id of allIds) {
+      io.to('user_' + id).emit('dbd_scoreboard_updated', payload);
+      io.to('user_' + id).emit('onEventReceived', {
+        type: 'dbd_scoreboard_update',
+        userId: userKey,
+        data: payload
+      });
+    }
+
+    console.log(`[DBD Scoreboard] 🏆 User ${userKey} scoreboard updated by ${updatedBy || 'Dashboard'}: Kills=${currentScores.killerKills}, Draws=${currentScores.killerDraws}, Escapes=${currentScores.killerEscapes}`);
+    res.json({ success: true, scoreData: currentScores, user: userKey });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1920,7 +2092,13 @@ app.get('/api/widgets/:id/store/:key', (req, res) => {
     if (val === undefined || val === null) {
       return res.status(404).json({ error: 'Key not found' });
     }
-    res.json({ key, value: val });
+    let parsedVal = val;
+    if (typeof val === 'string' && (val.startsWith('{') || val.startsWith('['))) {
+      try {
+        parsedVal = JSON.parse(val);
+      } catch (_) {}
+    }
+    res.json({ key, value: parsedVal });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1937,10 +2115,17 @@ app.post('/api/widgets/:id/store/:key', (req, res) => {
     if (!widgetStore[widgetId]) widgetStore[widgetId] = {};
     if (!widgetStore[widgetId][userKey]) widgetStore[widgetId][userKey] = {};
 
-    widgetStore[widgetId][userKey][key] = String(value !== undefined ? value : '');
+    let storedVal = value;
+    if (typeof value === 'object' && value !== null) {
+      storedVal = JSON.stringify(value);
+    } else {
+      storedVal = String(value !== undefined ? value : '');
+    }
+
+    widgetStore[widgetId][userKey][key] = storedVal;
     saveWidgetStore(widgetStore);
 
-    res.json({ success: true, key, value: widgetStore[widgetId][userKey][key] });
+    res.json({ success: true, key, value: storedVal });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -2842,237 +3027,6 @@ function initEventSubListener() {
   return eventSubListener;
 }
 
-function startEventSub(userId) {
-  if (!userId) return;
-  const uidStr = String(userId);
-  if (registeredEventSubUsers.has(uidStr)) {
-    return;
-  }
-
-  const el = initEventSubListener();
-  if (!el) {
-    console.warn(`[EventSub] Cannot start EventSub, apiClient not ready`);
-    return;
-  }
-
-  registeredEventSubUsers.add(uidStr);
-  console.log(`✅ [EventSub] Subscribed for Twitch events for user ID: ${uidStr}...`);
-
-  try {
-    el.onChannelFollow(userId, userId, (e) => {
-      try {
-        console.log(`New Follower for ${userId}: ${e.userDisplayName}`);
-        const ev = { type: 'follower', userId, data: { name: e.userDisplayName } };
-        io.to('user_' + userId).emit('onEventReceived', ev);
-        io.emit('onEventReceived', ev);
-      } catch (err) {
-        console.error('[EventSub] Error in follow handler:', err);
-      }
-    });
-  } catch (err) {
-    console.warn(`[EventSub] Follow listener setup warning for ${userId}:`, err?.message || err);
-  }
-
-  try {
-    el.onChannelSubscription(userId, (e) => {
-      try {
-        console.log(`New Subscriber for ${userId}: ${e.userDisplayName}`);
-        const ev = { type: 'subscriber', userId, data: { name: e.userDisplayName, tier: e.tier } };
-        io.to('user_' + userId).emit('onEventReceived', ev);
-        io.emit('onEventReceived', ev);
-      } catch (err) {
-        console.error('[EventSub] Error in sub handler:', err);
-      }
-    });
-  } catch (err) {
-    console.warn(`[EventSub] Subscription listener setup warning for ${userId}:`, err?.message || err);
-  }
-
-  try {
-    el.onChannelRedemptionAdd(userId, async (e) => {
-      try {
-        let avatar = '';
-        try {
-          const userObj = await e.getUser();
-          avatar = userObj?.profilePictureUrl || '';
-          if (avatar && e.userName) {
-            avatarCache.set(e.userName.toLowerCase(), avatar);
-          }
-        } catch (err) {}
-
-        if (!avatar && e.userName) {
-          avatar = await getTwitchUserAvatar(e.userName);
-        }
-
-        console.log(`[EventSub] 🎁 Redemption received for user ${userId} by ${e.userName}: "${e.rewardTitle}" (avatar: ${avatar ? 'found' : 'none'})`);
-    const ev = {
-      type: 'redemption',
-      userId,
-      isTest: false,
-      data: {
-        name: e.userDisplayName || e.userName,
-        userName: e.userName,
-        userDisplayName: e.userDisplayName,
-        userId: e.userId,
-        avatar: avatar,
-        profileImage: avatar,
-        profileImageUrl: avatar,
-        rewardTitle: e.rewardTitle,
-        input: e.input,
-        isTest: false
-      }
-    };
-    io.to('user_' + userId).emit('onEventReceived', ev);
-
-    // ตรวจสอบการแลกแต้มสำหรับ Custom Counter (ถ้าเปิดใช้งาน)
-    try {
-      if (isWidgetActiveForUser(userId, 'custom-counter')) {
-        let cs = widgetSettingsStore['custom-counter']?.[userId] || widgetSettingsStore['custom-counter']?.['default'] || {};
-        const isTriggerPoints = cs.triggerChannelPoints === true || cs.triggerChannelPoints === 'yes' || cs.triggerChannelPoints === 'true';
-        const targetReward = (cs.rewardName || 'เพิ่มยอดกรี๊ด').trim().toLowerCase();
-        if (isTriggerPoints && e.rewardTitle && e.rewardTitle.trim().toLowerCase() === targetReward) {
-          const prevCount = Number(cs.currentCount) || 0;
-          const step = Number(cs.stepAmount) || 1;
-          const newCount = prevCount + step;
-          cs.currentCount = newCount;
-          widgetSettingsStore['custom-counter'] = widgetSettingsStore['custom-counter'] || {};
-          widgetSettingsStore['custom-counter'][userId] = cs;
-          saveWidgetSettings(widgetSettingsStore);
-
-          const payload = {
-            userId,
-            widgetId: 'custom-counter',
-            count: newCount,
-            delta: step,
-            title: cs.counterTitle || 'จำนวนครั้งที่กรี๊ด',
-            updatedBy: e.userDisplayName || e.userName
-          };
-          const cleanUser = String(userId).trim().toLowerCase().replace('@', '');
-          const allIds = getAssociatedUserIdentifiers(cleanUser);
-          allIds.add(cleanUser);
-
-          for (const id of allIds) {
-            io.to('user_' + id).emit('counter_updated', payload);
-            io.to('user_' + id).emit('onEventReceived', {
-              type: 'counter_update',
-              userId,
-              data: payload
-            });
-          }
-          console.log(`[Custom Counter] 🎁 Channel Points redemption incremented counter for user ${userId} to ${newCount}`);
-        }
-      }
-    } catch (cErr) {
-      console.warn('[Custom Counter] Redemption check warning:', cErr?.message || cErr);
-    }
-
-    // ตรวจสอบการแลกแต้มสำหรับ Spotify Song Request (ถ้าเปิดใช้งาน)
-    try {
-      if (isWidgetActiveForUser(userId, 'spotify-sr') && spotify.isSpotifyConfigured()) {
-        let srSettings = widgetSettingsStore['spotify-sr']?.[userId];
-        if (!srSettings) {
-          const ids = getAssociatedUserIdentifiers(userId);
-          for (const id of ids) {
-            if (widgetSettingsStore['spotify-sr']?.[id]) {
-              srSettings = widgetSettingsStore['spotify-sr'][id];
-              break;
-            }
-          }
-        }
-        if (!srSettings) {
-          srSettings = widgetSettingsStore['spotify-sr']?.['default'] || {};
-        }
-
-        const targetRewardName = (srSettings.channelPointsReward || 'ขอเพลง').trim().toLowerCase();
-        const incomingReward = (e.rewardTitle || '').trim().toLowerCase();
-
-        // ตรวจสอบชื่อ Reward: ตรงกัน หรือมีคำว่า targetRewardName หรือมีคำว่า "ขอเพลง" / "song request" / "spotify"
-        const isRewardMatch = incomingReward === targetRewardName ||
-                              incomingReward.includes(targetRewardName) ||
-                              (targetRewardName.length >= 2 && targetRewardName.includes(incomingReward)) ||
-                              incomingReward.includes('ขอเพลง') ||
-                              incomingReward.includes('song request') ||
-                              incomingReward.includes('spotify');
-
-        if (isRewardMatch) {
-          console.log(`[Spotify SR] 🎁 Spotify Channel Points redemption detected for ${userId} by ${e.userName}: "${e.rewardTitle}" (input: "${e.input}")`);
-          await processSpotifySongRequest({
-            userId,
-            displayName: e.userDisplayName || e.userName,
-            chatterName: e.userName,
-            query: e.input,
-            source: 'channel_points',
-            channelRewardName: e.rewardTitle
-          });
-        }
-      }
-    } catch (sErr) {
-      console.warn('[Spotify SR] Redemption check warning:', sErr?.message || sErr);
-    }
-
-    // ตรวจสอบการแลกแต้มสำหรับ Valorant Agent Randomizer
-    try {
-      if (isWidgetActiveForUser(userId, 'valorant-agent')) {
-        let vs = widgetSettingsStore['valorant-agent']?.[userId];
-        if (!vs) {
-          const ids = getAssociatedUserIdentifiers(userId);
-          for (const id of ids) {
-            if (widgetSettingsStore['valorant-agent']?.[id]) {
-              vs = widgetSettingsStore['valorant-agent'][id];
-              break;
-            }
-          }
-        }
-        if (!vs) vs = widgetSettingsStore['valorant-agent']?.['default'] || {};
-
-        const targetReward = (vs.rewardName || 'สุ่มตัวละคร Valorant').trim().toLowerCase();
-        const currReward = (e.rewardTitle || '').trim().toLowerCase();
-        if (currReward && (currReward === targetReward || currReward.includes(targetReward) || currReward.includes('สุ่มตัวละคร valorant') || currReward.includes('สุ่ม valorant'))) {
-          await performValorantRoll({
-            userId,
-            username: e.userDisplayName || e.userName,
-            roleFilter: vs.roleFilter || 'all',
-            mode: vs.mode || 'single',
-            excludedAgents: vs.excludedAgents || [],
-            source: 'channel_points'
-          });
-        }
-      }
-    } catch (vErr) {
-      console.warn('[Valorant Redemption] Error:', vErr?.message || vErr);
-    }
-  } catch (rErr) {
-    console.error(`[EventSub] Error in redemption handler for ${userId}:`, rErr);
-  }
-});
-} catch (err) {
-  console.warn(`[EventSub] Redemption listener setup warning for ${userId}:`, err?.message || err);
-}
-
-  try {
-    el.onChannelShoutoutCreate(userId, userId, (e) => {
-      if (!isWidgetActiveForUser(userId, 'twitch-shoutout')) {
-        console.log(`[EventSub] ⚠️ Shoutout widget is DISABLED for user ${userId}, skipping shoutout event`);
-        return;
-      }
-      console.log(`[EventSub] 📢 Shoutout created on channel ${userId} for: ${e.shoutedOutBroadcasterName}`);
-      const ev = {
-        type: 'shoutout',
-        userId,
-        channel: e.shoutedOutBroadcasterName,
-        targetChannel: e.shoutedOutBroadcasterName,
-        data: {
-          channel: e.shoutedOutBroadcasterName,
-          username: e.shoutedOutBroadcasterName,
-          displayName: e.shoutedOutBroadcasterDisplayName,
-          viewerCount: e.viewerCount
-        }
-      };
-      io.to('user_' + userId).emit('onEventReceived', ev);
-    });
-  } catch (err) {
-    console.warn(`[EventSub] Shoutout listener setup warning for ${userId}:`, err?.message || err);
-  }
 
 // ตรวจจับคำสั่ง Song Request ยืดหยุ่น รองรับทั้ง prefix ที่ตั้งค่าไว้ (เช่น !เพลง หรือ เพลง) และค่าเริ่มต้น (!sr, sr)
 function extractSongRequestQuery(text, customPrefix) {
@@ -3128,16 +3082,16 @@ function extractSongRequestQuery(text, customPrefix) {
   return null;
 }
 
-  // ดักฟังข้อความแชทเพื่อตรวจจับคำสั่ง !so, !shoutout และ !sr / !เพลง (Song Request)
+// ประมวลผลข้อความแชทจาก Twitch (รองรับทั้ง EventSub และการทดสอบ)
+async function processChatMessage(userId, e) {
   try {
-    el.onChannelChatMessage(userId, userId, async (e) => {
-      try {
-        const text = (e.messageText || '').trim();
-        console.log(`[Twitch Chat] 💬 <${e.chatterName}> in channel ${userId}: "${text}"`);
+    const text = (e.messageText || '').trim();
+    const broadcasterName = e.broadcasterName || e.broadcasterUserName || '';
+    console.log(`[Twitch Chat] 💬 <${e.chatterName}> in channel ${userId} (${broadcasterName || 'broadcaster'}): "${text}"`);
 
-        const parts = text.split(/\s+/);
-        const cmd = parts[0].toLowerCase();
-        const isSoCmd = parts.length >= 2 && (cmd === '!so' || cmd === '!shoutout');
+    const parts = text.split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+    const isSoCmd = parts.length >= 2 && (cmd === '!so' || cmd === '!shoutout');
 
       // ดึงการตั้งค่าของ Spotify SR Widget สำหรับแชนแนลนี้
       let srSettings = widgetSettingsStore['spotify-sr']?.[userId];
@@ -3370,28 +3324,597 @@ function extractSongRequestQuery(text, customPrefix) {
             console.error('[Valorant Chat Command] Error:', vErr);
           }
         }
+      }
+
+      // ตรวจสอบคำสั่ง DBD Scoreboard (!score, !kscore, !kwin, !kdraw, !klose, !kwinundo, !kdrawundo, !kloseundo, !kreset)
+      let scoreSettings = widgetSettingsStore['dbd-scoreboard']?.[userId];
+      if (!scoreSettings) {
+        const ids = getAssociatedUserIdentifiers(userId);
+        for (const id of ids) {
+          if (widgetSettingsStore['dbd-scoreboard']?.[id]) {
+            scoreSettings = widgetSettingsStore['dbd-scoreboard'][id];
+            break;
+          }
+        }
+      }
+      if (!scoreSettings) {
+        scoreSettings = widgetSettingsStore['dbd-scoreboard']?.['default'] || {};
+      }
+
+      // ตรวจจับคำสั่งทั้งแบบที่มี ! หรือไม่มี ! และเช็คทั้งคำสั่งที่ User ตั้งเอง และคำสั่งมาตรฐาน (เป็น fallback)
+      const checkCmdMatch = (cmdStr, defaultCmd) => {
+        const testMatch = (target) => {
+          if (!target || typeof target !== 'string') return false;
+          const base = target.trim().toLowerCase();
+          if (!base) return false;
+          const withBang = base.startsWith('!') ? base : '!' + base;
+          const withoutBang = base.startsWith('!') ? base.slice(1) : base;
+          return cmd === withBang || cmd === withoutBang;
+        };
+        return testMatch(cmdStr) || testMatch(defaultCmd);
+      };
+
+      const isGeneralScoreCmd = checkCmdMatch(scoreSettings.scoreCmd, '!score') ||
+        cmd === '!score' || cmd === 'score' ||
+        cmd === '!kscore' || cmd === 'kscore' ||
+        cmd === '!scoreboard' || cmd === 'scoreboard';
+
+      const isSpecificScoreCmd = checkCmdMatch(scoreSettings.kwinCmd, '!kwin') ||
+        checkCmdMatch(scoreSettings.kdrawCmd, '!kdraw') ||
+        checkCmdMatch(scoreSettings.kloseCmd, '!klose') ||
+        checkCmdMatch(scoreSettings.kwinundoCmd, '!kwinundo') ||
+        checkCmdMatch(scoreSettings.kdrawundoCmd, '!kdrawundo') ||
+        checkCmdMatch(scoreSettings.kloseundoCmd, '!kloseundo') ||
+        checkCmdMatch(scoreSettings.kresetCmd, '!kreset');
+
+      const isDbdScoreCmd = isGeneralScoreCmd || isSpecificScoreCmd;
+
+      if (isDbdScoreCmd) {
+        if (scoreSettings.enableChatCmd === false || scoreSettings.enableChatCmd === 'false') {
+          console.log(`[DBD Scoreboard] ⏸️ Chat commands are DISABLED in settings for user ${userId}, ignoring`);
+          return;
+        }
+
+        const isGloballyDisabled = globalWidgetStatus['dbd-scoreboard'] && globalWidgetStatus['dbd-scoreboard'].enabled === false;
+        if (isGloballyDisabled) {
+          console.log(`[DBD Scoreboard] ⚠️ DBD Scoreboard widget is GLOBALLY DISABLED by admin, ignoring chat command`);
+          return;
+        }
+
+        const cleanUser = String(userId).trim().toLowerCase().replace('@', '');
+        const allBroadcasterIds = getAssociatedUserIdentifiers(cleanUser);
+        allBroadcasterIds.add(cleanUser);
+        if (e.broadcasterId) allBroadcasterIds.add(String(e.broadcasterId).toLowerCase());
+        if (broadcasterName) allBroadcasterIds.add(String(broadcasterName).toLowerCase());
+
+        const chatterIdStr = String(e.chatterId || '').toLowerCase();
+        const chatterNameStr = String(e.chatterName || '').toLowerCase();
+
+        const isBroadcaster = allBroadcasterIds.has(chatterIdStr) ||
+          allBroadcasterIds.has(chatterNameStr) ||
+          Boolean(e.isBroadcaster) ||
+          (typeof e.hasBadge === 'function' && e.hasBadge('broadcaster')) ||
+          (e.badges && (typeof e.badges.has === 'function' ? e.badges.has('broadcaster') : Boolean(e.badges.broadcaster))) ||
+          isUserAdmin(e.chatterId, e.chatterName);
+
+        const isMod = Boolean(e.isMod) ||
+          (typeof e.hasBadge === 'function' && e.hasBadge('moderator')) ||
+          (e.badges && (typeof e.badges.has === 'function' ? e.badges.has('moderator') : Boolean(e.badges.moderator)));
+
+        const isModOrBroadcaster = isBroadcaster || isMod;
+        const permission = (scoreSettings.commandPermission || 'everyone').toLowerCase();
+        const hasPermission = permission === 'everyone' ||
+          (permission === 'mod' && isModOrBroadcaster) ||
+          (permission === 'broadcaster' && isBroadcaster);
+
+        const displayName = e.chatterDisplayName || e.chatterName || 'Viewer';
+
+        if (!widgetStore['dbd-scoreboard']) widgetStore['dbd-scoreboard'] = {};
+        if (!widgetStore['dbd-scoreboard'][cleanUser]) widgetStore['dbd-scoreboard'][cleanUser] = {};
+
+        let currentScores = { killerKills: 0, killerDraws: 0, killerEscapes: 0 };
+        const raw = widgetStore['dbd-scoreboard'][cleanUser]?.['dbd_scoreboard_data'];
+        if (raw) {
+          try {
+            const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            currentScores = {
+              killerKills: Number(parsed.killerKills) || 0,
+              killerDraws: Number(parsed.killerDraws) || 0,
+              killerEscapes: Number(parsed.killerEscapes) || 0
+            };
+          } catch (_) {}
+        }
+
+        const subCmd = (parts[1] || '').trim().toLowerCase();
+
+        // 1. ถ้าพิมพ์แค่ !score หรือ !kscore เพื่อดูสถิติตอนนี้ (ทุกคนในแชทดูได้)
+        if (isGeneralScoreCmd && !subCmd) {
+          console.log(`[DBD Scoreboard] 📊 Score query from ${displayName} in channel ${userId}: Kills=${currentScores.killerKills}, Draws=${currentScores.killerDraws}, Escapes=${currentScores.killerEscapes}`);
+          if (scoreSettings.enableChatReply !== false && scoreSettings.enableChatReply !== 'false') {
+            try {
+              let replyTpl = scoreSettings.chatReplyTemplate || '@{user} สถิติ DBD [{title}]: {stat1}: {kills} | {stat3}: {draws} | {stat2}: {escapes}';
+              replyTpl = replyTpl
+                .replace('{user}', displayName)
+                .replace('{title}', scoreSettings.killerRoleTitle || 'KILLER')
+                .replace('{stat1}', scoreSettings.killerStat1Title || 'WINS')
+                .replace('{stat3}', scoreSettings.killerStat3Title || 'DRAWS')
+                .replace('{stat2}', scoreSettings.killerStat2Title || 'LOSES')
+                .replace('{kills}', currentScores.killerKills)
+                .replace('{draws}', currentScores.killerDraws)
+                .replace('{escapes}', currentScores.killerEscapes);
+              await apiClient?.asUser(userId, async (ctx) => {
+                await ctx.chat.sendChatMessage(userId, replyTpl);
+              });
+            } catch (err) {
+              console.warn('[DBD Scoreboard] Failed to send query chat reply:', err?.message || err);
+            }
+          }
+          return;
+        }
+
+        // ตรวจสอบสิทธิ์ก่อนแก้ไขสถิติ
+        if (!hasPermission) {
+          console.log(`[DBD Scoreboard] ⛔ User ${displayName} lacks permission (${permission}) to modify scoreboard in channel ${userId}`);
+          return;
+        }
+
+        let animTargetId = null;
+        let soundType = null;
+        let scoreChanged = false;
+
+        // ถ้าพิมพ์ผ่านคำสั่งรวม !score [subcommand] [amount]
+        if (isGeneralScoreCmd && subCmd) {
+          let step = 1;
+          const parsedStep = parseInt(parts[2], 10);
+          if (!isNaN(parsedStep) && parsedStep > 0) step = parsedStep;
+
+          if (subCmd === 'win' || subCmd === 'kill' || subCmd === 'kills' || subCmd === 'ชนะ' || subCmd === 'ฆ่า' || subCmd === '+win' || subCmd === '+kill' || subCmd === '+1' || subCmd === '+') {
+            currentScores.killerKills += step;
+            animTargetId = 'killer-kills-val';
+            soundType = 'pop';
+            scoreChanged = true;
+          } else if (subCmd === 'draw' || subCmd === 'draws' || subCmd === 'เสมอ' || subCmd === '+draw') {
+            currentScores.killerDraws += step;
+            animTargetId = 'killer-draws-val';
+            soundType = 'pop';
+            scoreChanged = true;
+          } else if (subCmd === 'lose' || subCmd === 'loss' || subCmd === 'escape' || subCmd === 'escapes' || subCmd === 'แพ้' || subCmd === 'รอด' || subCmd === '+lose' || subCmd === '+escape') {
+            currentScores.killerEscapes += step;
+            animTargetId = 'killer-escapes-val';
+            soundType = 'pop';
+            scoreChanged = true;
+          } else if (subCmd === 'undowin' || subCmd === 'winundo' || subCmd === '-win' || subCmd === '-kill' || subCmd === '-1' || subCmd === 'ย้อนชนะ' || (subCmd === 'undo' && (parts[2] === 'win' || parts[2] === 'kill' || parts[2] === 'ชนะ' || parts[2] === 'ฆ่า'))) {
+            currentScores.killerKills = Math.max(0, currentScores.killerKills - step);
+            animTargetId = 'killer-kills-val';
+            soundType = 'undo';
+            scoreChanged = true;
+          } else if (subCmd === 'undodraw' || subCmd === 'drawundo' || subCmd === '-draw' || subCmd === 'ย้อนเสมอ' || (subCmd === 'undo' && (parts[2] === 'draw' || parts[2] === 'เสมอ'))) {
+            currentScores.killerDraws = Math.max(0, currentScores.killerDraws - step);
+            animTargetId = 'killer-draws-val';
+            soundType = 'undo';
+            scoreChanged = true;
+          } else if (subCmd === 'undolose' || subCmd === 'loseundo' || subCmd === '-lose' || subCmd === '-escape' || subCmd === 'ย้อนแพ้' || subCmd === 'ย้อนรอด' || (subCmd === 'undo' && (parts[2] === 'lose' || parts[2] === 'escape' || parts[2] === 'loss' || parts[2] === 'แพ้' || parts[2] === 'รอด'))) {
+            currentScores.killerEscapes = Math.max(0, currentScores.killerEscapes - step);
+            animTargetId = 'killer-escapes-val';
+            soundType = 'undo';
+            scoreChanged = true;
+          } else if (subCmd === 'reset' || subCmd === 'clear' || subCmd === 'รีเซ็ต' || subCmd === 'ล้าง') {
+            currentScores.killerKills = 0;
+            currentScores.killerDraws = 0;
+            currentScores.killerEscapes = 0;
+            animTargetId = null;
+            soundType = 'reset';
+            scoreChanged = true;
+          } else {
+            return;
+          }
+        } else {
+          // ถ้าเป็นคำสั่งเฉพาะเจาะจง (!kwin, !kdraw, !klose, !kreset ฯลฯ)
+          let step = 1;
+          const parsedStep = parseInt(parts[1], 10);
+          if (!isNaN(parsedStep) && parsedStep > 0) step = parsedStep;
+
+          if (checkCmdMatch(scoreSettings.kwinCmd, '!kwin')) {
+            currentScores.killerKills += step;
+            animTargetId = 'killer-kills-val';
+            soundType = 'pop';
+            scoreChanged = true;
+          } else if (checkCmdMatch(scoreSettings.kdrawCmd, '!kdraw')) {
+            currentScores.killerDraws += step;
+            animTargetId = 'killer-draws-val';
+            soundType = 'pop';
+            scoreChanged = true;
+          } else if (checkCmdMatch(scoreSettings.kloseCmd, '!klose')) {
+            currentScores.killerEscapes += step;
+            animTargetId = 'killer-escapes-val';
+            soundType = 'pop';
+            scoreChanged = true;
+          } else if (checkCmdMatch(scoreSettings.kwinundoCmd, '!kwinundo')) {
+            currentScores.killerKills = Math.max(0, currentScores.killerKills - step);
+            animTargetId = 'killer-kills-val';
+            soundType = 'undo';
+            scoreChanged = true;
+          } else if (checkCmdMatch(scoreSettings.kdrawundoCmd, '!kdrawundo')) {
+            currentScores.killerDraws = Math.max(0, currentScores.killerDraws - step);
+            animTargetId = 'killer-draws-val';
+            soundType = 'undo';
+            scoreChanged = true;
+          } else if (checkCmdMatch(scoreSettings.kloseundoCmd, '!kloseundo')) {
+            currentScores.killerEscapes = Math.max(0, currentScores.killerEscapes - step);
+            animTargetId = 'killer-escapes-val';
+            soundType = 'undo';
+            scoreChanged = true;
+          } else if (checkCmdMatch(scoreSettings.kresetCmd, '!kreset')) {
+            currentScores.killerKills = 0;
+            currentScores.killerDraws = 0;
+            currentScores.killerEscapes = 0;
+            animTargetId = null;
+            soundType = 'reset';
+            scoreChanged = true;
+          }
+        }
+
+        if (!scoreChanged) return;
+
+        widgetStore['dbd-scoreboard'][cleanUser]['dbd_scoreboard_data'] = JSON.stringify(currentScores);
+        saveWidgetStore(widgetStore);
+
+        const allIds = getAssociatedUserIdentifiers(cleanUser);
+        allIds.add(cleanUser);
+
+        const payload = {
+          userId,
+          username: cleanUser,
+          associatedUserIds: Array.from(allIds),
+          widgetId: 'dbd-scoreboard',
+          scoreData: currentScores,
+          animTargetId,
+          soundType,
+          updatedBy: displayName
+        };
+
+        for (const id of allIds) {
+          io.to('user_' + id).emit('dbd_scoreboard_updated', payload);
+          io.to('channel_' + id).emit('dbd_scoreboard_updated', payload);
+          io.to('user_' + id).emit('onEventReceived', {
+            type: 'dbd_scoreboard_update',
+            userId,
+            username: cleanUser,
+            associatedUserIds: Array.from(allIds),
+            data: payload
+          });
+          io.to('channel_' + id).emit('onEventReceived', {
+            type: 'dbd_scoreboard_update',
+            userId,
+            username: cleanUser,
+            associatedUserIds: Array.from(allIds),
+            data: payload
+          });
+        }
+
+        console.log(`[DBD Scoreboard] 🏆 Chat command "${text}" from ${displayName} updated ${userId}'s score: Kills=${currentScores.killerKills}, Draws=${currentScores.killerDraws}, Escapes=${currentScores.killerEscapes}`);
+
+        if (scoreSettings.enableChatReply !== false && scoreSettings.enableChatReply !== 'false') {
+          try {
+            let replyTpl = scoreSettings.chatReplyTemplate || '@{user} อัปเดตสถิติ DBD [{title}]: {stat1}: {kills} | {stat3}: {draws} | {stat2}: {escapes}';
+            replyTpl = replyTpl
+              .replace('{user}', displayName)
+              .replace('{title}', scoreSettings.killerRoleTitle || 'KILLER')
+              .replace('{stat1}', scoreSettings.killerStat1Title || 'WINS')
+              .replace('{stat3}', scoreSettings.killerStat3Title || 'DRAWS')
+              .replace('{stat2}', scoreSettings.killerStat2Title || 'LOSES')
+              .replace('{kills}', currentScores.killerKills)
+              .replace('{draws}', currentScores.killerDraws)
+              .replace('{escapes}', currentScores.killerEscapes);
+            await apiClient?.asUser(userId, async (ctx) => {
+              await ctx.chat.sendChatMessage(userId, replyTpl);
+            });
+          } catch (err) {
+            console.warn('[DBD Scoreboard] Failed to send update chat reply:', err?.message || err);
+          }
+        }
+        return;
       } else {
         // ส่งข้อความแชททั่วไปเข้าห้อง Socket เผื่อ Widget อื่นใช้งาน
+        const isBroadcaster = e.chatterId === userId || e.isBroadcaster || (e.badges && (typeof e.badges.has === 'function' ? e.badges.has('broadcaster') : e.badges.broadcaster));
+        const isMod = e.isMod || (e.badges && (typeof e.badges.has === 'function' ? e.badges.has('moderator') : e.badges.moderator));
         const chatEv = {
           type: 'message',
           userId,
           data: {
             text: text,
             user: e.chatterName,
-            displayName: e.chatterDisplayName
+            displayName: e.chatterDisplayName,
+            flags: {
+              broadcaster: Boolean(isBroadcaster),
+              mod: Boolean(isMod)
+            },
+            badges: [
+              ...(isBroadcaster ? [{ type: 'broadcaster' }] : []),
+              ...(isMod ? [{ type: 'moderator' }] : [])
+            ]
           }
         };
-        io.to('user_' + userId).emit('onEventReceived', chatEv);
+        const cleanUser = String(userId).trim().toLowerCase().replace('@', '');
+        const allIds = getAssociatedUserIdentifiers(cleanUser);
+        allIds.add(cleanUser);
+        chatEv.username = cleanUser;
+        chatEv.associatedUserIds = Array.from(allIds);
+        for (const id of allIds) {
+          io.to('user_' + id).emit('onEventReceived', chatEv);
+        }
       }
-    } catch (chatErr) {
-      console.error(`[Twitch Chat] ❌ Error in message handler for channel ${userId}:`, chatErr);
+  } catch (chatErr) {
+    console.error(`[Twitch Chat] ❌ Error in message handler for channel ${userId}:`, chatErr);
+  }
+}
+
+function startEventSub(userId) {
+  if (!userId) return;
+  const uidStr = String(userId);
+  if (registeredEventSubUsers.has(uidStr)) {
+    return;
+  }
+
+  const el = initEventSubListener();
+  if (!el) {
+    console.warn(`[EventSub] Cannot start EventSub, apiClient not ready`);
+    return;
+  }
+
+  registeredEventSubUsers.add(uidStr);
+  console.log(`✅ [EventSub] Subscribed for Twitch events for user ID: ${uidStr}...`);
+
+  try {
+    el.onChannelFollow(userId, userId, (e) => {
+      try {
+        console.log(`New Follower for ${userId}: ${e.userDisplayName}`);
+        const ev = { type: 'follower', userId, data: { name: e.userDisplayName } };
+        io.to('user_' + userId).emit('onEventReceived', ev);
+        io.emit('onEventReceived', ev);
+      } catch (err) {
+        console.error('[EventSub] Error in follow handler:', err);
+      }
+    });
+  } catch (err) {
+    console.warn(`[EventSub] Follow listener setup warning for ${userId}:`, err?.message || err);
+  }
+
+  try {
+    el.onChannelSubscription(userId, (e) => {
+      try {
+        console.log(`New Subscriber for ${userId}: ${e.userDisplayName}`);
+        const ev = { type: 'subscriber', userId, data: { name: e.userDisplayName, tier: e.tier } };
+        io.to('user_' + userId).emit('onEventReceived', ev);
+        io.emit('onEventReceived', ev);
+      } catch (err) {
+        console.error('[EventSub] Error in sub handler:', err);
+      }
+    });
+  } catch (err) {
+    console.warn(`[EventSub] Subscription listener setup warning for ${userId}:`, err?.message || err);
+  }
+
+  try {
+    el.onChannelRedemptionAdd(userId, async (e) => {
+      try {
+        let avatar = '';
+        try {
+          const userObj = await e.getUser();
+          avatar = userObj?.profilePictureUrl || '';
+          if (avatar && e.userName) {
+            avatarCache.set(e.userName.toLowerCase(), avatar);
+          }
+        } catch (err) {}
+
+        if (!avatar && e.userName) {
+          avatar = await getTwitchUserAvatar(e.userName);
+        }
+
+        console.log(`[EventSub] 🎁 Redemption received for user ${userId} by ${e.userName}: "${e.rewardTitle}" (avatar: ${avatar ? 'found' : 'none'})`);
+    const ev = {
+      type: 'redemption',
+      userId,
+      isTest: false,
+      data: {
+        name: e.userDisplayName || e.userName,
+        userName: e.userName,
+        userDisplayName: e.userDisplayName,
+        userId: e.userId,
+        avatar: avatar,
+        profileImage: avatar,
+        profileImageUrl: avatar,
+        rewardTitle: e.rewardTitle,
+        input: e.input,
+        isTest: false
+      }
+    };
+    io.to('user_' + userId).emit('onEventReceived', ev);
+
+    // ตรวจสอบการแลกแต้มสำหรับ Custom Counter (ถ้าเปิดใช้งาน)
+    try {
+      if (isWidgetActiveForUser(userId, 'custom-counter')) {
+        let cs = widgetSettingsStore['custom-counter']?.[userId] || widgetSettingsStore['custom-counter']?.['default'] || {};
+        const isTriggerPoints = cs.triggerChannelPoints === true || cs.triggerChannelPoints === 'yes' || cs.triggerChannelPoints === 'true';
+        const targetReward = (cs.rewardName || 'เพิ่มยอดกรี๊ด').trim().toLowerCase();
+        if (isTriggerPoints && e.rewardTitle && e.rewardTitle.trim().toLowerCase() === targetReward) {
+          const prevCount = Number(cs.currentCount) || 0;
+          const step = Number(cs.stepAmount) || 1;
+          const newCount = prevCount + step;
+          cs.currentCount = newCount;
+          widgetSettingsStore['custom-counter'] = widgetSettingsStore['custom-counter'] || {};
+          widgetSettingsStore['custom-counter'][userId] = cs;
+          saveWidgetSettings(widgetSettingsStore);
+
+          const payload = {
+            userId,
+            widgetId: 'custom-counter',
+            count: newCount,
+            delta: step,
+            title: cs.counterTitle || 'จำนวนครั้งที่กรี๊ด',
+            updatedBy: e.userDisplayName || e.userName
+          };
+          const cleanUser = String(userId).trim().toLowerCase().replace('@', '');
+          const allIds = getAssociatedUserIdentifiers(cleanUser);
+          allIds.add(cleanUser);
+
+          for (const id of allIds) {
+            io.to('user_' + id).emit('counter_updated', payload);
+            io.to('user_' + id).emit('onEventReceived', {
+              type: 'counter_update',
+              userId,
+              data: payload
+            });
+          }
+          console.log(`[Custom Counter] 🎁 Channel Points redemption incremented counter for user ${userId} to ${newCount}`);
+        }
+      }
+    } catch (cErr) {
+      console.warn('[Custom Counter] Redemption check warning:', cErr?.message || cErr);
     }
-  });
-  console.log(`✅ [EventSub] Subscribed to chat messages for user ID: ${userId}`);
+
+    // ตรวจสอบการแลกแต้มสำหรับ Spotify Song Request (ถ้าเปิดใช้งาน)
+    try {
+      if (isWidgetActiveForUser(userId, 'spotify-sr') && spotify.isSpotifyConfigured()) {
+        let srSettings = widgetSettingsStore['spotify-sr']?.[userId];
+        if (!srSettings) {
+          const ids = getAssociatedUserIdentifiers(userId);
+          for (const id of ids) {
+            if (widgetSettingsStore['spotify-sr']?.[id]) {
+              srSettings = widgetSettingsStore['spotify-sr'][id];
+              break;
+            }
+          }
+        }
+        if (!srSettings) {
+          srSettings = widgetSettingsStore['spotify-sr']?.['default'] || {};
+        }
+
+        const targetRewardName = (srSettings.channelPointsReward || 'ขอเพลง').trim().toLowerCase();
+        const incomingReward = (e.rewardTitle || '').trim().toLowerCase();
+
+        // ตรวจสอบชื่อ Reward: ตรงกัน หรือมีคำว่า targetRewardName หรือมีคำว่า "ขอเพลง" / "song request" / "spotify"
+        const isRewardMatch = incomingReward === targetRewardName ||
+                              incomingReward.includes(targetRewardName) ||
+                              (targetRewardName.length >= 2 && targetRewardName.includes(incomingReward)) ||
+                              incomingReward.includes('ขอเพลง') ||
+                              incomingReward.includes('song request') ||
+                              incomingReward.includes('spotify');
+
+        if (isRewardMatch) {
+          console.log(`[Spotify SR] 🎁 Spotify Channel Points redemption detected for ${userId} by ${e.userName}: "${e.rewardTitle}" (input: "${e.input}")`);
+          await processSpotifySongRequest({
+            userId,
+            displayName: e.userDisplayName || e.userName,
+            chatterName: e.userName,
+            query: e.input,
+            source: 'channel_points',
+            channelRewardName: e.rewardTitle
+          });
+        }
+      }
+    } catch (sErr) {
+      console.warn('[Spotify SR] Redemption check warning:', sErr?.message || sErr);
+    }
+
+    // ตรวจสอบการแลกแต้มสำหรับ Valorant Agent Randomizer
+    try {
+      if (isWidgetActiveForUser(userId, 'valorant-agent')) {
+        let vs = widgetSettingsStore['valorant-agent']?.[userId];
+        if (!vs) {
+          const ids = getAssociatedUserIdentifiers(userId);
+          for (const id of ids) {
+            if (widgetSettingsStore['valorant-agent']?.[id]) {
+              vs = widgetSettingsStore['valorant-agent'][id];
+              break;
+            }
+          }
+        }
+        if (!vs) vs = widgetSettingsStore['valorant-agent']?.['default'] || {};
+
+        const targetReward = (vs.rewardName || 'สุ่มตัวละคร Valorant').trim().toLowerCase();
+        const currReward = (e.rewardTitle || '').trim().toLowerCase();
+        if (currReward && (currReward === targetReward || currReward.includes(targetReward) || currReward.includes('สุ่มตัวละคร valorant') || currReward.includes('สุ่ม valorant'))) {
+          await performValorantRoll({
+            userId,
+            username: e.userDisplayName || e.userName,
+            roleFilter: vs.roleFilter || 'all',
+            mode: vs.mode || 'single',
+            excludedAgents: vs.excludedAgents || [],
+            source: 'channel_points'
+          });
+        }
+      }
+    } catch (vErr) {
+      console.warn('[Valorant Redemption] Error:', vErr?.message || vErr);
+    }
+  } catch (rErr) {
+    console.error(`[EventSub] Error in redemption handler for ${userId}:`, rErr);
+  }
+});
 } catch (err) {
-  console.warn(`[EventSub] Chat message listener setup warning for ${userId}:`, err?.message || err);
+  console.warn(`[EventSub] Redemption listener setup warning for ${userId}:`, err?.message || err);
 }
+
+  try {
+    el.onChannelShoutoutCreate(userId, userId, (e) => {
+      if (!isWidgetActiveForUser(userId, 'twitch-shoutout')) {
+        console.log(`[EventSub] ⚠️ Shoutout widget is DISABLED for user ${userId}, skipping shoutout event`);
+        return;
+      }
+      console.log(`[EventSub] 📢 Shoutout created on channel ${userId} for: ${e.shoutedOutBroadcasterName}`);
+      const ev = {
+        type: 'shoutout',
+        userId,
+        channel: e.shoutedOutBroadcasterName,
+        targetChannel: e.shoutedOutBroadcasterName,
+        data: {
+          channel: e.shoutedOutBroadcasterName,
+          username: e.shoutedOutBroadcasterName,
+          displayName: e.shoutedOutBroadcasterDisplayName,
+          viewerCount: e.viewerCount
+        }
+      };
+      io.to('user_' + userId).emit('onEventReceived', ev);
+    });
+  } catch (err) {
+    console.warn(`[EventSub] Shoutout listener setup warning for ${userId}:`, err?.message || err);
+  }
+
+
+  // ดักฟังข้อความแชทจาก EventSub
+  try {
+    el.onChannelChatMessage(userId, userId, async (e) => {
+      await processChatMessage(userId, e);
+    });
+    console.log(`✅ [EventSub] Subscribed to chat messages for user ID: ${userId}`);
+  } catch (err) {
+    console.warn(`[EventSub] Chat message listener setup warning for ${userId}:`, err?.message || err);
+  }
 }
+
+// 🧪 API สำหรับทดสอบคำสั่งแชท (จำลองการพิมพ์ใน Twitch Chat)
+app.post('/api/test/chat', async (req, res) => {
+  try {
+    const { userId = '148596257', text = '!score', username = 'legionxiz', isMod = true, isBroadcaster = true } = req.body || {};
+    const e = {
+      messageText: text,
+      chatterName: username,
+      chatterDisplayName: username,
+      chatterId: userId,
+      broadcasterName: username,
+      broadcasterId: userId,
+      isBroadcaster: Boolean(isBroadcaster),
+      isMod: Boolean(isMod),
+      badges: { broadcaster: '1', moderator: '1' },
+      hasBadge: (b) => b === 'broadcaster' || b === 'moderator'
+    };
+    await processChatMessage(userId, e);
+    res.json({ success: true, message: `Processed chat command "${text}"` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 io.on('connection', (socket) => {
   console.log('🟢 Socket connected:', socket.id);
@@ -3428,6 +3951,25 @@ io.on('connection', (socket) => {
         }
         console.log(`Socket ${socket.id} joined channel/user rooms:`, Array.from(allIds));
       }
+    }
+  });
+
+  socket.on('dbd_scoreboard_sync', (payload) => {
+    if (!payload) return;
+    const userKey = payload.userId || 'default';
+    const cleanUser = String(userKey).trim().toLowerCase().replace('@', '');
+    const allIds = getAssociatedUserIdentifiers(cleanUser);
+    allIds.add(cleanUser);
+
+    if (payload.scoreData) {
+      if (!widgetStore['dbd-scoreboard']) widgetStore['dbd-scoreboard'] = {};
+      if (!widgetStore['dbd-scoreboard'][cleanUser]) widgetStore['dbd-scoreboard'][cleanUser] = {};
+      widgetStore['dbd-scoreboard'][cleanUser]['dbd_scoreboard_data'] = JSON.stringify(payload.scoreData);
+      saveWidgetStore(widgetStore);
+    }
+
+    for (const id of allIds) {
+      io.to('user_' + id).emit('dbd_scoreboard_updated', payload);
     }
   });
 

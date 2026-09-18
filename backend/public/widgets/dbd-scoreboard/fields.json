@@ -1,0 +1,112 @@
+{
+  "killerAvatarUrl": {
+    "type": "image-input",
+    "label": "Top-Left Avatar Image (URL)",
+    "value": "https://i.ibb.co/gMJD9F3c/wesker-stickman.jpg",
+    "group": "Custom Text & Avatar"
+  },
+  "killerRoleTitle": {
+    "type": "text",
+    "label": "Scoreboard Title Text",
+    "value": "KILLER",
+    "group": "Custom Text & Avatar"
+  },
+  "killerSubText": {
+    "type": "text",
+    "label": "Subtitle Text",
+    "value": "(!kwin / !kdraw / !klose)",
+    "group": "Custom Text & Avatar"
+  },
+  "widgetScale": {
+    "type": "number",
+    "label": "ขนาดขยาย Overlay (%) (Scale)",
+    "value": 100,
+    "group": "Custom Text & Avatar"
+  },
+  "killerStat1Title": {
+    "type": "text",
+    "label": "Left Stat Title",
+    "value": "WINS",
+    "group": "Custom Text & Avatar"
+  },
+  "killerStat3Title": {
+    "type": "text",
+    "label": "Middle Stat Title",
+    "value": "DRAWS",
+    "group": "Custom Text & Avatar"
+  },
+  "killerStat2Title": {
+    "type": "text",
+    "label": "Right Stat Title",
+    "value": "LOSES",
+    "group": "Custom Text & Avatar"
+  },
+  "titleColor": {
+    "type": "colorpicker",
+    "label": "Scoreboard Title Color",
+    "value": "#ffffff",
+    "group": "Color Customization"
+  },
+  "subTextColor": {
+    "type": "colorpicker",
+    "label": "Subtitle Text Color",
+    "value": "#aaaaaa",
+    "group": "Color Customization"
+  },
+  "statTitleColor": {
+    "type": "colorpicker",
+    "label": "Stat Titles Color (KILLS/DRAWS/ESCAPES)",
+    "value": "#aaaaaa",
+    "group": "Color Customization"
+  },
+  "statNumberColor": {
+    "type": "colorpicker",
+    "label": "Score Numbers Color",
+    "value": "#ffffff",
+    "group": "Color Customization"
+  },
+  "enableTextShadow": {
+    "type": "dropdown",
+    "label": "เปิดเงาและขอบตัวอักษร (Text Shadow & Outline)",
+    "value": "true",
+    "options": {
+      "true": "เปิดใช้งาน (Enabled)",
+      "false": "ปิดใช้งาน (Disabled)"
+    },
+    "group": "Color Customization"
+  },
+  "enableSound": {
+    "type": "dropdown",
+    "label": "เปิดเสียงเอฟเฟกต์ (Sound Effects)",
+    "value": "true",
+    "options": {
+      "true": "เปิดใช้งาน (Enabled)",
+      "false": "ปิดใช้งาน (Disabled)"
+    },
+    "group": "เสียงเอฟเฟกต์ (Sound Effects)"
+  },
+  "soundVolume": {
+    "type": "number",
+    "label": "ระดับเสียงเอฟเฟกต์ (0-100)",
+    "value": 50,
+    "group": "เสียงเอฟเฟกต์ (Sound Effects)"
+  },
+  "initKills": {
+    "type": "number",
+    "label": "Initial Kills",
+    "value": 0,
+    "group": "Initial Scores"
+  },
+  "initKillerDraws": {
+    "type": "number",
+    "label": "Initial Draws",
+    "value": 0,
+    "group": "Initial Scores"
+  },
+  "initKillerEscapes": {
+    "type": "number",
+    "label": "Initial Escapes",
+    "value": 0,
+    "group": "Initial Scores"
+  }
+}

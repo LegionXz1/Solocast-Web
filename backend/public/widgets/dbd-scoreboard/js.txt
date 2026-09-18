@@ -1,0 +1,281 @@
+(function() {
+    let scoreData = { killerKills: 0, killerDraws: 0, killerEscapes: 0 };
+    let fieldData = {};
+
+    function getWidgetTargetUser() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('user') || params.get('channel') || window.SolocastTargetUser || '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function playSoundEffect(type) {
+        if (fieldData.enableSound === false || fieldData.enableSound === 'false') return;
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            const audioCtx = new AudioContext();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const volume = (parseInt(fieldData.soundVolume) || 50) / 100;
+
+            if (type === 'pop') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(140, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.12);
+                gain.gain.setValueAtTime(volume * 0.35, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.12);
+            } else if (type === 'undo') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.15);
+                gain.gain.setValueAtTime(volume * 0.25, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            } else if (type === 'reset') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.25);
+                gain.gain.setValueAtTime(volume * 0.25, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.25);
+            }
+        } catch (err) {}
+    }
+
+    function updateScoreboardUI(animTargetId, soundType, skipSave) {
+        const titleEl = document.getElementById('role-title-text');
+        const subEl = document.getElementById('role-cmd-sub');
+        const stat1TitleEl = document.getElementById('stat1-label');
+        const stat1ValEl = document.getElementById('killer-kills-val');
+        const stat3TitleEl = document.getElementById('stat3-label');
+        const stat3ValEl = document.getElementById('killer-draws-val');
+        const stat2TitleEl = document.getElementById('stat2-label');
+        const stat2ValEl = document.getElementById('killer-escapes-val');
+        const avatarEl = document.getElementById('killer-avatar-img');
+        const fallbackEl = document.getElementById('avatar-fallback');
+
+        if (titleEl) {
+            titleEl.innerText = fieldData.killerRoleTitle || 'KILLER';
+            if (fieldData.titleColor) titleEl.style.color = fieldData.titleColor;
+        }
+        if (subEl) {
+            subEl.innerText = fieldData.killerSubText || '(!kwin / !kdraw / !klose)';
+            if (fieldData.subTextColor) subEl.style.color = fieldData.subTextColor;
+        }
+
+        if (stat1TitleEl) stat1TitleEl.innerText = fieldData.killerStat1Title || 'KILLS';
+        if (stat1ValEl) stat1ValEl.innerText = scoreData.killerKills;
+
+        if (stat3TitleEl) stat3TitleEl.innerText = fieldData.killerStat3Title || 'DRAWS';
+        if (stat3ValEl) stat3ValEl.innerText = scoreData.killerDraws;
+
+        if (stat2TitleEl) stat2TitleEl.innerText = fieldData.killerStat2Title || 'ESCAPES';
+        if (stat2ValEl) stat2ValEl.innerText = scoreData.killerEscapes;
+
+        if (fieldData.statTitleColor) {
+            const statTitles = document.querySelectorAll('.stat-title');
+            statTitles.forEach(el => el.style.color = fieldData.statTitleColor);
+        }
+
+        if (fieldData.statNumberColor) {
+            const statNumbers = document.querySelectorAll('.stat-number');
+            statNumbers.forEach(el => el.style.color = fieldData.statNumberColor);
+        }
+
+        if (fieldData.widgetScale !== undefined && fieldData.widgetScale !== '') {
+            const scale = (parseFloat(fieldData.widgetScale) || 100) / 100;
+            document.documentElement.style.setProperty('--widget-scale', scale);
+        }
+
+        const mainContainer = document.getElementById('main-container');
+        if (mainContainer) {
+            if (fieldData.enableTextShadow === false || fieldData.enableTextShadow === 'false') {
+                mainContainer.classList.add('no-shadow');
+            } else {
+                mainContainer.classList.remove('no-shadow');
+            }
+        }
+
+        if (avatarEl) {
+            if (fieldData.killerAvatarUrl && fieldData.killerAvatarUrl.trim() !== '' && fieldData.killerAvatarUrl !== 'avatar.png') {
+                avatarEl.src = fieldData.killerAvatarUrl;
+                avatarEl.style.display = 'block';
+                if (fallbackEl) fallbackEl.style.display = 'none';
+            } else {
+                avatarEl.style.display = 'none';
+                if (fallbackEl) fallbackEl.style.display = 'flex';
+            }
+        }
+
+        if (animTargetId) {
+            const targetEl = document.getElementById(animTargetId);
+            if (targetEl) {
+                targetEl.classList.remove('pop-anim');
+                void targetEl.offsetWidth;
+                targetEl.classList.add('pop-anim');
+            }
+        }
+
+        if (soundType) {
+            playSoundEffect(soundType);
+        }
+
+        if (!skipSave) {
+            if (typeof SE_API !== 'undefined' && SE_API.store) {
+                SE_API.store.set('dbd_scoreboard_data', scoreData);
+            }
+        }
+    }
+
+    function checkUserPermission(flags, badges) {
+        const reqPerm = fieldData.commandPermission || 'everyone';
+        if (reqPerm === 'everyone') return true;
+
+        const isBroadcaster = Boolean(flags?.broadcaster || (badges && badges.some(b => {
+            const name = (b.type || b.name || b.id || '').toLowerCase();
+            return name === 'broadcaster' || name === 'streamer' || name === 'owner';
+        })));
+
+        if (reqPerm === 'broadcaster') return isBroadcaster;
+
+        const isMod = isBroadcaster || Boolean(flags?.mod || (badges && badges.some(b => {
+            const name = (b.type || b.name || b.id || '').toLowerCase();
+            return name.includes('mod') || name.includes('lead') || name.includes('admin') || name.includes('editor');
+        })));
+
+        if (reqPerm === 'mod') return isMod;
+
+        return true;
+    }
+
+    window.addEventListener('onWidgetLoad', function(evt) {
+        fieldData = evt.detail.fieldData || {};
+        scoreData.killerKills = parseInt(fieldData.initKills) || 0;
+        scoreData.killerDraws = parseInt(fieldData.initKillerDraws) || 0;
+        scoreData.killerEscapes = parseInt(fieldData.initKillerEscapes) || 0;
+
+        if (typeof SE_API !== 'undefined' && SE_API.store) {
+            SE_API.store.get('dbd_scoreboard_data').then(stored => {
+                if (stored) {
+                    const data = stored.value || stored;
+                    if (typeof data.killerKills === 'number') scoreData.killerKills = data.killerKills;
+                    if (typeof data.killerDraws === 'number') scoreData.killerDraws = data.killerDraws;
+                    if (typeof data.killerEscapes === 'number') scoreData.killerEscapes = data.killerEscapes;
+                }
+                updateScoreboardUI(null, null, true);
+            }).catch(() => updateScoreboardUI(null, null, true));
+        } else {
+            updateScoreboardUI(null, null, true);
+        }
+    });
+
+    function isTargetUserMatch(data) {
+        if (!data) return true;
+        const currentTarget = String(getWidgetTargetUser() || '').trim().toLowerCase().replace(/^@/, '');
+        if (!currentTarget) return true;
+
+        const uid = String(data.userId || '').trim().toLowerCase().replace(/^@/, '');
+        const uname = String(data.username || data.name || '').trim().toLowerCase().replace(/^@/, '');
+        if (uid && uid === currentTarget) return true;
+        if (uname && uname === currentTarget) return true;
+
+        if (Array.isArray(data.associatedUserIds)) {
+            const match = data.associatedUserIds.some(id => {
+                const clean = String(id || '').trim().toLowerCase().replace(/^@/, '');
+                return clean === currentTarget;
+            });
+            if (match) return true;
+        }
+        return false;
+    }
+
+    // Real-time Event Receiver from Solocast Adapter
+    window.addEventListener('onEventReceived', function(evt) {
+        const detail = evt.detail || {};
+        const listener = detail.listener || detail.type;
+        const event = detail.event || detail;
+
+        // 1. Direct scoreboard update event from Solocast
+        if (listener === 'dbd_scoreboard_update' || detail.type === 'dbd_scoreboard_update') {
+            const data = detail.event?.data || detail.data || {};
+            if (!isTargetUserMatch(data) && !isTargetUserMatch(detail)) return;
+            if (data.scoreData) {
+                scoreData = { ...scoreData, ...data.scoreData };
+                updateScoreboardUI(data.animTargetId, data.soundType, true);
+            }
+            return;
+        }
+
+        // 2. StreamElements-style twitch chat message (fallback for standalone SE overlay)
+        if (listener !== 'message' && listener !== 'chat_message') return;
+
+        if (!isTargetUserMatch(event) && !isTargetUserMatch(detail)) {
+            return;
+        }
+
+        const msgText = (event.data?.text || event.data?.message || event.text || '').trim();
+        const flags = event.data?.flags || {};
+        const badges = event.data?.badges || [];
+
+        if (!checkUserPermission(flags, badges)) return;
+
+        const lowerMsg = msgText.toLowerCase();
+        const cmdKWin = (fieldData.kwinCmd || '!kwin').toLowerCase();
+        const cmdKDraw = (fieldData.kdrawCmd || '!kdraw').toLowerCase();
+        const cmdKLose = (fieldData.kloseCmd || '!klose').toLowerCase();
+        const cmdKWinUndo = (fieldData.kwinundoCmd || '!kwinundo').toLowerCase();
+        const cmdKDrawUndo = (fieldData.kdrawundoCmd || '!kdrawundo').toLowerCase();
+        const cmdKLoseUndo = (fieldData.kloseundoCmd || '!kloseundo').toLowerCase();
+        const cmdKReset = (fieldData.kresetCmd || '!kreset').toLowerCase();
+
+        if (lowerMsg === cmdKWin) {
+            scoreData.killerKills++;
+            updateScoreboardUI('killer-kills-val', 'pop');
+        } else if (lowerMsg === cmdKDraw) {
+            scoreData.killerDraws++;
+            updateScoreboardUI('killer-draws-val', 'pop');
+        } else if (lowerMsg === cmdKLose) {
+            scoreData.killerEscapes++;
+            updateScoreboardUI('killer-escapes-val', 'pop');
+        } else if (lowerMsg === cmdKWinUndo) {
+            scoreData.killerKills = Math.max(0, scoreData.killerKills - 1);
+            updateScoreboardUI('killer-kills-val', 'undo');
+        } else if (lowerMsg === cmdKDrawUndo) {
+            scoreData.killerDraws = Math.max(0, scoreData.killerDraws - 1);
+            updateScoreboardUI('killer-draws-val', 'undo');
+        } else if (lowerMsg === cmdKLoseUndo) {
+            scoreData.killerEscapes = Math.max(0, scoreData.killerEscapes - 1);
+            updateScoreboardUI('killer-escapes-val', 'undo');
+        } else if (lowerMsg === cmdKReset) {
+            scoreData.killerKills = 0;
+            scoreData.killerDraws = 0;
+            scoreData.killerEscapes = 0;
+            updateScoreboardUI(null, 'reset');
+        }
+    });
+
+    // Real-time synchronization with Dashboard / Server
+    if (typeof socket !== 'undefined') {
+        socket.on('dbd_scoreboard_updated', function(payload) {
+            if (!payload) return;
+            if (!isTargetUserMatch(payload)) return;
+            if (payload.scoreData) {
+                scoreData = { ...scoreData, ...payload.scoreData };
+                updateScoreboardUI(payload.animTargetId, payload.soundType, true);
+            }
+        });
+    }
+})();

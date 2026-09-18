@@ -556,5 +556,38 @@
       "showRequester": true,
       "excludedAgents": []
     }
+  },
+  "dbd-scoreboard": {
+    "148596257": {
+      "killerAvatarUrl": "https://i.ibb.co/gMJD9F3c/wesker-stickman.jpg",
+      "killerRoleTitle": "The Mastermind",
+      "killerSubText": "(!kwin / !kdraw / !klose)",
+      "killerStat1Title": "WINS",
+      "killerStat3Title": "DRAWS",
+      "killerStat2Title": "LOSES",
+      "titleColor": "#ffffff",
+      "subTextColor": "#ff0000",
+      "statTitleColor": "#ffffff",
+      "statNumberColor": "#ffffff",
+      "commandPermission": "broadcaster",
+      "enableSound": "false",
+      "soundVolume": 0,
+      "kwinCmd": "!kwin",
+      "kdrawCmd": "!kdraw",
+      "kloseCmd": "!klose",
+      "kwinundoCmd": "!kwinundo",
+      "kdrawundoCmd": "!kdrawundo",
+      "kloseundoCmd": "!kloseundo",
+      "kresetCmd": "!kreset",
+      "initKills": 0,
+      "initKillerDraws": 0,
+      "initKillerEscapes": 0,
+      "widgetScale": 100,
+      "enableTextShadow": "true",
+      "enableChatCmd": "true",
+      "scoreCmd": "!score",
+      "enableChatReply": "false",
+      "chatReplyTemplate": "{user} อัปเดตสถิติ DBD [{title}]: {stat1}: {kills} | {stat3}: {draws} | {stat2}: {escapes}"
+    }
   }
 }

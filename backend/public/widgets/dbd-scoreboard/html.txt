@@ -1,0 +1,30 @@
+<div id="main-container">
+  <div class="dbd-card">
+    <div class="card-header">
+      <div class="avatar-container">
+        <img id="killer-avatar-img" class="stickman-avatar" src="avatar.png" alt="Avatar" style="display: none;" />
+        <div id="avatar-fallback" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 4px;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><path d="M8 20v2h8v-2"/><path d="m12.5 17-.5-1-.5 1h1z"/><path d="M16 20a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20"/></svg>
+        </div>
+      </div>
+      <div class="header-text-box">
+        <div id="role-title-text" class="role-title">KILLER</div>
+        <div id="role-cmd-sub" class="cmd-sub">(!kwin / !kdraw / !klose)</div>
+      </div>
+    </div>
+    <div class="stats-container">
+      <div class="stat-box">
+        <div id="stat1-label" class="stat-title">KILLS</div>
+        <div id="killer-kills-val" class="stat-number">0</div>
+      </div>
+      <div class="stat-box">
+        <div id="stat3-label" class="stat-title">DRAWS</div>
+        <div id="killer-draws-val" class="stat-number">0</div>
+      </div>
+      <div class="stat-box">
+        <div id="stat2-label" class="stat-title">ESCAPES</div>
+        <div id="killer-escapes-val" class="stat-number">0</div>
+      </div>
+    </div>
+  </div>
+</div>

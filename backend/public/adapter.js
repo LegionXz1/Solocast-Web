@@ -32,6 +32,27 @@ const currentWidgetId = getWidgetId();
 const initialParams = new URLSearchParams(window.location.search);
 let targetUser = initialParams.get('user') || initialParams.get('channel') || '';
 
+function isUserMatchingTarget(data) {
+  const currentTarget = String(targetUser || window.SolocastTargetUser || '').trim().toLowerCase().replace(/^@/, '');
+  if (!currentTarget) return true;
+  if (!data) return true;
+
+  if (typeof data === 'string' || typeof data === 'number') {
+    return String(data).trim().toLowerCase().replace(/^@/, '') === currentTarget;
+  }
+
+  const uid = String(data.userId || '').trim().toLowerCase().replace(/^@/, '');
+  const uname = String(data.username || data.name || data.channel || '').trim().toLowerCase().replace(/^@/, '');
+  if (uid && uid === currentTarget) return true;
+  if (uname && uname === currentTarget) return true;
+
+  if (Array.isArray(data.associatedUserIds)) {
+    return data.associatedUserIds.some(id => String(id || '').trim().toLowerCase().replace(/^@/, '') === currentTarget);
+  }
+
+  return false;
+}
+
 function joinAllUserRooms() {
   const u = targetUser || window.SolocastTargetUser || '';
   if (u && socket.connected) {
@@ -255,15 +276,41 @@ window.SE_API.store = {
         })
         .then(data => {
           console.log(`[Solocast Adapter] 📦 SE_API.store.get "${key}":`, data.value);
+          let parsed = data.value;
+          if (typeof parsed === 'string') {
+            try {
+              if (parsed.startsWith('{') || parsed.startsWith('[')) {
+                parsed = JSON.parse(parsed);
+              }
+            } catch (e) {}
+          }
           try {
-            localStorage.setItem(localKey, String(data.value));
+            localStorage.setItem(localKey, typeof parsed === 'object' ? JSON.stringify(parsed) : String(parsed));
           } catch (e) {}
-          resolve({ value: data.value });
+          let resObj = parsed;
+          if (resObj && typeof resObj === 'object' && resObj.value === undefined) {
+            resObj.value = parsed;
+          } else if (typeof resObj !== 'object' || resObj === null) {
+            resObj = { value: resObj };
+          }
+          resolve(resObj);
         })
         .catch(err => {
           if (cachedVal !== null) {
             console.log(`[Solocast Adapter] 📦 SE_API.store.get (cached) "${key}":`, cachedVal);
-            resolve({ value: cachedVal });
+            let parsed = cachedVal;
+            if (typeof parsed === 'string') {
+              try {
+                if (parsed.startsWith('{') || parsed.startsWith('[')) parsed = JSON.parse(parsed);
+              } catch (e) {}
+            }
+            let resObj = parsed;
+            if (resObj && typeof resObj === 'object' && resObj.value === undefined) {
+              resObj.value = parsed;
+            } else if (typeof resObj !== 'object' || resObj === null) {
+              resObj = { value: resObj };
+            }
+            resolve(resObj);
           } else {
             console.log(`[Solocast Adapter] ℹ️ SE_API.store.get "${key}": not found (initial state)`);
             reject(err);
@@ -284,7 +331,7 @@ window.SE_API.store = {
 
       console.log(`[Solocast Adapter] 💾 SE_API.store.set "${key}":`, val);
       try {
-        localStorage.setItem(localKey, String(val));
+        localStorage.setItem(localKey, typeof val === 'object' ? JSON.stringify(val) : String(val));
       } catch (e) {}
 
       fetch(`/api/widgets/${currentWidgetId}/store/${encodeURIComponent(key)}`, {
@@ -379,7 +426,7 @@ if (document.readyState === 'loading') {
 // ฟัง Live Update จาก Dashboard แบบ Real-time ทันทีที่ผู้ใช้กดบันทึกหรือเปลี่ยนค่า
 socket.on('widget_settings_updated', (payload) => {
   if (!payload || payload.widgetId !== currentWidgetId) return;
-  if (payload.userId && targetUser && payload.userId !== targetUser) return;
+  if (!isUserMatchingTarget(payload)) return;
 
   console.log('[Solocast Adapter] ⚡ Live settings update received from Dashboard:', payload.settings);
   activeFields = { ...activeFields, ...payload.settings };
@@ -391,7 +438,7 @@ socket.on('widget_settings_updated', (payload) => {
 // ฟัง Live Update สถานะเปิด/ปิด Widget ของ User จาก Dashboard แบบ Real-time
 socket.on('user_widget_status_changed', (payload) => {
   if (!payload || payload.widgetId !== currentWidgetId) return;
-  if (payload.userId && targetUser && String(payload.userId) !== String(targetUser)) return;
+  if (!isUserMatchingTarget(payload)) return;
   console.log(`[Solocast Adapter] 👤 Real-time user widget status changed for "${currentWidgetId}":`, payload.enabled);
   checkLiveStatus();
 });
@@ -406,7 +453,7 @@ socket.on('widget_global_status_changed', (payload) => {
 // ฟัง Live Update ทั่วไปของ Widget Status
 socket.on('widget_status_updated', (payload) => {
   if (!payload || payload.widgetId !== currentWidgetId) return;
-  if (payload.userId && targetUser && String(payload.userId) !== String(targetUser)) return;
+  if (!isUserMatchingTarget(payload)) return;
   console.log(`[Solocast Adapter] ⚡ Real-time widget status updated for "${currentWidgetId}":`, payload);
   checkLiveStatus();
 });
@@ -424,7 +471,7 @@ socket.on('onEventReceived', (event) => {
     console.log(`[Solocast Adapter] ⏸️ Event "${event.type}" suppressed because widget "${currentWidgetId}" is disabled`);
     return;
   }
-  if (targetUser && event.userId && String(event.userId) !== String(targetUser)) {
+  if (!isUserMatchingTarget(event)) {
     return; // ข้ามอีเวนต์ที่ไม่ใช่ของช่องนี้
   }
 
@@ -539,7 +586,7 @@ socket.on('onEventReceived', (event) => {
 // 🎵 Spotify Now Playing & Requests Bridge
 socket.on('spotify_now_playing', (data) => {
   if (!isWidgetActive) return;
-  if (targetUser && data?.userId && String(data.userId) !== String(targetUser)) return;
+  if (!isUserMatchingTarget(data)) return;
   const seEvent = new CustomEvent('onEventReceived', {
     detail: {
       type: 'spotify_now_playing',
@@ -552,7 +599,7 @@ socket.on('spotify_now_playing', (data) => {
 
 socket.on('spotify_new_request', (data) => {
   if (!isWidgetActive) return;
-  if (targetUser && data?.userId && String(data.userId) !== String(targetUser)) return;
+  if (!isUserMatchingTarget(data)) return;
   const seEvent = new CustomEvent('onEventReceived', {
     detail: {
       type: 'spotify_new_request',

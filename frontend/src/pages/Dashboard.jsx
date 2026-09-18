@@ -51,12 +51,21 @@ import {
   Calculator,
   Plus,
   Minus,
-  Hash
+  Hash,
+  Trophy
 } from 'lucide-react';
 
 const socket = io(WS_BASE);
 
 const WIDGET_META = {
+  'dbd-scoreboard': {
+    icon: <Trophy size={20} />,
+    desc: 'สกอร์บอร์ดสถิติ Killer DBD (Kills / Draws / Escapes)',
+    gradient: 'linear-gradient(135deg, #b91c1c, #450a0a)',
+    pattern: 'stripes',
+    category: 'game',
+    tag: 'DBD Scoreboard'
+  },
   'custom-counter': {
     icon: <Calculator size={20} />,
     desc: 'ตัวนับสถิติ ควบคุมผ่านเว็บและแชท',
@@ -79,7 +88,7 @@ const WIDGET_META = {
     gradient: 'linear-gradient(135deg, #EF4444, #B91C1C)',
     pattern: 'stripes',
     category: 'game',
-    tag: 'Random Killer'
+    tag: 'DBD Random Killer'
   },
   'dbd-perks': {
     icon: <Dices size={20} />,
@@ -87,7 +96,7 @@ const WIDGET_META = {
     gradient: 'linear-gradient(135deg, #ea580c, #c2410c)',
     pattern: 'chevron',
     category: 'game',
-    tag: 'DBD Perks'
+    tag: 'DBD Random Perk'
   },
   'valorant-agent': {
     icon: <Crosshair size={20} />,
@@ -288,11 +297,16 @@ function Dashboard() {
   const [isPreviewCollapsed, setIsPreviewCollapsed] = useState(false);
   const [bgMode, setBgMode] = useState('checker'); // 'checker' | 'dark-solid' | 'green-screen'
   const [shoutoutChannel, setShoutoutChannel] = useState('legionxiz');
-  const hasRollHistory = selectedWidget && selectedWidget !== 'twitch-shoutout' && selectedWidget !== 'spotify-sr' && selectedWidget !== 'custom-counter';
+  const hasRollHistory = selectedWidget && selectedWidget !== 'twitch-shoutout' && selectedWidget !== 'spotify-sr' && selectedWidget !== 'custom-counter' && selectedWidget !== 'dbd-scoreboard';
 
   // Custom Counter State
   const [counterCount, setCounterCount] = useState(0);
   const [counterCustomInput, setCounterCustomInput] = useState('');
+
+  // DBD Scoreboard State
+  const [scoreboardData, setScoreboardData] = useState({ killerKills: 0, killerDraws: 0, killerEscapes: 0 });
+  const [showDbdCmdEditor, setShowDbdCmdEditor] = useState(false);
+  const [dbdCmdSaveSuccess, setDbdCmdSaveSuccess] = useState('');
 
   // DBD Perks State & Search
   const [dbdPerksList, setDbdPerksList] = useState({ survivor: [], killer: [] });
@@ -535,6 +549,22 @@ function Dashboard() {
             merged[key] = schemaData[key].value;
           }
         }
+        if (selectedWidget === 'dbd-scoreboard') {
+          Object.assign(merged, {
+            enableChatCmd: 'true',
+            commandPermission: 'broadcaster',
+            scoreCmd: '!score',
+            kwinCmd: '!kwin',
+            kdrawCmd: '!kdraw',
+            kloseCmd: '!klose',
+            kwinundoCmd: '!kwinundo',
+            kdrawundoCmd: '!kdrawundo',
+            kloseundoCmd: '!kloseundo',
+            kresetCmd: '!kreset',
+            enableChatReply: 'true',
+            chatReplyTemplate: '{user} อัปเดตสถิติ DBD [{title}]: {stat1}: {kills} | {stat3}: {draws} | {stat2}: {escapes}'
+          });
+        }
         if (savedSettings && Object.keys(savedSettings).length > 0) {
           Object.assign(merged, savedSettings);
         }
@@ -673,6 +703,20 @@ function Dashboard() {
       }
     };
 
+    const handleScoreboardUpdated = (data) => {
+      if (!data) return;
+      const targetUser = String(status.userId || status.username || '').toLowerCase();
+      if (targetUser) {
+        const match = String(data.userId || '').toLowerCase() === targetUser ||
+          String(data.username || '').toLowerCase() === targetUser ||
+          (Array.isArray(data.associatedUserIds) && data.associatedUserIds.some(id => String(id).toLowerCase() === targetUser));
+        if (!match) return;
+      }
+      if (data.scoreData) {
+        setScoreboardData(data.scoreData);
+      }
+    };
+
     socket.on('onEventReceived', handleEvent);
     socket.on('widget_roll_history_item', handleNewRoll);
     socket.on('widget_roll_history_cleared', handleClearedHistory);
@@ -681,6 +725,7 @@ function Dashboard() {
     socket.on('spotify_queue_updated', handleSpotifyQueueUpdated);
     socket.on('spotify_new_request', handleSpotifyNewRequest);
     socket.on('counter_updated', handleCounterUpdated);
+    socket.on('dbd_scoreboard_updated', handleScoreboardUpdated);
 
     return () => {
       socket.off('onEventReceived', handleEvent);
@@ -691,8 +736,47 @@ function Dashboard() {
       socket.off('spotify_queue_updated', handleSpotifyQueueUpdated);
       socket.off('spotify_new_request', handleSpotifyNewRequest);
       socket.off('counter_updated', handleCounterUpdated);
+      socket.off('dbd_scoreboard_updated', handleScoreboardUpdated);
     };
   }, [selectedWidget, status.userId, fetchSpotifyData]);
+
+  // โหลดค่าสถิติเริ่มต้นของ DBD Scoreboard
+  useEffect(() => {
+    if (selectedWidget === 'dbd-scoreboard' && status.userId) {
+      fetch(`${API_BASE}/api/widgets/dbd-scoreboard/data?user=${encodeURIComponent(status.userId)}`)
+        .then(r => r.json())
+        .then(d => {
+          if (d && d.scoreData) {
+            setScoreboardData(d.scoreData);
+          }
+        })
+        .catch(() => { });
+    }
+  }, [selectedWidget, status.userId]);
+
+  // ฟังก์ชันปรับค่าสกอร์บอร์ด DBD (win, draw, lose, undo_win, undo_draw, undo_lose, reset)
+  const handleScoreboardUpdate = async (action, target, value) => {
+    if (!status.userId) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/widgets/dbd-scoreboard/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user: status.userId,
+          action,
+          target,
+          value,
+          updatedBy: status.username || 'Dashboard'
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.scoreData) {
+        setScoreboardData(data.scoreData);
+      }
+    } catch (e) {
+      console.error('Error updating scoreboard:', e);
+    }
+  };
 
   // โหลดค่าสถิติเริ่มต้นของ Custom Counter
   useEffect(() => {
@@ -2631,6 +2715,395 @@ function Dashboard() {
                                     </button>
                                   ))}
                                 </div>
+                              </div>
+                            )}
+
+                            {/* DBD Scoreboard Live Controller */}
+                            {selectedWidget === 'dbd-scoreboard' && (
+                              <div className="dbd-scoreboard-control-card">
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <div style={{
+                                      width: '38px',
+                                      height: '38px',
+                                      borderRadius: '10px',
+                                      background: 'linear-gradient(135deg, #e11d48, #9f1239)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      color: '#fff',
+                                      boxShadow: '0 4px 12px rgba(225, 29, 72, 0.35)'
+                                    }}>
+                                      <Trophy size={20} />
+                                    </div>
+                                    <div>
+                                      <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                        แผงควบคุมสถิติ DBD Scoreboard (Live Killer Scores)
+                                      </h4>
+                                      <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                        คลิกเพื่อปรับสกอร์ หรือพิมพ์คำสั่งในแชท Twitch เพื่อซิงค์ขึ้น OBS ทันที
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    background: 'var(--surface-2)',
+                                    border: '1px solid var(--border-secondary)',
+                                    borderRadius: '9999px',
+                                    padding: '0.35rem 0.85rem'
+                                  }}>
+                                    <span style={{ fontSize: '0.78rem', color: '#e11d48', fontWeight: 700 }}>คำสั่งหลัก:</span>
+                                    <code style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: 800 }}>
+                                      {fieldData.scoreCmd || '!score'} ({fieldData.kwinCmd || '!kwin'} / {fieldData.kdrawCmd || '!kdraw'} / {fieldData.kloseCmd || '!klose'})
+                                    </code>
+                                  </div>
+                                </div>
+
+                                {/* 3 Big Stat Cards: Kills / Draws / Escapes */}
+                                <div style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                                  gap: '1.25rem',
+                                  marginBottom: '1.25rem'
+                                }}>
+                                  {/* 1. KILLS */}
+                                  <div className="dbd-score-stat-card" style={{ borderTop: '3px solid #ef4444' }}>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#ef4444', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+                                      {fieldData.killerStat1Title || 'KILLS'}
+                                    </span>
+                                    <span className="dbd-score-number">
+                                      {scoreboardData.killerKills || 0}
+                                    </span>
+                                    <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleScoreboardUpdate('win')}
+                                        className="dbd-score-btn-main"
+                                      >
+                                        +1 Win
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleScoreboardUpdate('undo_win')}
+                                        className="dbd-score-btn-undo"
+                                        title="Undo 1 Kill"
+                                      >
+                                        -1
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* 2. DRAWS */}
+                                  <div className="dbd-score-stat-card" style={{ borderTop: '3px solid #f59e0b' }}>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#d97706', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+                                      {fieldData.killerStat3Title || 'DRAWS'}
+                                    </span>
+                                    <span className="dbd-score-number">
+                                      {scoreboardData.killerDraws || 0}
+                                    </span>
+                                    <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleScoreboardUpdate('draw')}
+                                        className="dbd-score-btn-main"
+                                      >
+                                        +1 Draw
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleScoreboardUpdate('undo_draw')}
+                                        className="dbd-score-btn-undo"
+                                        title="Undo 1 Draw"
+                                      >
+                                        -1
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* 3. ESCAPES */}
+                                  <div className="dbd-score-stat-card" style={{ borderTop: '3px solid #3b82f6' }}>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#2563eb', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+                                      {fieldData.killerStat2Title || 'ESCAPES'}
+                                    </span>
+                                    <span className="dbd-score-number">
+                                      {scoreboardData.killerEscapes || 0}
+                                    </span>
+                                    <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleScoreboardUpdate('lose')}
+                                        className="dbd-score-btn-main"
+                                      >
+                                        +1 Loss
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleScoreboardUpdate('undo_lose')}
+                                        className="dbd-score-btn-undo"
+                                        title="Undo 1 Escape"
+                                      >
+                                        -1
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Reset & Cheatsheet Bar */}
+                                <div style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  flexWrap: 'wrap',
+                                  gap: '0.75rem',
+                                  paddingTop: '0.75rem',
+                                  borderTop: '1px solid var(--border-primary)'
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>คำสั่งแชท (คลิกคัดลอก):</span>
+                                    {[
+                                      fieldData.scoreCmd || '!score',
+                                      fieldData.kwinCmd || '!kwin',
+                                      fieldData.kdrawCmd || '!kdraw',
+                                      fieldData.kloseCmd || '!klose',
+                                      fieldData.kwinundoCmd || '!kwinundo',
+                                      fieldData.kdrawundoCmd || '!kdrawundo',
+                                      fieldData.kloseundoCmd || '!kloseundo',
+                                      fieldData.kresetCmd || '!kreset'
+                                    ].map(cmd => (
+                                      <button
+                                        key={cmd}
+                                        type="button"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(cmd);
+                                          alert(`คัดลอกคำสั่ง "${cmd}" เรียบร้อย! นำไปพิมพ์ในแชท Twitch ได้เลย`);
+                                        }}
+                                        className="dbd-cmd-chip"
+                                        title="คลิกเพื่อคัดลอกคำสั่ง"
+                                      >
+                                        {cmd}
+                                      </button>
+                                    ))}
+
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowDbdCmdEditor(prev => !prev)}
+                                      className="btn-island"
+                                      style={{
+                                        padding: '0.3rem 0.75rem',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                        background: showDbdCmdEditor ? 'rgba(225, 29, 72, 0.15)' : 'var(--surface-3)',
+                                        color: showDbdCmdEditor ? '#f43f5e' : 'var(--text-primary)',
+                                        border: showDbdCmdEditor ? '1px solid #f43f5e' : '1px solid var(--border-secondary)',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.35rem'
+                                      }}
+                                      title="ปรับแต่งคำสั่งแชทตามใจชอบ"
+                                    >
+                                      <Sliders size={12} /> {showDbdCmdEditor ? 'ซ่อนตั้งค่าคำสั่ง' : '⚙️ ตั้งค่าคำสั่งแชท'}
+                                    </button>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (window.confirm('คุณแน่ใจหรือไม่ว่าต้องการรีเซ็ตสกอร์บอร์ดทั้งหมดเป็น 0?')) {
+                                        handleScoreboardUpdate('reset');
+                                      }
+                                    }}
+                                    className="dbd-score-btn-undo"
+                                    style={{ padding: '0.4rem 0.85rem', gap: '0.4rem' }}
+                                  >
+                                    <RotateCw size={13} /> รีเซ็ตกระดานคะแนน (Reset)
+                                  </button>
+                                </div>
+
+                                {/* Collapsible Custom Chat Command Editor */}
+                                {showDbdCmdEditor && (
+                                  <div style={{
+                                    marginTop: '1rem',
+                                    padding: '1.25rem',
+                                    background: 'var(--surface-1)',
+                                    border: '1px solid var(--border-secondary)',
+                                    borderRadius: '12px'
+                                  }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                      <div>
+                                        <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                          <Zap size={15} style={{ color: '#e11d48' }} /> ตั้งค่าคำสั่ง Twitch Chat ด้วยตนเอง (Custom Score Commands)
+                                        </h4>
+                                        <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                                          กำหนดคำสั่งที่ต้องการได้ตามใจชอบ เช่น <code>!win</code>, <code>!ชนะ</code>, <code>!คะแนน</code> (ระบบรองรับทั้งแบบมีหรือไม่มี <code>!</code>)
+                                        </span>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          handleSaveSettings(fieldData);
+                                          setDbdCmdSaveSuccess('บันทึกคำสั่งแชทเรียบร้อยแล้ว!');
+                                          setTimeout(() => setDbdCmdSaveSuccess(''), 2500);
+                                        }}
+                                        className="btn-island accent"
+                                        style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', fontWeight: 700 }}
+                                      >
+                                        <Save size={13} style={{ marginRight: '4px' }} /> บันทึกคำสั่ง
+                                      </button>
+                                    </div>
+
+                                    {dbdCmdSaveSuccess && (
+                                      <div style={{
+                                        marginBottom: '0.85rem',
+                                        padding: '0.45rem 0.75rem',
+                                        background: 'rgba(48, 209, 88, 0.12)',
+                                        border: '1px solid rgba(48, 209, 88, 0.3)',
+                                        borderRadius: '6px',
+                                        color: '#30D158',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 600,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.4rem'
+                                      }}>
+                                        <Check size={14} /> {dbdCmdSaveSuccess}
+                                      </div>
+                                    )}
+
+                                    {/* Command Inputs Grid */}
+                                    <div style={{
+                                      display: 'grid',
+                                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                                      gap: '0.85rem',
+                                      marginBottom: '1rem'
+                                    }}>
+                                      <div className="input-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>คำสั่งหลัก / ดูคะแนน (Query Score)</label>
+                                        <input
+                                          type="text"
+                                          value={fieldData.scoreCmd !== undefined ? fieldData.scoreCmd : '!score'}
+                                          onChange={e => handleFieldChange('scoreCmd', e.target.value)}
+                                          placeholder="!score"
+                                          style={{ padding: '0.45rem 0.65rem', fontSize: '0.82rem', fontFamily: 'monospace' }}
+                                        />
+                                      </div>
+
+                                      <div className="input-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#ef4444' }}>คำสั่งนับชนะ / ฆ่า (+1 Kill)</label>
+                                        <input
+                                          type="text"
+                                          value={fieldData.kwinCmd !== undefined ? fieldData.kwinCmd : '!kwin'}
+                                          onChange={e => handleFieldChange('kwinCmd', e.target.value)}
+                                          placeholder="!kwin"
+                                          style={{ padding: '0.45rem 0.65rem', fontSize: '0.82rem', fontFamily: 'monospace' }}
+                                        />
+                                      </div>
+
+                                      <div className="input-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b' }}>คำสั่งนับเสมอ (+1 Draw)</label>
+                                        <input
+                                          type="text"
+                                          value={fieldData.kdrawCmd !== undefined ? fieldData.kdrawCmd : '!kdraw'}
+                                          onChange={e => handleFieldChange('kdrawCmd', e.target.value)}
+                                          placeholder="!kdraw"
+                                          style={{ padding: '0.45rem 0.65rem', fontSize: '0.82rem', fontFamily: 'monospace' }}
+                                        />
+                                      </div>
+
+                                      <div className="input-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#3b82f6' }}>คำสั่งนับแพ้ / รอด (+1 Escape)</label>
+                                        <input
+                                          type="text"
+                                          value={fieldData.kloseCmd !== undefined ? fieldData.kloseCmd : '!klose'}
+                                          onChange={e => handleFieldChange('kloseCmd', e.target.value)}
+                                          placeholder="!klose"
+                                          style={{ padding: '0.45rem 0.65rem', fontSize: '0.82rem', fontFamily: 'monospace' }}
+                                        />
+                                      </div>
+
+                                      <div className="input-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>คำสั่งย้อนผลชนะ (-1 Kill)</label>
+                                        <input
+                                          type="text"
+                                          value={fieldData.kwinundoCmd !== undefined ? fieldData.kwinundoCmd : '!kwinundo'}
+                                          onChange={e => handleFieldChange('kwinundoCmd', e.target.value)}
+                                          placeholder="!kwinundo"
+                                          style={{ padding: '0.45rem 0.65rem', fontSize: '0.82rem', fontFamily: 'monospace' }}
+                                        />
+                                      </div>
+
+                                      <div className="input-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>คำสั่งย้อนผลเสมอ (-1 Draw)</label>
+                                        <input
+                                          type="text"
+                                          value={fieldData.kdrawundoCmd !== undefined ? fieldData.kdrawundoCmd : '!kdrawundo'}
+                                          onChange={e => handleFieldChange('kdrawundoCmd', e.target.value)}
+                                          placeholder="!kdrawundo"
+                                          style={{ padding: '0.45rem 0.65rem', fontSize: '0.82rem', fontFamily: 'monospace' }}
+                                        />
+                                      </div>
+
+                                      <div className="input-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>คำสั่งย้อนผลแพ้ (-1 Escape)</label>
+                                        <input
+                                          type="text"
+                                          value={fieldData.kloseundoCmd !== undefined ? fieldData.kloseundoCmd : '!kloseundo'}
+                                          onChange={e => handleFieldChange('kloseundoCmd', e.target.value)}
+                                          placeholder="!kloseundo"
+                                          style={{ padding: '0.45rem 0.65rem', fontSize: '0.82rem', fontFamily: 'monospace' }}
+                                        />
+                                      </div>
+
+                                      <div className="input-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>คำสั่งรีเซ็ตคะแนนทั้งหมด</label>
+                                        <input
+                                          type="text"
+                                          value={fieldData.kresetCmd !== undefined ? fieldData.kresetCmd : '!kreset'}
+                                          onChange={e => handleFieldChange('kresetCmd', e.target.value)}
+                                          placeholder="!kreset"
+                                          style={{ padding: '0.45rem 0.65rem', fontSize: '0.82rem', fontFamily: 'monospace' }}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {/* Permission & Chat Reply Row */}
+                                    <div style={{
+                                      display: 'grid',
+                                      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                                      gap: '0.85rem',
+                                      paddingTop: '0.85rem',
+                                      borderTop: '1px solid var(--border-primary)'
+                                    }}>
+                                      <div className="input-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>สิทธิ์การใช้คำสั่งปรับคะแนน</label>
+                                        <select
+                                          value={fieldData.commandPermission !== undefined ? fieldData.commandPermission : 'everyone'}
+                                          onChange={e => handleFieldChange('commandPermission', e.target.value)}
+                                          style={{ padding: '0.45rem 0.65rem', fontSize: '0.82rem' }}
+                                        >
+                                          <option value="everyone">ทุกคนในแชท (Everyone)</option>
+                                          <option value="mod">สตรีมเมอร์และม็อด (Moderators & Broadcaster)</option>
+                                          <option value="broadcaster">สตรีมเมอร์เท่านั้น (Broadcaster Only)</option>
+                                        </select>
+                                      </div>
+
+                                      <div className="input-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ส่งข้อความตอบกลับในแชทเมื่อคะแนนเปลี่ยน</label>
+                                        <select
+                                          value={fieldData.enableChatReply !== undefined ? String(fieldData.enableChatReply) : 'true'}
+                                          onChange={e => handleFieldChange('enableChatReply', e.target.value)}
+                                          style={{ padding: '0.45rem 0.65rem', fontSize: '0.82rem' }}
+                                        >
+                                          <option value="true">เปิดใช้งาน (Reply in Chat)</option>
+                                          <option value="false">ปิดใช้งาน (Silent)</option>
+                                        </select>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
 
