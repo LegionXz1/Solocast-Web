@@ -61,7 +61,11 @@ export async function syncStore(collectionName, localData = {}) {
     const docs = await col.find({}).toArray();
     const result = { ...localData };
     for (const doc of docs) {
-      result[doc._id] = doc.data !== undefined ? doc.data : doc;
+      if (doc.data && typeof doc.data === 'object' && !Array.isArray(doc.data)) {
+        result[doc._id] = { ...(result[doc._id] || {}), ...doc.data };
+      } else {
+        result[doc._id] = doc.data !== undefined ? doc.data : doc;
+      }
     }
     console.log(`[Database] 📥 Loaded ${docs.length} records from MongoDB collection "${collectionName}"`);
     return result;
@@ -89,19 +93,54 @@ export async function upsertItem(collectionName, key, value) {
 }
 
 /**
- * Replace entire collection or bulk save (e.g. for complete objects)
+ * Save a specific user's widget settings without overwriting other users
+ */
+export async function saveUserWidgetSettings(widgetId, userId, userSettings) {
+  if (!isDbConnected() || !widgetId || !userId) return;
+  try {
+    const col = db.collection('widget_settings');
+    await col.updateOne(
+      { _id: String(widgetId) },
+      { $set: { [`data.${userId}`]: userSettings, updatedAt: new Date() } },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.error(`[Database] Error saving user widget settings for "${widgetId}/${userId}":`, err.message);
+  }
+}
+
+/**
+ * Replace entire collection or bulk save (preserves existing sub-keys using dot notation)
  */
 export async function saveAllItems(collectionName, dataObj) {
   if (!isDbConnected() || !dataObj) return;
   try {
     const col = db.collection(collectionName);
-    const operations = Object.entries(dataObj).map(([key, val]) => ({
-      updateOne: {
-        filter: { _id: String(key) },
-        update: { $set: { _id: String(key), data: val, updatedAt: new Date() } },
-        upsert: true
+    const operations = [];
+    for (const [key, val] of Object.entries(dataObj)) {
+      if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+        // Deep merge per-key using dot notation so other users are preserved!
+        const setFields = { _id: String(key), updatedAt: new Date() };
+        for (const [subKey, subVal] of Object.entries(val)) {
+          setFields[`data.${subKey}`] = subVal;
+        }
+        operations.push({
+          updateOne: {
+            filter: { _id: String(key) },
+            update: { $set: setFields },
+            upsert: true
+          }
+        });
+      } else {
+        operations.push({
+          updateOne: {
+            filter: { _id: String(key) },
+            update: { $set: { _id: String(key), data: val, updatedAt: new Date() } },
+            upsert: true
+          }
+        });
       }
-    }));
+    }
     if (operations.length > 0) {
       await col.bulkWrite(operations);
     }

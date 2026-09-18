@@ -506,6 +506,29 @@
     }
   },
   "custom-counter": {
+    "134926621": {
+      "counterTitle": "ได้ออกประตู",
+      "currentCount": 5,
+      "unitText": "ครั้ง",
+      "stepAmount": 1,
+      "themePreset": "cyberpunk",
+      "iconPreset": "none",
+      "customIconUrl": "",
+      "accentColor": "#ffffff",
+      "badgeBgColor": "#000000",
+      "textColor": "#fcfcfc",
+      "counterScale": 100,
+      "soundEnabled": true,
+      "soundVolume": 70,
+      "customSoundUrl": "",
+      "enableChatCmd": true,
+      "commandPrefix": "!count",
+      "chatPermission": "mods",
+      "enableChatReply": true,
+      "chatReplyTemplate": "{user} อัปเดต {title} เป็น {count} {unit} แล้ว!",
+      "triggerChannelPoints": false,
+      "rewardName": "แต้มได้ออกประตู"
+    },
     "148596257": {
       "counterTitle": "ได้ออกประตู",
       "currentCount": 135,
