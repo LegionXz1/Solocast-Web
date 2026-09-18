@@ -28,11 +28,28 @@
     "label": "สกินและธีมแสดงผล (Theme Preset)",
     "value": "minimal-glass",
     "options": {
+      "clean-hud": "Clean HUD",
+      "minimal-clean": "Minimal Compact",
       "minimal-glass": "Minimal Glass",
       "cyberpunk": "Neon Cyberpunk",
       "souls": "Souls / Dark Fantasy",
       "cute-pastel": "Cute Pastel",
       "arcade": "Retro Arcade"
+    },
+    "group": "รูปแบบและการแสดงผล (Design & Styles)"
+  },
+  "fontFamily": {
+    "type": "dropdown",
+    "label": "ฟอนต์ตัวอักษร (Font Family)",
+    "value": "Prompt",
+    "options": {
+      "Prompt": "Prompt",
+      "Kanit": "Kanit",
+      "Chakra Petch": "Chakra Petch",
+      "Rajdhani": "Rajdhani",
+      "Bebas Neue": "Bebas Neue",
+      "Cinzel": "Cinzel",
+      "Press Start 2P": "Pixel Arcade"
     },
     "group": "รูปแบบและการแสดงผล (Design & Styles)"
   },

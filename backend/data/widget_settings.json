@@ -511,7 +511,7 @@
       "currentCount": 135,
       "unitText": "ครั้ง",
       "stepAmount": 1,
-      "themePreset": "souls",
+      "themePreset": "clean-hud",
       "iconPreset": "trophy",
       "customIconUrl": "",
       "accentColor": "#f09800",

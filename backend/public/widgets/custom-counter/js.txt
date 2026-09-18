@@ -137,6 +137,23 @@ function applySettings(fieldData) {
     const theme = fieldData.themePreset || 'minimal-glass';
     card.className = 'counter-card theme-' + theme;
 
+    // Font Family
+    if (fieldData.fontFamily) {
+      const font = fieldData.fontFamily;
+      const FONT_MAP = {
+        'Prompt': "'Prompt', sans-serif",
+        'Kanit': "'Kanit', sans-serif",
+        'Chakra Petch': "'Chakra Petch', sans-serif",
+        'Rajdhani': "'Rajdhani', 'Prompt', sans-serif",
+        'Bebas Neue': "'Bebas Neue', 'Prompt', sans-serif",
+        'Cinzel': "'Cinzel', serif",
+        'Press Start 2P': "'Press Start 2P', monospace"
+      };
+      const selectedFont = FONT_MAP[font] || (font.includes(' ') ? `'${font}', sans-serif` : `${font}, sans-serif`);
+      card.style.setProperty('--counter-font', selectedFont);
+      if (root) root.style.setProperty('--counter-font', selectedFont);
+    }
+
     // Colors
     if (fieldData.accentColor) {
       const accent = fieldData.accentColor.trim();
