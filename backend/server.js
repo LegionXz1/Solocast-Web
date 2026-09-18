@@ -14,7 +14,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { syncDbdPerks } from './scripts/scrape_dbd_perks.js';
 import { syncValorantAgents } from './scripts/sync_valorant_agents.js';
-import { initDatabase, syncStore, saveAllItems, syncTickets, saveAllTickets, deleteTicketFromMongo } from './database.js';
+import { initDatabase, syncStore, saveAllItems, syncTickets, saveAllTickets, upsertTicket, deleteTicketFromMongo } from './database.js';
 import * as spotify from './spotify.js';
 import compression from 'compression';
 
@@ -4115,7 +4115,7 @@ function saveSupportTickets(tickets) {
 }
 
 // 1. Submit a new support report
-app.post('/api/support/report', (req, res) => {
+app.post('/api/support/report', async (req, res) => {
   try {
     const { category, subject, description, username, contact, screenshotUrl } = req.body || {};
     if (!subject || !description) {
@@ -4141,6 +4141,7 @@ app.post('/api/support/report', (req, res) => {
     };
     reports.unshift(newReport);
     saveSupportTickets(reports);
+    await upsertTicket(newReport);
     console.log(`[Support] 📩 New ticket created: ${ticketId} - ${subject}`);
     res.json({ success: true, ticketId, report: newReport });
   } catch (err) {
@@ -4224,7 +4225,7 @@ app.get('/api/support/tickets', (req, res) => {
 });
 
 // 3. Admin: Update ticket status and reply
-app.put('/api/support/tickets/:ticketId', checkAdminAuth, (req, res) => {
+app.put('/api/support/tickets/:ticketId', checkAdminAuth, async (req, res) => {
   try {
     const { ticketId } = req.params;
     const { status, adminReply, adminUser } = req.body || {};
@@ -4250,6 +4251,7 @@ app.put('/api/support/tickets/:ticketId', checkAdminAuth, (req, res) => {
 
     tickets[index] = ticket;
     saveSupportTickets(tickets);
+    await upsertTicket(ticket);
 
     console.log(`[Support] ✏️ Ticket ${ticketId} updated by admin: status=${ticket.status}`);
     res.json({ success: true, ticket });
@@ -4260,7 +4262,7 @@ app.put('/api/support/tickets/:ticketId', checkAdminAuth, (req, res) => {
 });
 
 // 4. Admin: Delete ticket
-app.delete('/api/support/tickets/:ticketId', checkAdminAuth, (req, res) => {
+app.delete('/api/support/tickets/:ticketId', checkAdminAuth, async (req, res) => {
   try {
     const { ticketId } = req.params;
     let tickets = loadSupportTickets();
@@ -4272,7 +4274,7 @@ app.delete('/api/support/tickets/:ticketId', checkAdminAuth, (req, res) => {
     }
 
     saveSupportTickets(tickets);
-    deleteTicketFromMongo(ticketId);
+    await deleteTicketFromMongo(ticketId);
     console.log(`[Support] 🗑️ Ticket ${ticketId} deleted by admin`);
     res.json({ success: true, message: `ลบเรื่อง #${ticketId} เรียบร้อยแล้ว` });
   } catch (err) {

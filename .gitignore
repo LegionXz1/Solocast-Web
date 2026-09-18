@@ -19,6 +19,8 @@ backend/data/global_widget_status.json
 backend/data/user_widget_status.json
 backend/data/widget_settings.json
 backend/data/widget_store.json
+backend/data/support_reports.json
+backend/data/roll_history.json
 
 # Build outputs
 frontend/dist/
