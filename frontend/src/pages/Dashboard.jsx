@@ -663,8 +663,12 @@ function Dashboard() {
     };
 
     const handleCounterUpdated = (data) => {
-      if (data && (!data.userId || String(data.userId) === String(status.userId))) {
-        setCounterCount(data.count !== undefined ? data.count : 0);
+      if (!data) return;
+      if (status.userId && data.userId && String(data.userId).toLowerCase() !== String(status.userId).toLowerCase()) {
+        return;
+      }
+      if (data.count !== undefined) {
+        setCounterCount(data.count);
         setFieldData(prev => ({ ...prev, currentCount: data.count }));
       }
     };

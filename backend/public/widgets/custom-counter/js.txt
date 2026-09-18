@@ -216,6 +216,15 @@ function updateCounterDisplay(newCount, delta = 0) {
   playCustomSound(delta >= 0);
 }
 
+function getWidgetTargetUser() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('user') || params.get('channel') || window.SolocastTargetUser || '';
+  } catch (e) {
+    return '';
+  }
+}
+
 // StreamElements EventBridge
 window.addEventListener('onWidgetLoad', function (obj) {
   const detail = obj.detail || {};
@@ -225,11 +234,17 @@ window.addEventListener('onWidgetLoad', function (obj) {
 });
 
 window.addEventListener('onEventReceived', function (obj) {
-  const event = obj.detail || {};
-  if (!event) return;
+  const detail = obj.detail || {};
+  if (!detail) return;
 
-  if (event.type === 'counter_update' || event.type === 'counter_updated') {
-    const data = event.data || {};
+  const eventType = detail.listener || detail.type || detail.event?.type;
+  if (eventType === 'counter_update' || eventType === 'counter_updated') {
+    const data = detail.event?.data || detail.data || {};
+    const currentTarget = getWidgetTargetUser();
+    const eventUserId = detail.event?.userId || data.userId;
+    if (currentTarget && eventUserId && String(eventUserId).toLowerCase() !== String(currentTarget).toLowerCase()) {
+      return;
+    }
     if (data.title) {
       const titleEl = document.getElementById('counter-title');
       if (titleEl) titleEl.textContent = data.title;
@@ -237,8 +252,8 @@ window.addEventListener('onEventReceived', function (obj) {
     const newCount = data.count !== undefined ? data.count : currentCount;
     const delta = data.delta !== undefined ? data.delta : (newCount - currentCount);
     updateCounterDisplay(newCount, delta);
-  } else if (event.type === 'settings_updated') {
-    applySettings(event.data);
+  } else if (eventType === 'settings_updated' || detail.type === 'settings_updated') {
+    applySettings(detail.data || detail.event?.data);
   }
 });
 
@@ -246,6 +261,10 @@ window.addEventListener('onEventReceived', function (obj) {
 if (typeof socket !== 'undefined') {
   socket.on('counter_updated', function (data) {
     if (!data) return;
+    const currentTarget = getWidgetTargetUser();
+    if (currentTarget && data.userId && String(data.userId).toLowerCase() !== String(currentTarget).toLowerCase()) {
+      return;
+    }
     if (data.title) {
       const titleEl = document.getElementById('counter-title');
       if (titleEl) titleEl.textContent = data.title;

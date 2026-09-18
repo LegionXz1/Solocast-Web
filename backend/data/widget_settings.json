@@ -508,7 +508,7 @@
   "custom-counter": {
     "148596257": {
       "counterTitle": "ได้ออกประตู",
-      "currentCount": 130,
+      "currentCount": 135,
       "unitText": "ครั้ง",
       "stepAmount": 1,
       "themePreset": "souls",
@@ -528,6 +528,11 @@
       "chatReplyTemplate": "{user} อัปเดต {title} เป็น {count} {unit} แล้ว!",
       "triggerChannelPoints": false,
       "rewardName": "เพิ่มยอดกรี๊ด"
+    },
+    "785915826": {
+      "counterTitle": "จำนวนครั้งที่กรี๊ด",
+      "currentCount": 4,
+      "unitText": "ครั้ง"
     },
     "test_user": {
       "counterTitle": "จำนวนครั้งที่กรี๊ด",

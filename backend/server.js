@@ -1073,15 +1073,18 @@ app.post('/api/widgets/custom-counter/update', (req, res) => {
       updatedBy: updatedBy || 'Dashboard'
     };
 
-    if (userKey !== 'default') {
-      io.to('user_' + userKey).emit('counter_updated', payload);
-      io.to('user_' + userKey).emit('onEventReceived', {
+    const cleanUser = String(userKey).trim().toLowerCase().replace('@', '');
+    const allIds = getAssociatedUserIdentifiers(cleanUser);
+    allIds.add(cleanUser);
+
+    for (const id of allIds) {
+      io.to('user_' + id).emit('counter_updated', payload);
+      io.to('user_' + id).emit('onEventReceived', {
         type: 'counter_update',
         userId: userKey,
         data: payload
       });
     }
-    io.emit('counter_updated', payload);
 
     console.log(`[Custom Counter] 🔢 User ${userKey} counter updated: ${currentCount} -> ${newCount} (${computedDelta >= 0 ? '+' : ''}${computedDelta}) by ${updatedBy || 'Dashboard'}`);
     res.json({ success: true, count: newCount, delta: computedDelta, title, user: userKey });
@@ -2944,12 +2947,18 @@ function startEventSub(userId) {
             title: cs.counterTitle || 'จำนวนครั้งที่กรี๊ด',
             updatedBy: e.userDisplayName || e.userName
           };
-          io.to('user_' + userId).emit('counter_updated', payload);
-          io.to('user_' + userId).emit('onEventReceived', {
-            type: 'counter_update',
-            userId,
-            data: payload
-          });
+          const cleanUser = String(userId).trim().toLowerCase().replace('@', '');
+          const allIds = getAssociatedUserIdentifiers(cleanUser);
+          allIds.add(cleanUser);
+
+          for (const id of allIds) {
+            io.to('user_' + id).emit('counter_updated', payload);
+            io.to('user_' + id).emit('onEventReceived', {
+              type: 'counter_update',
+              userId,
+              data: payload
+            });
+          }
           console.log(`[Custom Counter] 🎁 Channel Points redemption incremented counter for user ${userId} to ${newCount}`);
         }
       }
@@ -3249,13 +3258,18 @@ function extractSongRequestQuery(text, customPrefix) {
           updatedBy: displayName
         };
 
-        io.to('user_' + userId).emit('counter_updated', payload);
-        io.to('user_' + userId).emit('onEventReceived', {
-          type: 'counter_update',
-          userId,
-          data: payload
-        });
-        io.emit('counter_updated', payload);
+        const cleanUser = String(userId).trim().toLowerCase().replace('@', '');
+        const allIds = getAssociatedUserIdentifiers(cleanUser);
+        allIds.add(cleanUser);
+
+        for (const id of allIds) {
+          io.to('user_' + id).emit('counter_updated', payload);
+          io.to('user_' + id).emit('onEventReceived', {
+            type: 'counter_update',
+            userId,
+            data: payload
+          });
+        }
 
         console.log(`[Custom Counter] 💬 Chat command from ${displayName} updated ${userId}'s counter: ${currentVal} -> ${newVal} (${delta >= 0 ? '+' : ''}${delta})`);
 
