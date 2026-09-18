@@ -10,17 +10,11 @@ frontend/.env
 *.env.local
 *.env.production
 
-# Sensitive Runtime Data (OAuth Tokens, Sessions & User Widget Settings)
-backend/data/tokens.json
-backend/data/sessions.json
-backend/data/spotify_tokens.json
-backend/data/spotify_queue.json
-backend/data/global_widget_status.json
-backend/data/user_widget_status.json
-backend/data/widget_settings.json
-backend/data/widget_store.json
-backend/data/support_reports.json
-backend/data/roll_history.json
+# Runtime Data & State in backend/data (Ignore all user data, sessions, tokens, and admin state)
+backend/data/*
+!backend/data/dbd_killers.json
+!backend/data/dbd_perks.json
+!backend/data/valorant_agents.json
 
 # Build outputs
 frontend/dist/
