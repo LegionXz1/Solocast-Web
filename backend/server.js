@@ -317,13 +317,27 @@ function isUserAdmin(userId, username) {
   return false;
 }
 
+// 🛡️ OWASP-compliant JSON escaping for embedding inside HTML <script> tags
+function safeJsonForHtmlScript(obj) {
+  return JSON.stringify(obj)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
 function getSessionFromReq(req) {
   const authHeader = req.headers['authorization'];
   let token = '';
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.slice(7).trim();
-  } else if (req.query.auth_token) {
-    token = req.query.auth_token;
+  } else if (req.headers['x-auth-token']) {
+    token = String(req.headers['x-auth-token']).trim();
+  } else if (req.query && req.query.auth_token) {
+    token = String(req.query.auth_token).trim();
+  } else if (req.body && req.body.auth_token) {
+    token = String(req.body.auth_token).trim();
   }
   if (token && sessions[token]) {
     const s = sessions[token];
@@ -847,15 +861,18 @@ app.get('/widgets/:id/index.html', (req, res) => {
     const css = fs.existsSync(path.join(widgetDir, 'css.txt')) ? fs.readFileSync(path.join(widgetDir, 'css.txt'), 'utf8') : '';
     const js = fs.existsSync(path.join(widgetDir, 'js.txt')) ? fs.readFileSync(path.join(widgetDir, 'js.txt'), 'utf8') : '';
 
+    const cleanWidgetId = String(widgetId).replace(/[<>&"]/g, '');
+    const cleanUser = String(user);
+
     const renderedHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${widgetId} Widget</title>
+  <title>${cleanWidgetId} Widget</title>
   <script>
-    window.__SOLOCAST_INITIAL_ACTIVE = ${isActive};
-    window.__SOLOCAST_WIDGET_ID = ${JSON.stringify(widgetId)};
-    window.__SOLOCAST_USER = ${JSON.stringify(user)};
+    window.__SOLOCAST_INITIAL_ACTIVE = ${Boolean(isActive)};
+    window.__SOLOCAST_WIDGET_ID = ${safeJsonForHtmlScript(cleanWidgetId)};
+    window.__SOLOCAST_USER = ${safeJsonForHtmlScript(cleanUser)};
   </script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/adapter.js"></script>
@@ -919,16 +936,13 @@ app.get('/api/widgets/:id/settings', (req, res) => {
     const widgetId = req.params.id;
     let user = req.query.user || req.query.channel;
 
-    // ถ้าไม่ได้ระบุ User ใน Query String ให้ค้นหาการตั้งค่าของ User ที่มีบันทึกไว้
+    // ถ้าไม่ได้ระบุ User ใน Query String ให้ดูจาก Session ของผู้ที่เรียก ถ้าไม่มีให้ใช้ default
     if (!user) {
-      if (widgetSettingsStore[widgetId]) {
-        const uids = Object.keys(widgetSettingsStore[widgetId]).filter(k => k !== 'default');
-        if (uids.length > 0) user = uids[0];
-      }
-      if (!user) {
-        const uids = Object.keys(userTokens);
-        if (uids.length > 0) user = uids[0];
-        else if (process.env.TWITCH_USER_ID) user = process.env.TWITCH_USER_ID;
+      const session = getSessionFromReq(req);
+      if (session && session.userId) {
+        user = session.userId;
+      } else {
+        user = 'default';
       }
     }
 
@@ -990,8 +1004,21 @@ app.post('/api/widgets/:id/settings', (req, res) => {
   try {
     const widgetId = req.params.id;
     const { user, settings } = req.body;
+    const session = getSessionFromReq(req);
 
-    const userKey = user || 'default';
+    const userKey = user || session?.userId || 'default';
+
+    // 🛡️ Authorization Check: เฉพาะเจ้าของบัญชีหรือแอดมินเท่านั้นที่มีสิทธิ์บันทึกการตั้งค่า
+    if (userKey !== 'default') {
+      const isOwner = session && (
+        session.isAdmin ||
+        session.userId === userKey ||
+        (session.username && session.username.toLowerCase() === String(userKey).toLowerCase().replace('@', ''))
+      );
+      if (!isOwner) {
+        return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์แก้ไขการตั้งค่าของช่องนี้ (กรุณาเข้าสู่ระบบ)' });
+      }
+    }
 
     if (!widgetSettingsStore[widgetId]) {
       widgetSettingsStore[widgetId] = {};
@@ -1056,7 +1083,20 @@ app.get('/api/widgets/custom-counter/data', (req, res) => {
 app.post('/api/widgets/custom-counter/update', (req, res) => {
   try {
     const { user, action, delta, value, updatedBy } = req.body || {};
-    const userKey = user || 'default';
+    const session = getSessionFromReq(req);
+    const userKey = user || session?.userId || 'default';
+
+    // 🛡️ Authorization Check: ป้องกันการปรับคะแนนของช่องคนอื่น
+    if (userKey !== 'default') {
+      const isOwner = session && (
+        session.isAdmin ||
+        session.userId === userKey ||
+        (session.username && session.username.toLowerCase() === String(userKey).toLowerCase().replace('@', ''))
+      );
+      if (!isOwner) {
+        return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์ปรับแต่งตัวนับของช่องนี้' });
+      }
+    }
 
     if (!widgetSettingsStore['custom-counter']) {
       widgetSettingsStore['custom-counter'] = {};
@@ -1177,8 +1217,22 @@ app.get('/api/widgets/dbd-scoreboard/data', (req, res) => {
 app.post('/api/widgets/dbd-scoreboard/update', (req, res) => {
   try {
     const { user, action, target, value, updatedBy } = req.body || {};
-    const userKey = user || 'default';
+    const session = getSessionFromReq(req);
+    const userKey = user || session?.userId || 'default';
     const cleanUser = String(userKey).trim().toLowerCase().replace('@', '');
+
+    // 🛡️ Authorization Check: ป้องกันการปรับคะแนนของช่องคนอื่น
+    if (userKey !== 'default') {
+      const isOwner = session && (
+        session.isAdmin ||
+        session.userId === userKey ||
+        (session.username && session.username.toLowerCase() === cleanUser)
+      );
+      if (!isOwner) {
+        return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์ปรับแต่งสกอร์บอร์ดของช่องนี้' });
+      }
+    }
+
     const allIds = getAssociatedUserIdentifiers(cleanUser);
     allIds.add(cleanUser);
 
@@ -1301,8 +1355,20 @@ app.post('/api/user/widgets/:id/status', (req, res) => {
   try {
     const widgetId = req.params.id;
     const session = getSessionFromReq(req);
-    const userId = req.body.user || req.body.userId || session?.userId || 'default';
-    const username = req.body.username || session?.username || '';
+    if (!session) {
+      return res.status(401).json({ error: '401 Unauthorized: กรุณาเข้าสู่ระบบก่อนเปิด/ปิด Widget' });
+    }
+
+    // 🛡️ ป้องกัน IDOR: ผู้ใช้ทั่วไปจะเปิด/ปิดได้เฉพาะของตนเองเท่านั้น
+    const requestedUser = req.body.user || req.body.userId;
+    let userId = session.userId;
+    let username = session.username || '';
+
+    if (session.isAdmin && requestedUser) {
+      userId = requestedUser;
+      username = req.body.username || username;
+    }
+
     const enabled = Boolean(req.body.enabled);
 
     // ตรวจสอบสิทธิ์ว่าผู้ใช้ได้รับอนุญาตให้ใช้ Widget นี้หรือไม่
@@ -2110,7 +2176,20 @@ app.post('/api/widgets/:id/store/:key', (req, res) => {
     const widgetId = req.params.id;
     const key = req.params.key;
     const { user, value } = req.body;
-    const userKey = user || 'default';
+    const session = getSessionFromReq(req);
+    const userKey = user || session?.userId || 'default';
+
+    // 🛡️ Authorization Check
+    if (userKey !== 'default') {
+      const isOwner = session && (
+        session.isAdmin ||
+        session.userId === userKey ||
+        (session.username && session.username.toLowerCase() === String(userKey).toLowerCase().replace('@', ''))
+      );
+      if (!isOwner) {
+        return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์แก้ไข Store ของช่องนี้' });
+      }
+    }
 
     if (!widgetStore[widgetId]) widgetStore[widgetId] = {};
     if (!widgetStore[widgetId][userKey]) widgetStore[widgetId][userKey] = {};
@@ -2135,7 +2214,21 @@ app.post('/api/widgets/:id/store/:key', (req, res) => {
 app.delete('/api/widgets/:id/store', (req, res) => {
   try {
     const widgetId = req.params.id;
-    const user = req.query.user || req.query.channel || 'default';
+    const session = getSessionFromReq(req);
+    const user = req.query.user || req.query.channel || session?.userId || 'default';
+
+    // 🛡️ Authorization Check
+    if (user !== 'default') {
+      const isOwner = session && (
+        session.isAdmin ||
+        session.userId === user ||
+        (session.username && session.username.toLowerCase() === String(user).toLowerCase().replace('@', ''))
+      );
+      if (!isOwner) {
+        return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์ล้าง Store ของช่องนี้' });
+      }
+    }
+
     if (widgetStore[widgetId] && widgetStore[widgetId][user]) {
       delete widgetStore[widgetId][user];
       saveWidgetStore(widgetStore);
@@ -2734,20 +2827,25 @@ function ensureUserInAuthProvider(userId) {
 }
 
 // ส่งข้อความลงแชท Twitch ในนามของสตรีมเมอร์เจ้าของช่อง
-app.post('/api/chat/send', async (req, res) => {
+app.post('/api/chat/send', checkUserAuth, async (req, res) => {
   try {
     const { user, message } = req.body;
-    if (!message) return res.status(400).json({ error: 'Message is required' });
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
 
-    let targetUserId = user ? String(user).trim() : '';
-
-    // หากส่งมาเป็น username (ไม่ใช่ตัวเลขล้วน) ให้แปลงเป็น Numeric Twitch ID จาก Sessions
-    if (targetUserId && !/^\d+$/.test(targetUserId)) {
-      const clean = targetUserId.toLowerCase().replace(/^@/, '');
-      for (const sess of Object.values(sessions)) {
-        if (sess && (sess.username?.toLowerCase() === clean || sess.displayName?.toLowerCase() === clean)) {
-          targetUserId = String(sess.userId);
-          break;
+    const session = req.user;
+    // 🛡️ ป้องกันการแอบอ้าง: สตรีมเมอร์ทั่วไปส่งได้เฉพาะช่องของตนเองเท่านั้น (ยกเว้น Admin)
+    let targetUserId = session.userId;
+    if (session.isAdmin && user) {
+      targetUserId = String(user).trim();
+      if (!/^\d+$/.test(targetUserId)) {
+        const clean = targetUserId.toLowerCase().replace(/^@/, '');
+        for (const sess of Object.values(sessions)) {
+          if (sess && (sess.username?.toLowerCase() === clean || sess.displayName?.toLowerCase() === clean)) {
+            targetUserId = String(sess.userId);
+            break;
+          }
         }
       }
     }
@@ -2755,25 +2853,8 @@ app.post('/api/chat/send', async (req, res) => {
     // ตรวจสอบความพร้อมของโทเค็นใน authProvider
     let isReady = ensureUserInAuthProvider(targetUserId);
 
-    // หากไม่มีโทเค็นของ targetUserId ให้ Fallback ไปหาโทเค็นของผู้ใช้คนแรกที่มีอยู่ในระบบ
-    if (!isReady) {
-      if (process.env.TWITCH_USER_ID && ensureUserInAuthProvider(process.env.TWITCH_USER_ID)) {
-        targetUserId = String(process.env.TWITCH_USER_ID);
-        isReady = true;
-      } else {
-        const uids = Object.keys(userTokens);
-        for (const uid of uids) {
-          if (ensureUserInAuthProvider(uid)) {
-            targetUserId = uid;
-            isReady = true;
-            break;
-          }
-        }
-      }
-    }
-
     if (!targetUserId || !isReady) {
-      return res.status(400).json({ error: `No valid Twitch token found for user "${user || 'unknown'}"` });
+      return res.status(400).json({ error: `No valid Twitch token found for user "${targetUserId || 'unknown'}"` });
     }
 
     if (!apiClient) {
@@ -3893,8 +3974,8 @@ function startEventSub(userId) {
   }
 }
 
-// 🧪 API สำหรับทดสอบคำสั่งแชท (จำลองการพิมพ์ใน Twitch Chat)
-app.post('/api/test/chat', async (req, res) => {
+// 🧪 API สำหรับทดสอบคำสั่งแชท (จำลองการพิมพ์ใน Twitch Chat - ป้องกันเฉพาะ Admin)
+app.post('/api/test/chat', checkAdminAuth, async (req, res) => {
   try {
     const { userId = '148596257', text = '!score', username = 'legionxiz', isMod = true, isBroadcaster = true } = req.body || {};
     const e = {
