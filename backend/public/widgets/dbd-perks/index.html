@@ -362,40 +362,33 @@
       if (obj.listener === 'redemption-latest' || obj.event?.type === 'redemption' || obj.type === 'redemption') {
         const ev = obj.event || obj;
         const rewardTitle = (ev.data?.rewardTitle || ev.reward?.title || '').trim().toLowerCase();
-        const survReward = (config.rewardNameSurvivor || 'สุ่มเปิร์ค ผู้รอดชีวิต').trim().toLowerCase();
-        const killerReward = (config.rewardNameKiller || 'สุ่มเปิร์ค ฆาตกร').trim().toLowerCase();
+        const survReward = (config.rewardNameSurvivor || '').trim().toLowerCase();
+        const killerReward = (config.rewardNameKiller || '').trim().toLowerCase();
+        const generalReward = (config.rewardName || '').trim().toLowerCase();
         const userInput = (ev.data?.input || ev.input || '').trim().toLowerCase();
 
-        // ตรวจจับว่าตรงกับชื่อรางวัล Survivor หรือ Killer ที่ผู้ใช้ตั้งไว้ หรือมีคีย์เวิร์ด DBD / Perk หรือไม่
-        const isSurvReward = survReward && (rewardTitle === survReward || rewardTitle.includes(survReward));
-        const isKillerReward = killerReward && (rewardTitle === killerReward || rewardTitle.includes(killerReward));
-        const isKeywordMatch = rewardTitle.includes('dbd') || rewardTitle.includes('perk') || rewardTitle.includes('เปิร์ค');
+        // ตรวจจับชื่อรางวัลแบบ Exact Match (100%) เพื่อป้องกันการแย่งกันทำงานข้าม Widget
+        const isSurvReward = survReward !== '' && rewardTitle === survReward;
+        const isKillerReward = killerReward !== '' && rewardTitle === killerReward;
+        const isGeneralReward = generalReward !== '' && rewardTitle === generalReward;
 
-        if (isSurvReward || isKillerReward || isKeywordMatch) {
+        if (isSurvReward || isKillerReward || isGeneralReward) {
           shouldTrigger = true;
           user = ev.data?.displayName || ev.data?.userName || ev.data?.name || 'Viewer';
           avatar = ev.data?.avatar || ev.data?.profileImage || '';
 
-          // ลำดับการเลือกบทบาท:
-          // 1. ตรงกับชื่อรางวัล Survivor ที่ผู้ใช้ระบุในหน้าตั้งค่า
           if (isSurvReward) {
             forcedRole = 'survivor';
-          }
-          // 2. ตรงกับชื่อรางวัล Killer ที่ผู้ใช้ระบุในหน้าตั้งค่า
-          else if (isKillerReward) {
+          } else if (isKillerReward) {
             forcedRole = 'killer';
-          }
-          // 3. ตรวจสอบคีย์เวิร์ดในชื่อรางวัล
-          else if (rewardTitle.includes('killer') || rewardTitle.includes('ฆาตกร') || rewardTitle.includes('คิลเลอร์')) {
-            forcedRole = 'killer';
-          } else if (rewardTitle.includes('surv') || rewardTitle.includes('ผู้รอดชีวิต') || rewardTitle.includes('เซอร์')) {
-            forcedRole = 'survivor';
-          }
-          // 4. ตรวจสอบจากข้อความที่ผู้ชมพิมพ์มาตอนแลกแต้ม
-          else if (userInput.includes('killer') || userInput.includes('ฆาตกร') || userInput.includes('คิลเลอร์')) {
-            forcedRole = 'killer';
-          } else if (userInput.includes('surv') || userInput.includes('ผู้รอดชีวิต') || userInput.includes('เซอร์')) {
-            forcedRole = 'survivor';
+          } else if (isGeneralReward) {
+            if (userInput.includes('killer') || userInput.includes('ฆาตกร') || userInput.includes('คิลเลอร์') || userInput === 'k') {
+              forcedRole = 'killer';
+            } else if (userInput.includes('surv') || userInput.includes('ผู้รอดชีวิต') || userInput.includes('เซอร์') || userInput === 's') {
+              forcedRole = 'survivor';
+            } else {
+              forcedRole = config.role || 'survivor';
+            }
           }
         }
       }

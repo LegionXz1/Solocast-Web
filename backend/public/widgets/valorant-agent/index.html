@@ -813,9 +813,9 @@
       if (obj.listener === 'redemption-latest' || obj.event?.type === 'redemption' || obj.type === 'redemption') {
         const ev = obj.event || obj;
         const rewardTitle = (ev.data?.rewardTitle || ev.reward?.title || '').trim().toLowerCase();
-        const configuredReward = (config.rewardName || 'สุ่มตัวละคร Valorant').trim().toLowerCase();
+        const configuredReward = (config.rewardName || '').trim().toLowerCase();
 
-        if (configuredReward && (rewardTitle === configuredReward || rewardTitle.includes(configuredReward))) {
+        if (configuredReward !== '' && rewardTitle === configuredReward) {
           // Trigger roll via API or local random
           const username = ev.data?.userName || ev.data?.name || 'Viewer';
           fetch('/api/widgets/valorant-agent/roll', {

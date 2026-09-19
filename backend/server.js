@@ -3790,16 +3790,11 @@ function startEventSub(userId) {
           srSettings = widgetSettingsStore['spotify-sr']?.['default'] || {};
         }
 
-        const targetRewardName = (srSettings.channelPointsReward || 'ขอเพลง').trim().toLowerCase();
+        const targetRewardName = (srSettings.channelPointsReward || '').trim().toLowerCase();
         const incomingReward = (e.rewardTitle || '').trim().toLowerCase();
 
-        // ตรวจสอบชื่อ Reward: ตรงกัน หรือมีคำว่า targetRewardName หรือมีคำว่า "ขอเพลง" / "song request" / "spotify"
-        const isRewardMatch = incomingReward === targetRewardName ||
-                              incomingReward.includes(targetRewardName) ||
-                              (targetRewardName.length >= 2 && targetRewardName.includes(incomingReward)) ||
-                              incomingReward.includes('ขอเพลง') ||
-                              incomingReward.includes('song request') ||
-                              incomingReward.includes('spotify');
+        // ตรวจสอบชื่อ Reward: ตรงกันแบบ Exact Match (100%) เพื่อป้องกันการแย่งกันทำงานข้าม Widget
+        const isRewardMatch = targetRewardName !== '' && incomingReward === targetRewardName;
 
         if (isRewardMatch) {
           console.log(`[Spotify SR] 🎁 Spotify Channel Points redemption detected for ${userId} by ${e.userName}: "${e.rewardTitle}" (input: "${e.input}")`);
@@ -3832,9 +3827,9 @@ function startEventSub(userId) {
         }
         if (!vs) vs = widgetSettingsStore['valorant-agent']?.['default'] || {};
 
-        const targetReward = (vs.rewardName || 'สุ่มตัวละคร Valorant').trim().toLowerCase();
+        const targetReward = (vs.rewardName || '').trim().toLowerCase();
         const currReward = (e.rewardTitle || '').trim().toLowerCase();
-        if (currReward && (currReward === targetReward || currReward.includes(targetReward) || currReward.includes('สุ่มตัวละคร valorant') || currReward.includes('สุ่ม valorant'))) {
+        if (targetReward !== '' && currReward === targetReward) {
           await performValorantRoll({
             userId,
             username: e.userDisplayName || e.userName,
