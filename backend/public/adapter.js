@@ -69,6 +69,21 @@ socket.on('connect', () => {
   syncSavedSettings();
 });
 
+let currentWidgetToken = (typeof window !== 'undefined' && window.__SOLOCAST_WIDGET_TOKEN) || '';
+socket.on('widget_auth_token', (data) => {
+  if (data && data.token) {
+    currentWidgetToken = data.token;
+  }
+});
+
+function getWidgetHeaders() {
+  const headers = { 'Content-Type': 'application/json' };
+  if (currentWidgetToken) {
+    headers['x-widget-token'] = currentWidgetToken;
+  }
+  return headers;
+}
+
 socket.on('reconnect', () => {
   console.log('[Solocast Adapter] 🔄 Socket reconnected, resyncing rooms and settings...');
   joinAllUserRooms();
@@ -198,7 +213,7 @@ window.sendTwitchChat = async function(message) {
   try {
     const res = await fetch('/api/chat/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getWidgetHeaders(),
       body: JSON.stringify({
         user: targetUser,
         message: message
@@ -234,7 +249,7 @@ window.recordRollHistory = async function(item) {
   try {
     const res = await fetch(`/api/widgets/${currentWidgetId}/history`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getWidgetHeaders(),
       body: JSON.stringify({
         user: targetUser,
         item: item
@@ -336,7 +351,7 @@ window.SE_API.store = {
 
       fetch(`/api/widgets/${currentWidgetId}/store/${encodeURIComponent(key)}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getWidgetHeaders(),
         body: JSON.stringify({
           user: u,
           value: val

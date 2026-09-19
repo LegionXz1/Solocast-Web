@@ -118,6 +118,16 @@ const authLimiter = rateLimit({
 app.use('/api/auth/', authLimiter);
 app.use('/api/admin/', authLimiter);
 
+// 🛡️ Rate Limiting: สำหรับการส่งแจ้งปัญหา Support Ticket เพื่อป้องกันการสแปม
+const supportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20, // สูงสุด 20 ครั้งต่อ 15 นาที ต่อ 1 IP จริง
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => getClientRealIp(req),
+  message: { error: 'Too many support submissions from your IP, please wait a few minutes before trying again.' }
+});
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.get('/robots.txt', (req, res) => {
@@ -137,6 +147,22 @@ if (fs.existsSync(frontendDist)) {
     }
   }));
 }
+
+// 🛡️ Auto-Signed Widget Session for OBS Studio Browser Sources (Zero link change needed!)
+app.use('/widgets', (req, res, next) => {
+  const user = req.query.user || req.query.channel;
+  if (user) {
+    const cleanUser = String(user).trim().toLowerCase().replace(/^@/, '');
+    const token = generateWidgetSessionToken(cleanUser);
+    res.cookie('fc_widget_session', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: 365 * 24 * 60 * 60 * 1000 // 1 year
+    });
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
   index: false,
   maxAge: '7d', // ให้ Cloudflare และ Browser แคชรูปภาพและ assets ไว้ 7 วัน ไม่ต้องดึงใหม่ทุกครั้ง
@@ -458,6 +484,144 @@ function checkUserAuth(req, res, next) {
   });
 }
 
+// 🛡️ Helper ตรวจสอบ Key ป้องกัน Prototype Pollution
+function isDisallowedKey(key) {
+  if (!key || typeof key !== 'string') return true;
+  const k = key.trim().toLowerCase();
+  return k === '__proto__' || k === 'constructor' || k === 'prototype';
+}
+
+// 🛡️ Helper ตรวจสอบความถูกต้องของ Widget ID ป้องกัน Path Traversal & Prototype Pollution
+function isValidWidgetId(id) {
+  if (!id || typeof id !== 'string') return false;
+  if (isDisallowedKey(id)) return false;
+  return /^[a-zA-Z0-9_-]{1,64}$/.test(id.trim());
+}
+
+// 🛡️ ระบบสร้างและตรวจสอบ Widget Session Token สำหรับ OBS Browser Source
+function getWidgetHmacSecret() {
+  return process.env.SPOTIFY_CLIENT_SECRET || process.env.ADMIN_KEY || 'fastchick_widget_secret';
+}
+
+function generateWidgetSessionToken(userId) {
+  const cleanId = String(userId || '').trim().toLowerCase().replace(/^@/, '');
+  const payload = {
+    userId: cleanId,
+    type: 'widget_session',
+    iat: Date.now()
+  };
+  const secret = getWidgetHmacSecret();
+  const sig = crypto.createHmac('sha256', secret).update(JSON.stringify(payload)).digest('hex');
+  return Buffer.from(JSON.stringify({ ...payload, sig })).toString('base64');
+}
+
+function verifyWidgetSessionToken(token) {
+  if (!token || typeof token !== 'string') return null;
+  try {
+    const raw = Buffer.from(token, 'base64').toString('utf8');
+    const { sig, ...payload } = JSON.parse(raw);
+    if (!sig || !payload || payload.type !== 'widget_session') return null;
+    const secret = getWidgetHmacSecret();
+    const expectedSig = crypto.createHmac('sha256', secret).update(JSON.stringify(payload)).digest('hex');
+    const b1 = Buffer.from(sig);
+    const b2 = Buffer.from(expectedSig);
+    if (b1.length !== b2.length || !crypto.timingSafeEqual(b1, b2)) return null;
+    return payload;
+  } catch (_) {
+    return null;
+  }
+}
+
+// 🛡️ ดึงบริบทการยืนยันตัวตนแบบบูรณาการ (รองรับทั้ง Session ผู้ใช้, Admin, และ OBS Browser Source)
+function getAuthContext(req) {
+  // 1. ตรวจสอบ Session มาตรฐานของผู้ใช้ หรือ Admin
+  const session = getSessionFromReq(req);
+  if (session) {
+    return {
+      type: 'session',
+      session,
+      userId: session.userId,
+      username: session.username,
+      isAdmin: Boolean(session.isAdmin),
+      isWidget: false
+    };
+  }
+
+  // 2. ตรวจสอบ Admin Key หากมีการระบุมา
+  const adminConfig = loadAdminKeyConfig();
+  const activeKey = adminConfig.currentKey || process.env.ADMIN_KEY;
+  const adminKey = req.headers['x-admin-key'] || req.query.adminKey || req.query.admin_key;
+  if (adminConfig.enabled && activeKey && adminKey && timingSafeKeyMatch(String(adminKey).trim(), activeKey)) {
+    return {
+      type: 'admin_key',
+      userId: 'admin',
+      username: 'Admin',
+      isAdmin: true,
+      isWidget: false
+    };
+  }
+
+  // 3. ตรวจสอบ Widget Session Token (จาก Header x-widget-token หรือ Cookie fc_widget_session)
+  const cookieHeader = req.headers.cookie || '';
+  let widgetCookieToken = '';
+  if (cookieHeader.includes('fc_widget_session=')) {
+    const match = cookieHeader.match(/fc_widget_session=([^;]+)/);
+    if (match) widgetCookieToken = match[1];
+  }
+  const widgetToken = req.headers['x-widget-token'] || widgetCookieToken;
+  if (widgetToken) {
+    const verified = verifyWidgetSessionToken(widgetToken);
+    if (verified && verified.userId) {
+      return {
+        type: 'widget_token',
+        userId: verified.userId,
+        username: verified.userId,
+        isAdmin: false,
+        isWidget: true
+      };
+    }
+  }
+
+  // 4. ตรวจสอบ Same-Origin Referer สำหรับ OBS Browser Source ของระบบเอง
+  const referer = req.headers['referer'] || '';
+  if (referer && referer.includes('/widgets/')) {
+    try {
+      const refUrl = new URL(referer);
+      const host = req.headers.host;
+      if (refUrl.host === host) {
+        const refUser = refUrl.searchParams.get('user') || refUrl.searchParams.get('channel');
+        if (refUser) {
+          const cleanRefUser = refUser.trim().toLowerCase().replace(/^@/, '');
+          return {
+            type: 'widget_referer',
+            userId: cleanRefUser,
+            username: cleanRefUser,
+            isAdmin: false,
+            isWidget: true
+          };
+        }
+      }
+    } catch (_) {}
+  }
+
+  return null;
+}
+
+// Middleware ยืนยันสิทธิ์สำหรับทั้งผู้ใช้ทั่วไป และ OBS Widget
+function checkUserOrWidgetAuth(req, res, next) {
+  const auth = getAuthContext(req);
+  if (auth) {
+    req.auth = auth;
+    req.user = auth.session || { userId: auth.userId, username: auth.username, isAdmin: auth.isAdmin, isWidget: auth.isWidget };
+    return next();
+  }
+  return res.status(401).json({
+    error: '401 Unauthorized: กรุณาเข้าสู่ระบบก่อนใช้งาน',
+    loggedIn: false
+  });
+}
+
+
 // ตรวจสอบข้อมูล Session ของผู้ใช้ในเบราว์เซอร์นี้
 app.get('/api/auth/me', (req, res) => {
   const session = getSessionFromReq(req);
@@ -760,6 +924,7 @@ app.get('/api/widgets/status-overview', (req, res) => {
 // 2. Get single widget detail (including code)
 app.get('/api/widgets/:id', (req, res) => {
   const widgetId = req.params.id;
+  if (!isValidWidgetId(widgetId)) return res.status(400).json({ error: 'Invalid widget identifier' });
   const widgetDir = path.join(__dirname, 'public', 'widgets', widgetId);
   if (!fs.existsSync(widgetDir)) return res.status(404).json({ error: 'Widget not found' });
 
@@ -798,7 +963,7 @@ app.post('/api/widgets', checkAdminAuth, (req, res) => {
       id = id.toLowerCase().trim().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
     }
 
-    if (!id) return res.status(400).json({ error: 'Invalid Widget ID' });
+    if (!isValidWidgetId(id)) return res.status(400).json({ error: 'Invalid Widget ID' });
 
     const widgetDir = path.join(__dirname, 'public', 'widgets', id);
     if (fs.existsSync(widgetDir)) {
@@ -832,6 +997,7 @@ app.post('/api/widgets', checkAdminAuth, (req, res) => {
 app.put('/api/widgets/:id', checkAdminAuth, (req, res) => {
   try {
     const widgetId = req.params.id;
+    if (!isValidWidgetId(widgetId)) return res.status(400).json({ error: 'Invalid widget identifier' });
     const widgetDir = path.join(__dirname, 'public', 'widgets', widgetId);
     if (!fs.existsSync(widgetDir)) {
       return res.status(404).json({ error: 'Widget not found' });
@@ -868,6 +1034,7 @@ app.put('/api/widgets/:id', checkAdminAuth, (req, res) => {
 app.delete('/api/widgets/:id', checkAdminAuth, (req, res) => {
   try {
     const widgetId = req.params.id;
+    if (!isValidWidgetId(widgetId)) return res.status(400).json({ error: 'Invalid widget identifier' });
     const widgetDir = path.join(__dirname, 'public', 'widgets', widgetId);
     if (!fs.existsSync(widgetDir)) {
       return res.status(404).json({ error: 'Widget not found' });
@@ -882,6 +1049,7 @@ app.delete('/api/widgets/:id', checkAdminAuth, (req, res) => {
 
 app.get('/widgets/:id/index.html', (req, res) => {
   const widgetId = req.params.id;
+  if (!isValidWidgetId(widgetId)) return res.status(400).send('Invalid widget identifier');
   const widgetDir = path.join(__dirname, 'public', 'widgets', widgetId);
 
   if (!fs.existsSync(widgetDir)) return res.status(404).send('Widget not found');
@@ -899,6 +1067,7 @@ app.get('/widgets/:id/index.html', (req, res) => {
 
     const cleanWidgetId = String(widgetId).replace(/[<>&"]/g, '');
     const cleanUser = String(user);
+    const widgetToken = generateWidgetSessionToken(cleanUser);
 
     const renderedHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -909,6 +1078,7 @@ app.get('/widgets/:id/index.html', (req, res) => {
     window.__SOLOCAST_INITIAL_ACTIVE = ${Boolean(isActive)};
     window.__SOLOCAST_WIDGET_ID = ${safeJsonForHtmlScript(cleanWidgetId)};
     window.__SOLOCAST_USER = ${safeJsonForHtmlScript(cleanUser)};
+    window.__SOLOCAST_WIDGET_TOKEN = ${safeJsonForHtmlScript(widgetToken)};
   </script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/adapter.js"></script>
@@ -931,7 +1101,9 @@ ${js}
 
 app.get('/api/widgets/:id/schema', (req, res) => {
   try {
-    const schemaPath = path.join(__dirname, 'public', 'widgets', req.params.id, 'fields.json');
+    const widgetId = req.params.id;
+    if (!isValidWidgetId(widgetId)) return res.status(400).json({ error: 'Invalid widget identifier' });
+    const schemaPath = path.join(__dirname, 'public', 'widgets', widgetId, 'fields.json');
     if (fs.existsSync(schemaPath)) {
       const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
       res.json(schema);
@@ -970,6 +1142,7 @@ const widgetSettingsStore = loadWidgetSettings();
 app.get('/api/widgets/:id/settings', (req, res) => {
   try {
     const widgetId = req.params.id;
+    if (!isValidWidgetId(widgetId)) return res.status(400).json({ error: 'Invalid widget identifier' });
     let user = req.query.user || req.query.channel;
 
     // ถ้าไม่ได้ระบุ User ใน Query String ให้ดูจาก Session ของผู้ที่เรียก ถ้าไม่มีให้ใช้ default
@@ -980,6 +1153,10 @@ app.get('/api/widgets/:id/settings', (req, res) => {
       } else {
         user = 'default';
       }
+    }
+
+    if (isDisallowedKey(String(user))) {
+      return res.status(400).json({ error: 'Invalid user parameter' });
     }
 
     // 1. ถ้ามี User ID ให้ดึงการตั้งค่าเฉพาะของ User คนนั้น
@@ -1039,17 +1216,29 @@ app.get('/api/default-user', (req, res) => {
 app.post('/api/widgets/:id/settings', (req, res) => {
   try {
     const widgetId = req.params.id;
-    const { user, settings } = req.body;
-    const session = getSessionFromReq(req);
+    if (!isValidWidgetId(widgetId)) return res.status(400).json({ error: 'Invalid widget identifier' });
 
-    const userKey = user || session?.userId || 'default';
+    const { user, settings } = req.body;
+    const auth = getAuthContext(req);
+    const userKey = user || auth?.userId || 'default';
+
+    if (isDisallowedKey(String(userKey))) {
+      return res.status(400).json({ error: 'Invalid user parameter' });
+    }
+
+    // 🛡️ ป้องกันการแก้ไขค่า default โดยผู้ใช้ทั่วไป
+    if (userKey === 'default' && !auth?.isAdmin) {
+      return res.status(403).json({ error: '403 Forbidden: เฉพาะ Admin เท่านั้นที่สามารถแก้ไขค่าเริ่มต้น (default) ได้' });
+    }
 
     // 🛡️ Authorization Check: เฉพาะเจ้าของบัญชีหรือแอดมินเท่านั้นที่มีสิทธิ์บันทึกการตั้งค่า
     if (userKey !== 'default') {
-      const isOwner = session && (
-        session.isAdmin ||
-        session.userId === userKey ||
-        (session.username && session.username.toLowerCase() === String(userKey).toLowerCase().replace('@', ''))
+      const cleanKey = String(userKey).toLowerCase().replace(/^@/, '');
+      const isOwner = auth && (
+        auth.isAdmin ||
+        String(auth.userId).toLowerCase() === cleanKey ||
+        (auth.username && auth.username.toLowerCase() === cleanKey) ||
+        getAssociatedUserIdentifiers(String(auth.userId).toLowerCase()).has(cleanKey)
       );
       if (!isOwner) {
         return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์แก้ไขการตั้งค่าของช่องนี้ (กรุณาเข้าสู่ระบบ)' });
@@ -1069,26 +1258,18 @@ app.post('/api/widgets/:id/settings', (req, res) => {
     saveWidgetSettings(widgetSettingsStore);
 
     // ส่งสัญญาณ Real-time ไปเฉพาะห้องของ User คนนี้เท่านั้น (OBS ของคนอื่นจะไม่ได้รับ)
-    if (user) {
-      const cleanU = String(user).trim().toLowerCase().replace('@', '');
-      const allIds = getAssociatedUserIdentifiers(cleanU);
-      allIds.add(cleanU);
-      const settingsPayload = {
-        widgetId,
-        userId: user,
-        username: cleanU,
-        associatedUserIds: Array.from(allIds),
-        settings: widgetSettingsStore[widgetId][userKey]
-      };
-      for (const id of allIds) {
-        io.to('user_' + id).emit('widget_settings_updated', settingsPayload);
-      }
-    } else {
-      io.emit('widget_settings_updated', {
-        widgetId,
-        userId: '',
-        settings: widgetSettingsStore[widgetId][userKey]
-      });
+    const targetRoomKey = user ? String(user).trim().toLowerCase().replace('@', '') : String(userKey).trim().toLowerCase().replace('@', '');
+    const allIds = getAssociatedUserIdentifiers(targetRoomKey);
+    allIds.add(targetRoomKey);
+    const settingsPayload = {
+      widgetId,
+      userId: userKey,
+      username: targetRoomKey,
+      associatedUserIds: Array.from(allIds),
+      settings: widgetSettingsStore[widgetId][userKey]
+    };
+    for (const id of allIds) {
+      io.to('user_' + id).emit('widget_settings_updated', settingsPayload);
     }
 
     console.log(`[Settings] Updated isolated settings for user "${userKey}" on widget "${widgetId}":`, settings);
@@ -2094,7 +2275,11 @@ app.get('/api/widgets/:id/checkin-summary', (req, res) => {
 app.post('/api/widgets/:id/history', (req, res) => {
   try {
     const widgetId = req.params.id;
-    const session = getSessionFromReq(req);
+    if (!isValidWidgetId(widgetId)) {
+      return res.status(400).json({ error: 'Invalid widget identifier' });
+    }
+
+    const auth = getAuthContext(req);
     let { user, item } = req.body;
     if (!item) {
       const { user: u, userId, ...rest } = req.body;
@@ -2110,18 +2295,21 @@ app.post('/api/widgets/:id/history', (req, res) => {
       return res.json({ success: true, skipped: true, message: 'Skipped GamerGod88' });
     }
 
-    const userKey = user || session?.userId || 'default';
+    const userKey = user || auth?.userId || 'default';
+    if (isDisallowedKey(String(userKey))) {
+      return res.status(400).json({ error: 'Invalid user parameter' });
+    }
 
-    // 🛡️ Authorization Check
-    if (userKey !== 'default') {
-      const isOwner = session && (
-        session.isAdmin ||
-        session.userId === userKey ||
-        (session.username && session.username.toLowerCase() === String(userKey).toLowerCase().replace('@', ''))
-      );
-      if (!isOwner) {
-        return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์บันทึกประวัติการสุ่มของช่องนี้' });
-      }
+    // 🛡️ Authorization Check (รองรับทั้ง Session และ OBS Widget Context)
+    const cleanKey = String(userKey).toLowerCase().replace(/^@/, '');
+    const isOwner = auth && (
+      auth.isAdmin ||
+      String(auth.userId).toLowerCase() === cleanKey ||
+      (auth.username && auth.username.toLowerCase() === cleanKey) ||
+      getAssociatedUserIdentifiers(String(auth.userId).toLowerCase()).has(cleanKey)
+    );
+    if (!isOwner) {
+      return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์บันทึกประวัติการสุ่มของช่องนี้' });
     }
 
     if (!rollHistoryStore[widgetId]) {
@@ -2157,15 +2345,24 @@ app.post('/api/widgets/:id/history', (req, res) => {
 app.delete('/api/widgets/:id/history', (req, res) => {
   try {
     const widgetId = req.params.id;
-    const session = getSessionFromReq(req);
-    const user = req.query.user || req.query.channel || session?.userId || 'default';
+    if (!isValidWidgetId(widgetId)) {
+      return res.status(400).json({ error: 'Invalid widget identifier' });
+    }
+
+    const auth = getAuthContext(req);
+    const user = req.query.user || req.query.channel || auth?.userId || 'default';
+    if (isDisallowedKey(String(user))) {
+      return res.status(400).json({ error: 'Invalid user parameter' });
+    }
 
     // 🛡️ Authorization Check
     if (user !== 'default') {
-      const isOwner = session && (
-        session.isAdmin ||
-        session.userId === user ||
-        (session.username && session.username.toLowerCase() === String(user).toLowerCase().replace('@', ''))
+      const cleanUser = String(user).toLowerCase().replace(/^@/, '');
+      const isOwner = auth && (
+        auth.isAdmin ||
+        String(auth.userId).toLowerCase() === cleanUser ||
+        (auth.username && auth.username.toLowerCase() === cleanUser) ||
+        getAssociatedUserIdentifiers(String(auth.userId).toLowerCase()).has(cleanUser)
       );
       if (!isOwner) {
         return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์ล้างประวัติการสุ่มของช่องนี้' });
@@ -2213,7 +2410,13 @@ app.get('/api/widgets/:id/store/:key', (req, res) => {
   try {
     const widgetId = req.params.id;
     const key = req.params.key;
+    if (!isValidWidgetId(widgetId) || isDisallowedKey(key)) {
+      return res.status(400).json({ error: 'Invalid widget or key identifier' });
+    }
     const user = req.query.user || req.query.channel || 'default';
+    if (isDisallowedKey(String(user))) {
+      return res.status(400).json({ error: 'Invalid user parameter' });
+    }
     const val = widgetStore[widgetId]?.[user]?.[key];
     if (val === undefined || val === null) {
       return res.status(404).json({ error: 'Key not found' });
@@ -2235,16 +2438,31 @@ app.post('/api/widgets/:id/store/:key', (req, res) => {
   try {
     const widgetId = req.params.id;
     const key = req.params.key;
-    const { user, value } = req.body;
-    const session = getSessionFromReq(req);
-    const userKey = user || session?.userId || 'default';
+    if (!isValidWidgetId(widgetId) || isDisallowedKey(key)) {
+      return res.status(400).json({ error: 'Invalid widget or key identifier' });
+    }
 
-    // 🛡️ Authorization Check
+    const { user, value } = req.body;
+    const auth = getAuthContext(req);
+    const userKey = user || auth?.userId || 'default';
+
+    if (isDisallowedKey(String(userKey))) {
+      return res.status(400).json({ error: 'Invalid user parameter' });
+    }
+
+    // 🛡️ เฉพาะ Admin เท่านั้นที่แก้ไข 'default' ได้
+    if (userKey === 'default' && !auth?.isAdmin) {
+      return res.status(403).json({ error: '403 Forbidden: เฉพาะ Admin เท่านั้นที่สามารถแก้ไขค่าเริ่มต้น (default) ได้' });
+    }
+
+    // 🛡️ Authorization Check (รองรับทั้ง Session และ OBS Widget Context)
     if (userKey !== 'default') {
-      const isOwner = session && (
-        session.isAdmin ||
-        session.userId === userKey ||
-        (session.username && session.username.toLowerCase() === String(userKey).toLowerCase().replace('@', ''))
+      const cleanKey = String(userKey).toLowerCase().replace(/^@/, '');
+      const isOwner = auth && (
+        auth.isAdmin ||
+        String(auth.userId).toLowerCase() === cleanKey ||
+        (auth.username && auth.username.toLowerCase() === cleanKey) ||
+        getAssociatedUserIdentifiers(String(auth.userId).toLowerCase()).has(cleanKey)
       );
       if (!isOwner) {
         return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์แก้ไข Store ของช่องนี้' });
@@ -2274,15 +2492,29 @@ app.post('/api/widgets/:id/store/:key', (req, res) => {
 app.delete('/api/widgets/:id/store', (req, res) => {
   try {
     const widgetId = req.params.id;
-    const session = getSessionFromReq(req);
-    const user = req.query.user || req.query.channel || session?.userId || 'default';
+    if (!isValidWidgetId(widgetId)) {
+      return res.status(400).json({ error: 'Invalid widget identifier' });
+    }
+    const auth = getAuthContext(req);
+    const user = req.query.user || req.query.channel || auth?.userId || 'default';
+
+    if (isDisallowedKey(String(user))) {
+      return res.status(400).json({ error: 'Invalid user parameter' });
+    }
+
+    // 🛡️ เฉพาะ Admin เท่านั้นที่ล้าง 'default' ได้
+    if (user === 'default' && !auth?.isAdmin) {
+      return res.status(403).json({ error: '403 Forbidden: เฉพาะ Admin เท่านั้นที่สามารถล้าง Store ค่าเริ่มต้น (default) ได้' });
+    }
 
     // 🛡️ Authorization Check
     if (user !== 'default') {
-      const isOwner = session && (
-        session.isAdmin ||
-        session.userId === user ||
-        (session.username && session.username.toLowerCase() === String(user).toLowerCase().replace('@', ''))
+      const cleanUser = String(user).toLowerCase().replace(/^@/, '');
+      const isOwner = auth && (
+        auth.isAdmin ||
+        String(auth.userId).toLowerCase() === cleanUser ||
+        (auth.username && auth.username.toLowerCase() === cleanUser) ||
+        getAssociatedUserIdentifiers(String(auth.userId).toLowerCase()).has(cleanUser)
       );
       if (!isOwner) {
         return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์ล้าง Store ของช่องนี้' });
@@ -2299,16 +2531,27 @@ app.delete('/api/widgets/:id/store', (req, res) => {
   }
 });
 
-
 // จำลองการยิง Shoutout สำหรับทดสอบ Widget
 app.post('/api/widgets/twitch-shoutout/simulate', (req, res) => {
   try {
-    const session = getSessionFromReq(req);
+    const auth = getAuthContext(req);
     const { user, channel } = req.body || {};
-    const targetUser = user || session?.userId;
+    const targetUser = user || auth?.userId;
     if (!targetUser) {
       return res.status(400).json({ error: 'User identifier is required' });
     }
+
+    const cleanTarget = String(targetUser).toLowerCase().replace(/^@/, '');
+    const isOwner = auth && (
+      auth.isAdmin ||
+      String(auth.userId).toLowerCase() === cleanTarget ||
+      (auth.username && auth.username.toLowerCase() === cleanTarget) ||
+      getAssociatedUserIdentifiers(String(auth.userId).toLowerCase()).has(cleanTarget)
+    );
+    if (!isOwner) {
+      return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์ส่งการจำลองเหตุการณ์ในช่องนี้' });
+    }
+
     const targetChannel = (channel || 'legionxiz').trim().toLowerCase().replace('@', '');
     const ev = {
       type: 'shoutout',
@@ -2498,17 +2741,29 @@ app.delete('/api/admin/dbd-perks/:role/:id', checkAdminAuth, (req, res) => {
 // จำลองการสุ่มเปิร์ค DBD สำหรับทดสอบ Widget
 app.post('/api/widgets/dbd-perks/simulate', (req, res) => {
   try {
-    const session = getSessionFromReq(req);
+    const auth = getAuthContext(req);
     const { user, role, username } = req.body || {};
-    const targetUser = user || session?.userId;
+    const targetUser = user || auth?.userId;
     if (!targetUser) {
       return res.status(400).json({ error: 'User identifier is required' });
     }
+
+    const cleanTarget = String(targetUser).toLowerCase().replace(/^@/, '');
+    const isOwner = auth && (
+      auth.isAdmin ||
+      String(auth.userId).toLowerCase() === cleanTarget ||
+      (auth.username && auth.username.toLowerCase() === cleanTarget) ||
+      getAssociatedUserIdentifiers(String(auth.userId).toLowerCase()).has(cleanTarget)
+    );
+    if (!isOwner) {
+      return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์ส่งการจำลองเหตุการณ์ในช่องนี้' });
+    }
+
     const ev = {
       type: 'dbd_perk_roll',
       role: role || 'survivor',
-      username: username || session?.username || 'Streamer',
-      avatar: `/api/twitch/avatar/${encodeURIComponent(username || session?.username || 'Streamer')}`,
+      username: username || auth?.username || 'Streamer',
+      avatar: `/api/twitch/avatar/${encodeURIComponent(username || auth?.username || 'Streamer')}`,
       timestamp: Date.now()
     };
     io.to('user_' + targetUser).emit('onEventReceived', ev);
@@ -2676,22 +2931,29 @@ async function performValorantRoll({ userId, username, roleFilter = 'all', mode 
 // Endpoint สั่งสุ่มตัวละคร Valorant จาก Dashboard
 app.post('/api/widgets/valorant-agent/roll', async (req, res) => {
   try {
-    const session = getSessionFromReq(req);
+    const auth = getAuthContext(req);
     const { user, username, roleFilter, mode, excludedAgents } = req.body || {};
-    const targetUser = user || session?.userId;
+    const targetUser = user || auth?.userId;
     if (!targetUser) {
       return res.status(400).json({ error: 'User identifier is required' });
     }
-    if (session && !session.isAdmin && session.userId !== targetUser && session.username?.toLowerCase() !== String(targetUser).toLowerCase()) {
+    const cleanTarget = String(targetUser).toLowerCase().replace(/^@/, '');
+    const isOwner = auth && (
+      auth.isAdmin ||
+      String(auth.userId).toLowerCase() === cleanTarget ||
+      (auth.username && auth.username.toLowerCase() === cleanTarget) ||
+      getAssociatedUserIdentifiers(String(auth.userId).toLowerCase()).has(cleanTarget)
+    );
+    if (!isOwner) {
       return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์สั่งสุ่มในช่องนี้' });
     }
     const result = await performValorantRoll({
       userId: targetUser,
-      username: username || session?.username || 'Streamer',
+      username: username || auth?.username || 'Streamer',
       roleFilter,
       mode,
       excludedAgents,
-      source: 'dashboard'
+      source: auth?.isWidget ? 'widget' : 'dashboard'
     });
     res.json(result);
   } catch (e) {
@@ -2703,15 +2965,25 @@ app.post('/api/widgets/valorant-agent/roll', async (req, res) => {
 // จำลองการสุ่มตัวละคร Valorant สำหรับทดสอบ Widget
 app.post('/api/widgets/valorant-agent/simulate', async (req, res) => {
   try {
-    const session = getSessionFromReq(req);
+    const auth = getAuthContext(req);
     const { user, username, roleFilter, mode } = req.body || {};
-    const targetUser = user || session?.userId;
+    const targetUser = user || auth?.userId;
     if (!targetUser) {
       return res.status(400).json({ error: 'User identifier is required' });
     }
+    const cleanTarget = String(targetUser).toLowerCase().replace(/^@/, '');
+    const isOwner = auth && (
+      auth.isAdmin ||
+      String(auth.userId).toLowerCase() === cleanTarget ||
+      (auth.username && auth.username.toLowerCase() === cleanTarget) ||
+      getAssociatedUserIdentifiers(String(auth.userId).toLowerCase()).has(cleanTarget)
+    );
+    if (!isOwner) {
+      return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์ส่งการจำลองเหตุการณ์ในช่องนี้' });
+    }
     const result = await performValorantRoll({
       userId: targetUser,
-      username: username || session?.username || 'Streamer (Test)',
+      username: username || auth?.username || 'Streamer (Test)',
       roleFilter: roleFilter || 'all',
       mode: mode || 'single',
       source: 'simulation'
@@ -2920,18 +3192,21 @@ function ensureUserInAuthProvider(userId) {
   return false;
 }
 
-// ส่งข้อความลงแชท Twitch ในนามของสตรีมเมอร์เจ้าของช่อง
-app.post('/api/chat/send', checkUserAuth, async (req, res) => {
+// ส่งข้อความลงแชท Twitch ในนามของสตรีมเมอร์เจ้าของช่อง (รองรับทั้ง Dashboard และ OBS Widget)
+app.post('/api/chat/send', checkUserOrWidgetAuth, async (req, res) => {
   try {
     const { user, message } = req.body;
     if (!message || typeof message !== 'string' || !message.trim()) {
       return res.status(400).json({ error: 'Message is required' });
     }
+    if (message.length > 500) {
+      return res.status(400).json({ error: 'Message too long (maximum 500 characters)' });
+    }
 
-    const session = req.user;
-    // 🛡️ ป้องกันการแอบอ้าง: สตรีมเมอร์ทั่วไปส่งได้เฉพาะช่องของตนเองเท่านั้น (ยกเว้น Admin)
-    let targetUserId = session.userId;
-    if (session.isAdmin && user) {
+    const auth = req.auth;
+    let targetUserId = auth.userId;
+
+    if (auth.isAdmin && user) {
       targetUserId = String(user).trim();
       if (!/^\d+$/.test(targetUserId)) {
         const clean = targetUserId.toLowerCase().replace(/^@/, '');
@@ -2940,6 +3215,30 @@ app.post('/api/chat/send', checkUserAuth, async (req, res) => {
             targetUserId = String(sess.userId);
             break;
           }
+        }
+      }
+    } else if (auth.isWidget) {
+      // 🛡️ ป้องกันการแอบอ้างข้ามช่อง: Widget ส่งแชทได้เฉพาะช่องของตนเองเท่านั้น
+      const reqUser = user ? String(user).trim().toLowerCase().replace(/^@/, '') : '';
+      const authUser = String(auth.userId).toLowerCase();
+      const allIds = getAssociatedUserIdentifiers(authUser);
+      allIds.add(authUser);
+      if (reqUser && !allIds.has(reqUser)) {
+        return res.status(403).json({ error: '403 Forbidden: Widget cannot send chat for other channels' });
+      }
+      if (!/^\d+$/.test(targetUserId)) {
+        for (const sess of Object.values(sessions)) {
+          if (sess && (sess.username?.toLowerCase() === authUser || sess.displayName?.toLowerCase() === authUser)) {
+            targetUserId = String(sess.userId);
+            break;
+          }
+        }
+      }
+    } else if (!/^\d+$/.test(targetUserId)) {
+      for (const sess of Object.values(sessions)) {
+        if (sess && (sess.username?.toLowerCase() === String(targetUserId).toLowerCase() || sess.displayName?.toLowerCase() === String(targetUserId).toLowerCase())) {
+          targetUserId = String(sess.userId);
+          break;
         }
       }
     }
@@ -4094,20 +4393,35 @@ app.post('/api/test/chat', checkAdminAuth, async (req, res) => {
 io.on('connection', (socket) => {
   console.log('🟢 Socket connected:', socket.id);
 
+  function isSocketAllowedForUser(sock, targetId) {
+    if (!targetId) return false;
+    if (sock.sessionUser && sock.sessionUser.isAdmin) return true;
+    const clean = String(targetId).trim().toLowerCase().replace('@', '');
+    if (sock.widgetUserId && sock.widgetUserId === clean) return true;
+    if (sock.sessionUser && (sock.sessionUser.userId === clean || sock.sessionUser.username?.toLowerCase() === clean)) return true;
+    if (sock.widgetUserId && getAssociatedUserIdentifiers(sock.widgetUserId).has(clean)) return true;
+    return false;
+  }
+
   // ให้เบราว์เซอร์หรือ Widget เข้าร่วมห้องเฉพาะของตนเอง
   socket.on('join_user', (payload) => {
     let targetUserId = payload?.userId;
     if (payload?.token && sessions[payload.token]) {
       targetUserId = sessions[payload.token].userId;
+      socket.sessionUser = sessions[payload.token];
     }
     if (targetUserId) {
       const clean = String(targetUserId).trim().toLowerCase().replace('@', '');
+      socket.widgetUserId = clean;
       const allIds = getAssociatedUserIdentifiers(clean);
       allIds.add(clean);
       for (const id of allIds) {
         socket.join('user_' + id);
         socket.join('channel_' + id);
       }
+      // ส่ง Widget Session Token กลับไปให้ adapter.js ไว้ใช้ทำ HTTP requests
+      const widgetToken = generateWidgetSessionToken(clean);
+      socket.emit('widget_auth_token', { token: widgetToken, userId: clean });
       console.log(`Socket ${socket.id} joined user/channel rooms:`, Array.from(allIds));
     }
   });
@@ -4118,12 +4432,15 @@ io.on('connection', (socket) => {
     if (channelName && typeof channelName === 'string') {
       const clean = channelName.trim().toLowerCase().replace('@', '');
       if (clean) {
+        socket.widgetUserId = clean;
         const allIds = getAssociatedUserIdentifiers(clean);
         allIds.add(clean);
         for (const id of allIds) {
           socket.join('channel_' + id);
           socket.join('user_' + id);
         }
+        const widgetToken = generateWidgetSessionToken(clean);
+        socket.emit('widget_auth_token', { token: widgetToken, userId: clean });
         console.log(`Socket ${socket.id} joined channel/user rooms:`, Array.from(allIds));
       }
     }
@@ -4133,6 +4450,8 @@ io.on('connection', (socket) => {
     if (!payload || !payload.userId) return;
     const userKey = payload.userId;
     const cleanUser = String(userKey).trim().toLowerCase().replace('@', '');
+    if (!isSocketAllowedForUser(socket, cleanUser)) return;
+
     const allIds = getAssociatedUserIdentifiers(cleanUser);
     allIds.add(cleanUser);
 
@@ -4150,6 +4469,7 @@ io.on('connection', (socket) => {
 
   socket.on('test_event', async (payload) => {
     if (!payload?.userId) return; // 🛡️ ห้าม Broadcast รบกวนหน้าจอของสตรีมเมอร์คนอื่น
+    if (!isSocketAllowedForUser(socket, payload.userId)) return;
     io.to('user_' + payload.userId).emit('onEventReceived', payload);
 
     // รองรับการทดสอบแลกแต้มขอเพลง Spotify จาก Dashboard
@@ -4175,6 +4495,7 @@ io.on('connection', (socket) => {
   socket.on('simulate_shoutout', (payload) => {
     const { userId, channel } = payload || {};
     if (!userId) return; // 🛡️ ห้าม Broadcast รบกวนหน้าจอของสตรีมเมอร์คนอื่น
+    if (!isSocketAllowedForUser(socket, userId)) return;
     const targetChannel = (channel || 'legionxiz').trim().toLowerCase().replace('@', '');
     const ev = {
       type: 'shoutout',
@@ -4194,6 +4515,7 @@ io.on('connection', (socket) => {
   socket.on('simulate_dbd_perk', (payload) => {
     const { userId, role, username } = payload || {};
     if (!userId) return; // 🛡️ ห้าม Broadcast รบกวนหน้าจอของสตรีมเมอร์คนอื่น
+    if (!isSocketAllowedForUser(socket, userId)) return;
     const ev = {
       type: 'dbd_perk_roll',
       role: role || 'survivor',
@@ -4234,11 +4556,29 @@ function saveSupportTickets(tickets) {
 }
 
 // 1. Submit a new support report
-app.post('/api/support/report', async (req, res) => {
+app.post('/api/support/report', supportLimiter, async (req, res) => {
   try {
     const { category, subject, description, username, contact, screenshotUrl } = req.body || {};
     if (!subject || !description) {
       return res.status(400).json({ error: 'กรุณากรอกหัวข้อและรายละเอียดปัญหา' });
+    }
+
+    const trimmedSubject = String(subject).trim();
+    const trimmedDesc = String(description).trim();
+    const trimmedContact = contact ? String(contact).trim() : '';
+    const trimmedUsername = username ? String(username).trim() : 'Guest';
+
+    if (trimmedSubject.length > 200) {
+      return res.status(400).json({ error: 'หัวข้อต้องมีความยาวไม่เกิน 200 ตัวอักษร' });
+    }
+    if (trimmedDesc.length > 5000) {
+      return res.status(400).json({ error: 'รายละเอียดต้องมีความยาวไม่เกิน 5,000 ตัวอักษร' });
+    }
+    if (trimmedContact.length > 200) {
+      return res.status(400).json({ error: 'ข้อมูลติดต่อต้องมีความยาวไม่เกิน 200 ตัวอักษร' });
+    }
+    if (trimmedUsername.length > 100) {
+      return res.status(400).json({ error: 'ชื่อผู้ใช้ต้องมีความยาวไม่เกิน 100 ตัวอักษร' });
     }
 
     // 🛡️ ป้องกัน Stored XSS: ต้องเป็น URL โปรโตคอล http/https เท่านั้น
@@ -4253,15 +4593,15 @@ app.post('/api/support/report', async (req, res) => {
     }
 
     const reports = loadSupportTickets();
-    const ticketId = 'HYPER-' + Math.floor(100000 + Math.random() * 900000);
+    const ticketId = 'HYPER-' + crypto.randomBytes(4).toString('hex').toUpperCase();
     const now = new Date().toISOString();
     const newReport = {
       ticketId,
       category: category || 'general',
-      subject: subject.trim(),
-      description: description.trim(),
-      username: username ? username.trim() : 'Guest',
-      contact: contact ? contact.trim() : '',
+      subject: trimmedSubject,
+      description: trimmedDesc,
+      username: trimmedUsername,
+      contact: trimmedContact,
       screenshotUrl: cleanScreenshotUrl,
       status: 'pending', // pending, in_progress, resolved, closed
       adminReply: '',
