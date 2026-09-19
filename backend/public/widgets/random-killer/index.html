@@ -703,11 +703,12 @@
       console.log('[Dossier] 🤖 Sending Twitch Chat message:', chatMsg);
 
       if (window.sendTwitchChat) {
-        await window.sendTwitchChat(chatMsg);
+        await window.sendTwitchChat(chatMsg, window.SolocastTargetUser || '');
       } else {
         try {
           await fetch('/api/chat/send', {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               user: window.SolocastTargetUser || '',

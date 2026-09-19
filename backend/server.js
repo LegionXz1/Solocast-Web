@@ -194,7 +194,10 @@ function saveSessions(sessionsData) {
 
 const sessions = loadSessions();
 
-// ค้นหาตัวตนและชื่อที่เกี่ยวข้องทั้งหมดของผู้ใช้ (userId, username, displayName) จาก Sessions
+// 🛡️ Cache สำหรับจัดเก็บความสัมพันธ์ระหว่าง Twitch Username <-> Twitch User ID (Numeric)
+const twitchUserCache = new Map();
+
+// ค้นหาตัวตนและชื่อที่เกี่ยวข้องทั้งหมดของผู้ใช้ (userId, username, displayName) จาก Sessions, Cache, และ Environment
 function getAssociatedUserIdentifiers(input) {
   const set = new Set();
   if (!input) return set;
@@ -212,6 +215,24 @@ function getAssociatedUserIdentifiers(input) {
       if (sUid) set.add(sUid);
       if (sUname) set.add(sUname);
       if (sDisplay) set.add(sDisplay);
+    }
+  }
+
+  // ตรวจสอบจาก twitchUserCache
+  if (twitchUserCache.has(clean)) {
+    set.add(twitchUserCache.get(clean));
+  }
+  for (const [uname, uid] of twitchUserCache.entries()) {
+    if (uid === clean) set.add(uname);
+  }
+
+  // ตรวจสอบจาก .env
+  const rootId = process.env.TWITCH_USER_ID ? String(process.env.TWITCH_USER_ID).trim().toLowerCase() : '';
+  const adminUsers = (process.env.ADMIN_TWITCH_USERS || '').toLowerCase().split(',').map(s => s.trim().replace(/^@/, ''));
+  if (rootId && (clean === rootId || adminUsers.includes(clean))) {
+    set.add(rootId);
+    for (const a of adminUsers) {
+      if (a) set.add(a);
     }
   }
 
@@ -588,10 +609,16 @@ function getAuthContext(req) {
     try {
       const refUrl = new URL(referer);
       const host = req.headers.host;
-      if (refUrl.host === host) {
-        const refUser = refUrl.searchParams.get('user') || refUrl.searchParams.get('channel');
+      const isSameHost = !host || refUrl.host === host || refUrl.hostname === req.hostname || (req.headers['x-forwarded-host'] && refUrl.host === req.headers['x-forwarded-host']);
+      if (isSameHost) {
+        const refUser = refUrl.searchParams.get('user') ||
+                        refUrl.searchParams.get('channel') ||
+                        req.headers['x-widget-user'] ||
+                        req.body?.user ||
+                        req.query?.user ||
+                        req.query?.channel;
         if (refUser) {
-          const cleanRefUser = refUser.trim().toLowerCase().replace(/^@/, '');
+          const cleanRefUser = String(refUser).trim().toLowerCase().replace(/^@/, '');
           return {
             type: 'widget_referer',
             userId: cleanRefUser,
@@ -3173,6 +3200,68 @@ function getFrontendUrl(req) {
   return 'http://localhost:5173';
 }
 
+// ตรวจสอบและแปลง Username หรือ ID ใดๆ ให้เป็น Twitch Numeric User ID ที่ API ต้องการอย่างแน่นอน
+async function resolveNumericTwitchUserId(userIdOrName) {
+  if (!userIdOrName) return null;
+  const key = String(userIdOrName).trim().toLowerCase().replace(/^@/, '');
+  if (!key) return null;
+
+  // 1. ถ้าเป็นตัวเลขล้วน (Numeric ID) คืนค่าได้ทันที
+  if (/^\d+$/.test(key)) {
+    return key;
+  }
+
+  // 2. ตรวจสอบจาก Cache
+  if (twitchUserCache.has(key)) {
+    return twitchUserCache.get(key);
+  }
+
+  // 3. ตรวจสอบจาก Sessions ในหน่วยความจำ
+  for (const s of Object.values(sessions)) {
+    if (s && (s.username?.toLowerCase() === key || s.displayName?.toLowerCase() === key)) {
+      if (s.userId && /^\d+$/.test(String(s.userId))) {
+        const uid = String(s.userId);
+        twitchUserCache.set(key, uid);
+        return uid;
+      }
+    }
+  }
+
+  // 4. ตรวจสอบจาก .env (TWITCH_USER_ID / ADMIN_TWITCH_USERS)
+  const envBroadcasterId = process.env.TWITCH_USER_ID ? String(process.env.TWITCH_USER_ID).trim() : '';
+  const adminUsers = (process.env.ADMIN_TWITCH_USERS || '').toLowerCase().split(',').map(s => s.trim().replace(/^@/, ''));
+  if (envBroadcasterId && adminUsers.includes(key)) {
+    twitchUserCache.set(key, envBroadcasterId);
+    return envBroadcasterId;
+  }
+
+  // 5. ค้นหาโดยตรงผ่าน Twitch Helix API
+  if (apiClient) {
+    try {
+      const user = await apiClient.users.getUserByName(key);
+      if (user && user.id) {
+        const uid = String(user.id);
+        twitchUserCache.set(key, uid);
+        if (user.name) twitchUserCache.set(user.name.toLowerCase(), uid);
+        if (user.displayName) twitchUserCache.set(user.displayName.toLowerCase(), uid);
+        console.log(`[Twitch User Resolve] 🔍 Resolved username "${key}" to numeric ID: ${uid} (${user.displayName || user.name})`);
+        return uid;
+      }
+    } catch (err) {
+      console.warn(`[Twitch User Resolve] ⚠️ Could not resolve username "${key}" via API:`, err?.message || err);
+    }
+  }
+
+  // 6. Fallback: หากระบบมี Token เพียงผู้ใช้เดียว ให้จับคู่กับ Token นั้นอัตโนมัติ (กรณีสตรีมเมอร์คนเดียว)
+  const tokenKeys = Object.keys(userTokens || {});
+  if (tokenKeys.length === 1 && /^\d+$/.test(tokenKeys[0])) {
+    twitchUserCache.set(key, tokenKeys[0]);
+    return tokenKeys[0];
+  }
+
+  return null;
+}
+
 // ตรวจสอบและลงทะเบียนผู้ใช้เข้า authProvider แบบไดนามิก (กรณีโทเค็นเพิ่งซิงค์มาจาก MongoDB หรือรีเฟรชใหม่)
 function ensureUserInAuthProvider(userId) {
   if (!authProvider || !userId) return false;
@@ -3204,50 +3293,51 @@ app.post('/api/chat/send', checkUserOrWidgetAuth, async (req, res) => {
     }
 
     const auth = req.auth;
-    let targetUserId = auth.userId;
+    const requestedUser = user ? String(user).trim() : '';
+    let resolvedUser = auth.userId;
 
-    if (auth.isAdmin && user) {
-      targetUserId = String(user).trim();
-      if (!/^\d+$/.test(targetUserId)) {
-        const clean = targetUserId.toLowerCase().replace(/^@/, '');
-        for (const sess of Object.values(sessions)) {
-          if (sess && (sess.username?.toLowerCase() === clean || sess.displayName?.toLowerCase() === clean)) {
-            targetUserId = String(sess.userId);
-            break;
-          }
-        }
+    if (auth.isAdmin) {
+      // Admin สามารถระบุช่องที่ต้องการส่งแชทแทนได้
+      if (requestedUser) {
+        resolvedUser = requestedUser;
       }
     } else if (auth.isWidget) {
       // 🛡️ ป้องกันการแอบอ้างข้ามช่อง: Widget ส่งแชทได้เฉพาะช่องของตนเองเท่านั้น
-      const reqUser = user ? String(user).trim().toLowerCase().replace(/^@/, '') : '';
-      const authUser = String(auth.userId).toLowerCase();
+      const authUser = String(auth.userId).trim().toLowerCase().replace(/^@/, '');
+      const reqUser = requestedUser.toLowerCase().replace(/^@/, '');
       const allIds = getAssociatedUserIdentifiers(authUser);
       allIds.add(authUser);
+
       if (reqUser && !allIds.has(reqUser)) {
-        return res.status(403).json({ error: '403 Forbidden: Widget cannot send chat for other channels' });
-      }
-      if (!/^\d+$/.test(targetUserId)) {
-        for (const sess of Object.values(sessions)) {
-          if (sess && (sess.username?.toLowerCase() === authUser || sess.displayName?.toLowerCase() === authUser)) {
-            targetUserId = String(sess.userId);
-            break;
-          }
+        // Resolve ทั้งคู่ก่อนตรวจสิทธิ์ เพื่อป้องกันกรณี authUser เป็น username แต่ reqUser เป็น numeric ID หรือสลับกัน
+        const resolvedAuthId = await resolveNumericTwitchUserId(authUser);
+        const resolvedReqId = await resolveNumericTwitchUserId(reqUser);
+        if (resolvedAuthId && resolvedReqId && resolvedAuthId === resolvedReqId) {
+          // ตรงกันผ่าน Twitch Numeric ID
+        } else {
+          console.warn(`[Twitch Chat] 403 Forbidden: Widget (${authUser}) attempted to send chat for (${reqUser})`);
+          return res.status(403).json({ error: '403 Forbidden: Widget cannot send chat for other channels' });
         }
       }
-    } else if (!/^\d+$/.test(targetUserId)) {
-      for (const sess of Object.values(sessions)) {
-        if (sess && (sess.username?.toLowerCase() === String(targetUserId).toLowerCase() || sess.displayName?.toLowerCase() === String(targetUserId).toLowerCase())) {
-          targetUserId = String(sess.userId);
-          break;
-        }
-      }
+      resolvedUser = authUser;
+    } else {
+      // ผู้ใช้ Dashboard ทั่วไป ส่งได้เฉพาะช่องตนเอง
+      resolvedUser = auth.userId;
+    }
+
+    // 🎯 แปลงเป็น Numeric User ID สำหรับ Twitch Helix Chat API
+    const targetUserId = await resolveNumericTwitchUserId(resolvedUser);
+    console.log(`[Twitch Chat] 🎯 Target for send: "${resolvedUser}" -> numeric ID: "${targetUserId}"`);
+
+    if (!targetUserId) {
+      return res.status(400).json({ error: `Could not resolve Twitch User ID for "${resolvedUser}"` });
     }
 
     // ตรวจสอบความพร้อมของโทเค็นใน authProvider
     let isReady = ensureUserInAuthProvider(targetUserId);
 
-    if (!targetUserId || !isReady) {
-      return res.status(400).json({ error: `No valid Twitch token found for user "${targetUserId || 'unknown'}"` });
+    if (!isReady) {
+      return res.status(400).json({ error: `No valid Twitch token found for user "${targetUserId}" (${resolvedUser})` });
     }
 
     if (!apiClient) {
@@ -3255,14 +3345,17 @@ app.post('/api/chat/send', checkUserOrWidgetAuth, async (req, res) => {
     }
 
     // ส่งข้อความผ่าน Twitch Helix Chat API ด้วยสิทธิ์ของสตรีมเมอร์
-    await apiClient.asUser(targetUserId, async (ctx) => {
-      await ctx.chat.sendChatMessage(targetUserId, message);
+    const sent = await apiClient.asUser(targetUserId, async (ctx) => {
+      return await ctx.chat.sendChatMessage(targetUserId, message);
     });
 
-    console.log(`[Twitch Chat] 💬 Sent chat message to channel ${targetUserId} as user: "${message}"`);
-    res.json({ success: true, user: targetUserId, message });
+    console.log(`[Twitch Chat] 💬 Sent chat message to channel ${targetUserId} (${resolvedUser}) as user: "${message}"`);
+    res.json({ success: true, user: targetUserId, message, msgId: sent?.id });
   } catch (err) {
-    console.error(`[Twitch Chat] ❌ Error sending message:`, err?.message || err);
+    console.error(`[Twitch Chat] ❌ Error sending message for user ${req.body?.user || req.auth?.userId}:`, err?.message || err);
+    if (err?.status) {
+      console.error(`[Twitch Chat] Status code: ${err.status}, Body:`, err?.body || err?.responseBody);
+    }
     res.status(500).json({ success: false, error: err?.message || 'Failed to send chat' });
   }
 });

@@ -81,6 +81,10 @@ function getWidgetHeaders() {
   if (currentWidgetToken) {
     headers['x-widget-token'] = currentWidgetToken;
   }
+  const u = targetUser || window.SolocastTargetUser || '';
+  if (u) {
+    headers['x-widget-user'] = u;
+  }
   return headers;
 }
 
@@ -207,15 +211,17 @@ setInterval(() => {
 }, 30000);
 
 // ฟังก์ชันส่งข้อความแชท Twitch ในนามของสตรีมเมอร์เจ้าของช่อง
-window.sendTwitchChat = async function(message) {
+window.sendTwitchChat = async function(message, userOverride) {
   if (!message) return;
-  console.log('[Solocast Adapter] Requesting to send Twitch chat:', message);
+  const target = userOverride || targetUser || window.SolocastTargetUser || '';
+  console.log('[Solocast Adapter] Requesting to send Twitch chat:', message, 'for user:', target);
   try {
     const res = await fetch('/api/chat/send', {
       method: 'POST',
+      credentials: 'include',
       headers: getWidgetHeaders(),
       body: JSON.stringify({
-        user: targetUser,
+        user: target,
         message: message
       })
     });
@@ -249,6 +255,7 @@ window.recordRollHistory = async function(item) {
   try {
     const res = await fetch(`/api/widgets/${currentWidgetId}/history`, {
       method: 'POST',
+      credentials: 'include',
       headers: getWidgetHeaders(),
       body: JSON.stringify({
         user: targetUser,
@@ -351,6 +358,7 @@ window.SE_API.store = {
 
       fetch(`/api/widgets/${currentWidgetId}/store/${encodeURIComponent(key)}`, {
         method: 'POST',
+        credentials: 'include',
         headers: getWidgetHeaders(),
         body: JSON.stringify({
           user: u,
