@@ -3028,14 +3028,14 @@ function initEventSubListener() {
 }
 
 
-// ตรวจจับคำสั่ง Song Request ยืดหยุ่น รองรับทั้ง prefix ที่ตั้งค่าไว้ (เช่น !เพลง หรือ เพลง) และค่าเริ่มต้น (!sr, sr)
+// ตรวจจับคำสั่ง Song Request โดยต้องเคาะวรรคเสมอ เช่น "!sr <ชื่อเพลง>" หรือ "!เพลง <ชื่อเพลง>"
 function extractSongRequestQuery(text, customPrefix) {
   if (!text) return null;
   const trimmed = text.trim();
   if (!trimmed) return null;
 
-  // รวบรวม prefix ที่เป็นไปได้ทั้งหมด (ทั้งมี ! และไม่มี !)
-  const prefixSet = new Set(['!sr', 'sr']);
+  // รวบรวม prefix คำสั่งที่เป็นไปได้
+  const prefixSet = new Set(['!sr']);
   if (customPrefix) {
     const cp = customPrefix.trim();
     if (cp) {
@@ -3060,17 +3060,8 @@ function extractSongRequestQuery(text, customPrefix) {
       return { isMatch: true, query: '', prefix: p };
     }
 
-    // 2. มีวรรคคั่น (เช่น "!เพลง เฉยเมย" หรือ "เพลง เฉยเมย")
-    if (textLower.startsWith(pLower + ' ') || textLower.startsWith(pLower + '　')) {
-      return {
-        isMatch: true,
-        query: trimmed.slice(p.length).trim(),
-        prefix: p
-      };
-    }
-
-    // 3. ภาษาไทยที่พิมพ์ติดกันโดยไม่เคาะวรรค (เฉพาะ prefix ที่ยาวกว่า 2 ตัวอักษร เช่น "!เพลงเฉยเมย")
-    if (p.length >= 2 && textLower.startsWith(pLower)) {
+    // 2. ต้องมีวรรคคั่นเสมอ (เช่น "!เพลง เฉยเมย" หรือ "!sr bohemian rhapsody")
+    if (textLower.startsWith(pLower + ' ') || textLower.startsWith(pLower + '　') || textLower.startsWith(pLower + '\t')) {
       return {
         isMatch: true,
         query: trimmed.slice(p.length).trim(),
@@ -3981,8 +3972,8 @@ io.on('connection', (socket) => {
       if (payload?.type === 'redemption' && payload?.data?.input && payload?.userId) {
         const rewardTitle = (payload.data.rewardTitle || '').trim().toLowerCase();
         let srSettings = widgetSettingsStore['spotify-sr']?.[payload.userId] || widgetSettingsStore['spotify-sr']?.['default'] || {};
-        const targetReward = (srSettings.channelPointsReward || 'ขอเพลง').trim().toLowerCase();
-        if (rewardTitle === targetReward || rewardTitle.includes(targetReward) || rewardTitle.includes('ขอเพลง') || rewardTitle.includes('spotify')) {
+        const targetReward = (srSettings.channelPointsReward || '').trim().toLowerCase();
+        if (targetReward !== '' && rewardTitle === targetReward) {
           await processSpotifySongRequest({
             userId: payload.userId,
             displayName: payload.data.userDisplayName || payload.data.name || 'TestViewer',
