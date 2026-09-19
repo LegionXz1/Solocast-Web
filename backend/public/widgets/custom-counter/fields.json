@@ -33,8 +33,8 @@
       "minimal-glass": "Minimal Glass",
       "cyberpunk": "Neon Cyberpunk",
       "souls": "Souls / Dark Fantasy",
-      "cute-pastel": "Cute Pastel",
-      "arcade": "Retro Arcade"
+      "arcade": "Retro Arcade",
+      "mecha-hud": "Mecha Cockpit"
     },
     "group": "รูปแบบและการแสดงผล (Design & Styles)"
   },
@@ -88,11 +88,19 @@
     "value": "#f59e0b",
     "group": "รูปแบบและการแสดงผล (Design & Styles)"
   },
+  "borderColor": {
+    "type": "colorpicker",
+    "label": "สีกรอบ (Border Color)",
+    "value": "#f59e0b",
+    "group": "รูปแบบและการแสดงผล (Design & Styles)",
+    "showIf": { "themePreset": ["minimal-clean", "minimal-glass", "cyberpunk", "souls", "arcade", "mecha-hud"] }
+  },
   "badgeBgColor": {
     "type": "colorpicker",
     "label": "สีพื้นหลังการ์ด (Background Color)",
     "value": "#0f172a",
-    "group": "รูปแบบและการแสดงผล (Design & Styles)"
+    "group": "รูปแบบและการแสดงผล (Design & Styles)",
+    "showIf": { "themePreset": ["minimal-clean", "minimal-glass", "cyberpunk", "souls", "arcade", "mecha-hud"] }
   },
   "textColor": {
     "type": "colorpicker",

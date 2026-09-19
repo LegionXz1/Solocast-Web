@@ -1317,6 +1317,20 @@ function Dashboard() {
   const renderSchemaForm = () => {
     if (!schema) return <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>กำลังโหลดหน้าจอตั้งค่า...</p>;
 
+    // Evaluate a field's showIf condition against current fieldData
+    const isFieldVisible = (field) => {
+      if (!field.showIf) return true;
+      for (const [condKey, condVal] of Object.entries(field.showIf)) {
+        const currentVal = fieldData[condKey];
+        if (Array.isArray(condVal)) {
+          if (!condVal.includes(currentVal)) return false;
+        } else {
+          if (currentVal !== condVal) return false;
+        }
+      }
+      return true;
+    };
+
     const groups = {};
     for (const key in schema) {
       const field = schema[key];
@@ -1326,7 +1340,7 @@ function Dashboard() {
     }
 
     return Object.keys(groups).map(groupName => {
-      const visibleFields = groups[groupName].filter(f => f.type !== 'custom');
+      const visibleFields = groups[groupName].filter(f => f.type !== 'custom' && isFieldVisible(f));
       if (visibleFields.length === 0) return null;
 
       return (

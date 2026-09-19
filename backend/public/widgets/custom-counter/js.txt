@@ -171,6 +171,13 @@ function applySettings(fieldData) {
       card.style.setProperty('--counter-border', borderCol);
       card.style.setProperty('--counter-glow', glowCol);
     }
+    if (fieldData.borderColor && fieldData.borderColor.trim()) {
+      const bCol = fieldData.borderColor.trim();
+      card.style.setProperty('--counter-border', bCol);
+      if (bCol.startsWith('#') && bCol.length === 7) {
+        card.style.setProperty('--counter-glow', bCol + '40');
+      }
+    }
     if (fieldData.badgeBgColor) card.style.setProperty('--counter-bg', fieldData.badgeBgColor);
     if (fieldData.textColor) card.style.setProperty('--counter-text', fieldData.textColor);
   }
@@ -202,12 +209,20 @@ function applySettings(fieldData) {
 }
 
 function updateCounterDisplay(newCount, delta = 0) {
+  const card = document.getElementById('counter-card');
   const valEl = document.getElementById('counter-value');
   const iconBox = document.getElementById('counter-icon-box');
   const deltaEl = document.getElementById('counter-delta');
 
   currentCount = Number(newCount);
   if (isNaN(currentCount)) currentCount = 0;
+
+  if (card) {
+    card.classList.remove('bump-card');
+    void card.offsetWidth;
+    card.classList.add('bump-card');
+    setTimeout(() => card.classList.remove('bump-card'), 450);
+  }
 
   if (valEl) {
     valEl.textContent = currentCount;
