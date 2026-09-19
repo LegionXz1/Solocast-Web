@@ -579,9 +579,12 @@
             'ผู้โชคร้าย'
           ).toString().trim();
 
-          console.log('[Dossier] Event Received - Raw Reward:', rawReward, '| Expected Reward:', REWARD_NAME);
+          const cleanRaw = rawReward.trim().toLowerCase();
+          const cleanExpected = (REWARD_NAME || '').trim().toLowerCase();
+          const isRewardMatch = (cleanRaw && cleanExpected && (cleanRaw === cleanExpected || cleanRaw.includes(cleanExpected) || cleanExpected.includes(cleanRaw)));
+          const isKeywordFallback = cleanRaw && (cleanRaw.includes('random killer') || cleanRaw.includes('killer') || cleanRaw.includes('ฆาตกร') || cleanRaw.includes('คิลเลอร์'));
 
-          if (rawReward !== '' && REWARD_NAME !== '' && rawReward.toLowerCase() === REWARD_NAME.toLowerCase()) {
+          if (isRewardMatch || isKeywordFallback) {
             const picked = killers[Math.floor(Math.random() * killers.length)];
             if (!enableVisualOverlayState) {
               console.log('[Dossier] 💬 Chat-Only Mode active: Bypassing visual overlay on stream.');

@@ -1166,7 +1166,7 @@ function saveWidgetSettings(data) {
 const widgetSettingsStore = loadWidgetSettings();
 
 // ดึงการตั้งค่าของ Widget เฉพาะของ User คนนั้น (เช่น Reward Name)
-app.get('/api/widgets/:id/settings', (req, res) => {
+app.get('/api/widgets/:id/settings', async (req, res) => {
   try {
     const widgetId = req.params.id;
     if (!isValidWidgetId(widgetId)) return res.status(400).json({ error: 'Invalid widget identifier' });
@@ -1186,9 +1186,23 @@ app.get('/api/widgets/:id/settings', (req, res) => {
       return res.status(400).json({ error: 'Invalid user parameter' });
     }
 
-    // 1. ถ้ามี User ID ให้ดึงการตั้งค่าเฉพาะของ User คนนั้น
-    if (user && widgetSettingsStore[widgetId] && widgetSettingsStore[widgetId][user]) {
-      return res.json(widgetSettingsStore[widgetId][user]);
+    // 1. ถ้ามี User ID หรือ Username ให้ดึงการตั้งค่าเฉพาะของ User คนนั้น (รองรับทั้ง numeric ID และ username)
+    if (user && widgetSettingsStore[widgetId]) {
+      if (widgetSettingsStore[widgetId][user]) {
+        return res.json(widgetSettingsStore[widgetId][user]);
+      }
+      const ids = getAssociatedUserIdentifiers(user);
+      for (const id of ids) {
+        if (widgetSettingsStore[widgetId][id]) {
+          return res.json(widgetSettingsStore[widgetId][id]);
+        }
+      }
+      if (typeof resolveNumericTwitchUserId === 'function') {
+        const numId = await resolveNumericTwitchUserId(user);
+        if (numId && widgetSettingsStore[widgetId][numId]) {
+          return res.json(widgetSettingsStore[widgetId][numId]);
+        }
+      }
     }
 
     // 2. ถ้ายังไม่เคยตั้งค่า ให้ดึงค่ามาตรฐานจาก fields.json (ไม่กระทบกับ User อื่น)
@@ -1297,6 +1311,7 @@ app.post('/api/widgets/:id/settings', (req, res) => {
     };
     for (const id of allIds) {
       io.to('user_' + id).emit('widget_settings_updated', settingsPayload);
+      io.to('channel_' + id).emit('widget_settings_updated', settingsPayload);
     }
 
     console.log(`[Settings] Updated isolated settings for user "${userKey}" on widget "${widgetId}":`, settings);
@@ -1638,11 +1653,21 @@ app.post('/api/user/widgets/:id/status', (req, res) => {
     saveUserWidgetStatus(userWidgetStatus);
 
     // ส่งสัญญาณ Real-time ไปยัง OBS Overlay และ Dashboard
-    io.to('user_' + userId).emit('user_widget_status_changed', {
-      userId,
-      widgetId,
-      enabled
-    });
+    const cleanUser = String(userId).trim().toLowerCase().replace('@', '');
+    const allIds = getAssociatedUserIdentifiers(cleanUser);
+    allIds.add(cleanUser);
+    for (const id of allIds) {
+      io.to('user_' + id).emit('user_widget_status_changed', {
+        userId,
+        widgetId,
+        enabled
+      });
+      io.to('channel_' + id).emit('user_widget_status_changed', {
+        userId,
+        widgetId,
+        enabled
+      });
+    }
     io.emit('widget_status_updated', {
       userId,
       widgetId,
@@ -4236,9 +4261,21 @@ function startEventSub(userId) {
     el.onChannelFollow(userId, userId, (e) => {
       try {
         console.log(`New Follower for ${userId}: ${e.userDisplayName}`);
-        const ev = { type: 'follower', userId, data: { name: e.userDisplayName } };
-        io.to('user_' + userId).emit('onEventReceived', ev);
-        io.emit('onEventReceived', ev);
+        const cleanUser = String(userId).trim().toLowerCase().replace('@', '');
+        const allIds = getAssociatedUserIdentifiers(cleanUser);
+        allIds.add(cleanUser);
+        const ev = {
+          type: 'follower',
+          userId,
+          broadcasterId: userId,
+          channel: e.broadcasterName || e.broadcasterDisplayName || '',
+          associatedUserIds: Array.from(allIds),
+          data: { name: e.userDisplayName }
+        };
+        for (const id of allIds) {
+          io.to('user_' + id).emit('onEventReceived', ev);
+          io.to('channel_' + id).emit('onEventReceived', ev);
+        }
       } catch (err) {
         console.error('[EventSub] Error in follow handler:', err);
       }
@@ -4251,9 +4288,21 @@ function startEventSub(userId) {
     el.onChannelSubscription(userId, (e) => {
       try {
         console.log(`New Subscriber for ${userId}: ${e.userDisplayName}`);
-        const ev = { type: 'subscriber', userId, data: { name: e.userDisplayName, tier: e.tier } };
-        io.to('user_' + userId).emit('onEventReceived', ev);
-        io.emit('onEventReceived', ev);
+        const cleanUser = String(userId).trim().toLowerCase().replace('@', '');
+        const allIds = getAssociatedUserIdentifiers(cleanUser);
+        allIds.add(cleanUser);
+        const ev = {
+          type: 'subscriber',
+          userId,
+          broadcasterId: userId,
+          channel: e.broadcasterName || e.broadcasterDisplayName || '',
+          associatedUserIds: Array.from(allIds),
+          data: { name: e.userDisplayName, tier: e.tier }
+        };
+        for (const id of allIds) {
+          io.to('user_' + id).emit('onEventReceived', ev);
+          io.to('channel_' + id).emit('onEventReceived', ev);
+        }
       } catch (err) {
         console.error('[EventSub] Error in sub handler:', err);
       }
@@ -4279,24 +4328,34 @@ function startEventSub(userId) {
         }
 
         console.log(`[EventSub] 🎁 Redemption received for user ${userId} by ${e.userName}: "${e.rewardTitle}" (avatar: ${avatar ? 'found' : 'none'})`);
-    const ev = {
-      type: 'redemption',
-      userId,
-      isTest: false,
-      data: {
-        name: e.userDisplayName || e.userName,
-        userName: e.userName,
-        userDisplayName: e.userDisplayName,
-        userId: e.userId,
-        avatar: avatar,
-        profileImage: avatar,
-        profileImageUrl: avatar,
-        rewardTitle: e.rewardTitle,
-        input: e.input,
-        isTest: false
-      }
-    };
-    io.to('user_' + userId).emit('onEventReceived', ev);
+        const cleanUser = String(userId).trim().toLowerCase().replace('@', '');
+        const allIds = getAssociatedUserIdentifiers(cleanUser);
+        allIds.add(cleanUser);
+
+        const ev = {
+          type: 'redemption',
+          userId,
+          broadcasterId: userId,
+          channel: e.broadcasterName || e.broadcasterDisplayName || '',
+          associatedUserIds: Array.from(allIds),
+          isTest: false,
+          data: {
+            name: e.userDisplayName || e.userName,
+            userName: e.userName,
+            userDisplayName: e.userDisplayName,
+            userId: e.userId,
+            avatar: avatar,
+            profileImage: avatar,
+            profileImageUrl: avatar,
+            rewardTitle: e.rewardTitle,
+            input: e.input,
+            isTest: false
+          }
+        };
+        for (const id of allIds) {
+          io.to('user_' + id).emit('onEventReceived', ev);
+          io.to('channel_' + id).emit('onEventReceived', ev);
+        }
 
     // ตรวจสอบการแลกแต้มสำหรับ Custom Counter (ถ้าเปิดใช้งาน)
     try {

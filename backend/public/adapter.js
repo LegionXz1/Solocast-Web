@@ -41,8 +41,8 @@ function isUserMatchingTarget(data) {
     return String(data).trim().toLowerCase().replace(/^@/, '') === currentTarget;
   }
 
-  const uid = String(data.userId || '').trim().toLowerCase().replace(/^@/, '');
-  const uname = String(data.username || data.name || data.channel || '').trim().toLowerCase().replace(/^@/, '');
+  const uid = String(data.userId || data.broadcasterId || '').trim().toLowerCase().replace(/^@/, '');
+  const uname = String(data.username || data.name || data.channel || data.broadcasterName || '').trim().toLowerCase().replace(/^@/, '');
   if (uid && uid === currentTarget) return true;
   if (uname && uname === currentTarget) return true;
 
@@ -50,7 +50,8 @@ function isUserMatchingTarget(data) {
     return data.associatedUserIds.some(id => String(id || '').trim().toLowerCase().replace(/^@/, '') === currentTarget);
   }
 
-  return false;
+  // เนื่องจากเซิร์ฟเวอร์ส่งข้อความมายัง Room เฉพาะของ User/Channel เท่านั้น หากได้รับอีเวนต์แล้วให้ถือว่าตรงกัน
+  return true;
 }
 
 function joinAllUserRooms() {
