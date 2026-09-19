@@ -752,13 +752,13 @@ export default function Support() {
                         {isExpanded ? ticket.description : (
                           ticket.description.length > 180 ? `${ticket.description.slice(0, 180)}...` : ticket.description
                         )}
-                        {ticket.screenshotUrl && isExpanded && (
+                        {ticket.screenshotUrl && isExpanded && /^https?:\/\//i.test(ticket.screenshotUrl) && (
                           <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-primary)' }}>
                             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>ลิงก์ภาพประกอบ:</span>
                             <a
                               href={ticket.screenshotUrl}
                               target="_blank"
-                              rel="noreferrer"
+                              rel="noopener noreferrer"
                               style={{ color: 'var(--accent, #3B82F6)', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                             >
                               <span>{ticket.screenshotUrl}</span>

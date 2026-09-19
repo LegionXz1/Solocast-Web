@@ -317,6 +317,32 @@ function isUserAdmin(userId, username) {
   return false;
 }
 
+// 🛡️ URL Protocol Validation (blocks javascript:, data:, vbscript:)
+function isSafeHttpUrl(urlString) {
+  if (!urlString || typeof urlString !== 'string') return false;
+  try {
+    const parsed = new URL(urlString.trim());
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch (_) {
+    return false;
+  }
+}
+
+// 🛡️ Timing-safe string comparison to protect against side-channel timing attacks
+function timingSafeKeyMatch(input, expected) {
+  if (!input || !expected || typeof input !== 'string' || typeof expected !== 'string') {
+    return false;
+  }
+  const a = Buffer.from(input);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) {
+    const h1 = crypto.createHash('sha256').update(input).digest();
+    const h2 = crypto.createHash('sha256').update(expected).digest();
+    return crypto.timingSafeEqual(h1, h2);
+  }
+  return crypto.timingSafeEqual(a, b);
+}
+
 // 🛡️ OWASP-compliant JSON escaping for embedding inside HTML <script> tags
 function safeJsonForHtmlScript(obj) {
   return JSON.stringify(obj)
@@ -388,7 +414,7 @@ function checkAdminAuth(req, res, next) {
     }
   }
 
-  if (rawKey && rawKey === activeKey) {
+  if (rawKey && timingSafeKeyMatch(rawKey, activeKey)) {
     const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '127.0.0.1';
     const revokedSession = (adminKeyConfig.sessions || []).find(s => s.isRevoked && (s.ip === clientIp || s.id === keyToken));
     if (revokedSession) {
@@ -464,7 +490,7 @@ app.post('/api/admin/verify-key', (req, res) => {
       });
     }
 
-    if (!inputKey || inputKey !== activeKey) {
+    if (!inputKey || !timingSafeKeyMatch(inputKey, activeKey)) {
       return res.status(401).json({
         success: false,
         authorized: false,
@@ -2058,6 +2084,7 @@ app.get('/api/widgets/:id/checkin-summary', (req, res) => {
 app.post('/api/widgets/:id/history', (req, res) => {
   try {
     const widgetId = req.params.id;
+    const session = getSessionFromReq(req);
     let { user, item } = req.body;
     if (!item) {
       const { user: u, userId, ...rest } = req.body;
@@ -2073,7 +2100,20 @@ app.post('/api/widgets/:id/history', (req, res) => {
       return res.json({ success: true, skipped: true, message: 'Skipped GamerGod88' });
     }
 
-    const userKey = user || 'default';
+    const userKey = user || session?.userId || 'default';
+
+    // 🛡️ Authorization Check
+    if (userKey !== 'default') {
+      const isOwner = session && (
+        session.isAdmin ||
+        session.userId === userKey ||
+        (session.username && session.username.toLowerCase() === String(userKey).toLowerCase().replace('@', ''))
+      );
+      if (!isOwner) {
+        return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์บันทึกประวัติการสุ่มของช่องนี้' });
+      }
+    }
+
     if (!rollHistoryStore[widgetId]) {
       rollHistoryStore[widgetId] = {};
     }
@@ -2091,11 +2131,9 @@ app.post('/api/widgets/:id/history', (req, res) => {
     rollHistoryStore[widgetId][userKey] = [newItem, ...rollHistoryStore[widgetId][userKey]].slice(0, 100);
     saveRollHistory(rollHistoryStore);
 
-    // ส่งสัญญาณ Real-time ไปยังหน้า Dashboard ของผู้ใช้คนนั้น
-    if (user) {
-      io.to('user_' + user).emit('widget_roll_history_item', { widgetId, item: newItem });
-    } else {
-      io.emit('widget_roll_history_item', { widgetId, item: newItem });
+    // ส่งสัญญาณ Real-time ไปยังหน้า Dashboard ของผู้ใช้คนนั้นเท่านั้น
+    if (userKey !== 'default') {
+      io.to('user_' + userKey).emit('widget_roll_history_item', { widgetId, item: newItem });
     }
 
     console.log(`[Roll History] Recorded roll on "${widgetId}" for user "${userKey}": ${newItem.username} rolled ${newItem.killer || newItem.result}`);
@@ -2109,17 +2147,29 @@ app.post('/api/widgets/:id/history', (req, res) => {
 app.delete('/api/widgets/:id/history', (req, res) => {
   try {
     const widgetId = req.params.id;
-    const user = req.query.user || req.query.channel || 'default';
+    const session = getSessionFromReq(req);
+    const user = req.query.user || req.query.channel || session?.userId || 'default';
+
+    // 🛡️ Authorization Check
+    if (user !== 'default') {
+      const isOwner = session && (
+        session.isAdmin ||
+        session.userId === user ||
+        (session.username && session.username.toLowerCase() === String(user).toLowerCase().replace('@', ''))
+      );
+      if (!isOwner) {
+        return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์ล้างประวัติการสุ่มของช่องนี้' });
+      }
+    }
+
     if (rollHistoryStore[widgetId]?.[user]) {
       rollHistoryStore[widgetId][user] = [];
       saveRollHistory(rollHistoryStore);
     }
-    if (user) {
+    if (user !== 'default') {
       io.to('user_' + user).emit('widget_roll_history_cleared', { widgetId });
-    } else {
-      io.emit('widget_roll_history_cleared', { widgetId });
     }
-    res.json({ success: true, message: 'History cleared' });
+    res.json({ success: true, message: `Roll history cleared for widget ${widgetId}` });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -2243,11 +2293,16 @@ app.delete('/api/widgets/:id/store', (req, res) => {
 // จำลองการยิง Shoutout สำหรับทดสอบ Widget
 app.post('/api/widgets/twitch-shoutout/simulate', (req, res) => {
   try {
-    const { user, channel } = req.body;
+    const session = getSessionFromReq(req);
+    const { user, channel } = req.body || {};
+    const targetUser = user || session?.userId;
+    if (!targetUser) {
+      return res.status(400).json({ error: 'User identifier is required' });
+    }
     const targetChannel = (channel || 'legionxiz').trim().toLowerCase().replace('@', '');
     const ev = {
       type: 'shoutout',
-      userId: user || '',
+      userId: targetUser,
       channel: targetChannel,
       targetChannel: targetChannel,
       data: {
@@ -2256,12 +2311,8 @@ app.post('/api/widgets/twitch-shoutout/simulate', (req, res) => {
         displayName: targetChannel
       }
     };
-    if (user) {
-      io.to('user_' + user).emit('onEventReceived', ev);
-    } else {
-      io.emit('onEventReceived', ev);
-    }
-    console.log(`[Shoutout API] 📢 Emitted test shoutout for: ${targetChannel}`);
+    io.to('user_' + targetUser).emit('onEventReceived', ev);
+    console.log(`[Shoutout API] 📢 Emitted test shoutout for: ${targetChannel} (user: ${targetUser})`);
     res.json({ success: true, channel: targetChannel });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -2333,7 +2384,7 @@ const handleDbdSync = async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 };
-app.post('/api/widgets/dbd-perks/sync', handleDbdSync);
+app.post('/api/widgets/dbd-perks/sync', checkAdminAuth, handleDbdSync);
 app.post('/api/admin/dbd-perks/sync', checkAdminAuth, handleDbdSync);
 
 // Admin: เพิ่มเปิร์คใหม่แบบกำหนดเอง (Add Perk)
@@ -2437,20 +2488,21 @@ app.delete('/api/admin/dbd-perks/:role/:id', checkAdminAuth, (req, res) => {
 // จำลองการสุ่มเปิร์ค DBD สำหรับทดสอบ Widget
 app.post('/api/widgets/dbd-perks/simulate', (req, res) => {
   try {
+    const session = getSessionFromReq(req);
     const { user, role, username } = req.body || {};
+    const targetUser = user || session?.userId;
+    if (!targetUser) {
+      return res.status(400).json({ error: 'User identifier is required' });
+    }
     const ev = {
       type: 'dbd_perk_roll',
       role: role || 'survivor',
-      username: username || 'Streamer',
-      avatar: `/api/twitch/avatar/${encodeURIComponent(username || 'Streamer')}`,
+      username: username || session?.username || 'Streamer',
+      avatar: `/api/twitch/avatar/${encodeURIComponent(username || session?.username || 'Streamer')}`,
       timestamp: Date.now()
     };
-    if (user) {
-      io.to('user_' + user).emit('onEventReceived', ev);
-    } else {
-      io.emit('onEventReceived', ev);
-    }
-    console.log(`[DBD Perks API] 🎲 Emitted test roll for: ${ev.username} (${ev.role})`);
+    io.to('user_' + targetUser).emit('onEventReceived', ev);
+    console.log(`[DBD Perks API] 🎲 Emitted test roll for: ${ev.username} (${ev.role}) (user: ${targetUser})`);
     res.json({ success: true, event: ev });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -2483,7 +2535,7 @@ app.get('/api/widgets/valorant-agent/agents', (req, res) => {
 });
 
 // ซิงค์ตัวละคร Valorant สดๆ จาก Riot / Valorant API
-app.post('/api/widgets/valorant-agent/sync', async (req, res) => {
+app.post('/api/widgets/valorant-agent/sync', checkAdminAuth, async (req, res) => {
   try {
     console.log('[Valorant API] 🔄 Live syncing agents from Valorant API...');
     const data = await syncValorantAgents();
@@ -2549,20 +2601,23 @@ async function performValorantRoll({ userId, username, roleFilter = 'all', mode 
       usedIds.add(picked.id);
     }
 
+    // สลับลำดับเพื่อความสวยงาม
+    const shuffled = chosen.sort(() => Math.random() - 0.5);
+
     rollResult = {
       mode: 'team',
-      agents: chosen,
-      username: requester,
+      agents: shuffled,
+      requester,
       avatar,
       timestamp: Date.now()
     };
   } else {
-    // สุ่มเดี่ยว 1 ตัว
+    // สุ่มเดี่ยว 1 ตัว (Single)
     const picked = eligible[Math.floor(Math.random() * eligible.length)];
     rollResult = {
       mode: 'single',
       agent: picked,
-      username: requester,
+      requester,
       avatar,
       timestamp: Date.now()
     };
@@ -2577,8 +2632,6 @@ async function performValorantRoll({ userId, username, roleFilter = 'all', mode 
 
   if (userId) {
     io.to('user_' + userId).emit('onEventReceived', ev);
-  } else {
-    io.emit('onEventReceived', ev);
   }
 
   // บันทึกประวัติการสุ่มลง roll_history
@@ -2604,8 +2657,6 @@ async function performValorantRoll({ userId, username, roleFilter = 'all', mode 
 
   if (userId) {
     io.to('user_' + userId).emit('widget_roll_history_item', { widgetId: 'valorant-agent', item: historyItem });
-  } else {
-    io.emit('widget_roll_history_item', { widgetId: 'valorant-agent', item: historyItem });
   }
 
   console.log(`[Valorant Randomizer] 🎯 Rolled: ${historyItem.result} for ${requester} (user: ${userKey})`);
@@ -2615,10 +2666,18 @@ async function performValorantRoll({ userId, username, roleFilter = 'all', mode 
 // Endpoint สั่งสุ่มตัวละคร Valorant จาก Dashboard
 app.post('/api/widgets/valorant-agent/roll', async (req, res) => {
   try {
+    const session = getSessionFromReq(req);
     const { user, username, roleFilter, mode, excludedAgents } = req.body || {};
+    const targetUser = user || session?.userId;
+    if (!targetUser) {
+      return res.status(400).json({ error: 'User identifier is required' });
+    }
+    if (session && !session.isAdmin && session.userId !== targetUser && session.username?.toLowerCase() !== String(targetUser).toLowerCase()) {
+      return res.status(403).json({ error: '403 Forbidden: คุณไม่มีสิทธิ์สั่งสุ่มในช่องนี้' });
+    }
     const result = await performValorantRoll({
-      userId: user,
-      username,
+      userId: targetUser,
+      username: username || session?.username || 'Streamer',
       roleFilter,
       mode,
       excludedAgents,
@@ -2634,10 +2693,15 @@ app.post('/api/widgets/valorant-agent/roll', async (req, res) => {
 // จำลองการสุ่มตัวละคร Valorant สำหรับทดสอบ Widget
 app.post('/api/widgets/valorant-agent/simulate', async (req, res) => {
   try {
+    const session = getSessionFromReq(req);
     const { user, username, roleFilter, mode } = req.body || {};
+    const targetUser = user || session?.userId;
+    if (!targetUser) {
+      return res.status(400).json({ error: 'User identifier is required' });
+    }
     const result = await performValorantRoll({
-      userId: user,
-      username: username || 'Streamer (Test)',
+      userId: targetUser,
+      username: username || session?.username || 'Streamer (Test)',
       roleFilter: roleFilter || 'all',
       mode: mode || 'single',
       source: 'simulation'
@@ -4036,8 +4100,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('dbd_scoreboard_sync', (payload) => {
-    if (!payload) return;
-    const userKey = payload.userId || 'default';
+    if (!payload || !payload.userId) return;
+    const userKey = payload.userId;
     const cleanUser = String(userKey).trim().toLowerCase().replace('@', '');
     const allIds = getAssociatedUserIdentifiers(cleanUser);
     allIds.add(cleanUser);
@@ -4055,12 +4119,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('test_event', async (payload) => {
-    if (payload?.userId) {
-      // ส่งเฉพาะห้องของผู้ใช้คนนี้เท่านั้น ไม่กวนจอของผู้ใช้อื่น
-      io.to('user_' + payload.userId).emit('onEventReceived', payload);
-    } else {
-      io.emit('onEventReceived', payload);
-    }
+    if (!payload?.userId) return; // 🛡️ ห้าม Broadcast รบกวนหน้าจอของสตรีมเมอร์คนอื่น
+    io.to('user_' + payload.userId).emit('onEventReceived', payload);
 
     // รองรับการทดสอบแลกแต้มขอเพลง Spotify จาก Dashboard
     try {
@@ -4084,10 +4144,11 @@ io.on('connection', (socket) => {
 
   socket.on('simulate_shoutout', (payload) => {
     const { userId, channel } = payload || {};
+    if (!userId) return; // 🛡️ ห้าม Broadcast รบกวนหน้าจอของสตรีมเมอร์คนอื่น
     const targetChannel = (channel || 'legionxiz').trim().toLowerCase().replace('@', '');
     const ev = {
       type: 'shoutout',
-      userId: userId || '',
+      userId: userId,
       channel: targetChannel,
       targetChannel: targetChannel,
       data: {
@@ -4096,16 +4157,13 @@ io.on('connection', (socket) => {
         displayName: targetChannel
       }
     };
-    if (userId) {
-      io.to('user_' + userId).emit('onEventReceived', ev);
-    } else {
-      io.emit('onEventReceived', ev);
-    }
-    console.log(`[Shoutout Socket] 📢 Simulated shoutout for: ${targetChannel}`);
+    io.to('user_' + userId).emit('onEventReceived', ev);
+    console.log(`[Shoutout Socket] 📢 Simulated shoutout for: ${targetChannel} (user: ${userId})`);
   });
 
   socket.on('simulate_dbd_perk', (payload) => {
     const { userId, role, username } = payload || {};
+    if (!userId) return; // 🛡️ ห้าม Broadcast รบกวนหน้าจอของสตรีมเมอร์คนอื่น
     const ev = {
       type: 'dbd_perk_roll',
       role: role || 'survivor',
@@ -4113,58 +4171,8 @@ io.on('connection', (socket) => {
       avatar: `/api/twitch/avatar/${encodeURIComponent(username || 'Streamer')}`,
       timestamp: Date.now()
     };
-    if (userId) {
-      io.to('user_' + userId).emit('onEventReceived', ev);
-    } else {
-      io.emit('onEventReceived', ev);
-    }
-    console.log(`[DBD Perks Socket] 🎲 Simulated perk roll for: ${ev.username} (${ev.role})`);
-  });
-
-  socket.on('send_twitch_chat', async (payload) => {
-    try {
-      const { userId, message } = payload || {};
-      if (!message) return;
-      let uid = userId ? String(userId).trim() : '';
-
-      if (uid && !/^\d+$/.test(uid)) {
-        const clean = uid.toLowerCase().replace(/^@/, '');
-        for (const sess of Object.values(sessions)) {
-          if (sess && (sess.username?.toLowerCase() === clean || sess.displayName?.toLowerCase() === clean)) {
-            uid = String(sess.userId);
-            break;
-          }
-        }
-      }
-
-      let isReady = ensureUserInAuthProvider(uid);
-      if (!isReady) {
-        if (process.env.TWITCH_USER_ID && ensureUserInAuthProvider(process.env.TWITCH_USER_ID)) {
-          uid = String(process.env.TWITCH_USER_ID);
-          isReady = true;
-        } else {
-          for (const k of Object.keys(userTokens)) {
-            if (ensureUserInAuthProvider(k)) {
-              uid = k;
-              isReady = true;
-              break;
-            }
-          }
-        }
-      }
-
-      if (!uid || !apiClient || !isReady) {
-        console.warn(`[Twitch Chat Socket] ⚠️ No valid authenticated user found to send chat message`);
-        return;
-      }
-
-      await apiClient.asUser(uid, async (ctx) => {
-        await ctx.chat.sendChatMessage(uid, message);
-      });
-      console.log(`[Twitch Chat Socket] 💬 Sent chat for user ${uid}: "${message}"`);
-    } catch (err) {
-      console.error(`[Twitch Chat Socket] ❌ Error:`, err?.message || err);
-    }
+    io.to('user_' + userId).emit('onEventReceived', ev);
+    console.log(`[DBD Perks Socket] 🎲 Simulated perk roll for: ${ev.username} (${ev.role}) (user: ${userId})`);
   });
 
   socket.on('disconnect', () => {
@@ -4202,6 +4210,18 @@ app.post('/api/support/report', async (req, res) => {
     if (!subject || !description) {
       return res.status(400).json({ error: 'กรุณากรอกหัวข้อและรายละเอียดปัญหา' });
     }
+
+    // 🛡️ ป้องกัน Stored XSS: ต้องเป็น URL โปรโตคอล http/https เท่านั้น
+    let cleanScreenshotUrl = '';
+    if (screenshotUrl && typeof screenshotUrl === 'string') {
+      const trimmed = screenshotUrl.trim();
+      if (isSafeHttpUrl(trimmed)) {
+        cleanScreenshotUrl = trimmed;
+      } else if (trimmed) {
+        return res.status(400).json({ error: 'ลิงก์รูปภาพต้องขึ้นต้นด้วย http:// หรือ https:// เท่านั้น' });
+      }
+    }
+
     const reports = loadSupportTickets();
     const ticketId = 'HYPER-' + Math.floor(100000 + Math.random() * 900000);
     const now = new Date().toISOString();
@@ -4212,7 +4232,7 @@ app.post('/api/support/report', async (req, res) => {
       description: description.trim(),
       username: username ? username.trim() : 'Guest',
       contact: contact ? contact.trim() : '',
-      screenshotUrl: screenshotUrl ? screenshotUrl.trim() : '',
+      screenshotUrl: cleanScreenshotUrl,
       status: 'pending', // pending, in_progress, resolved, closed
       adminReply: '',
       adminRepliedAt: null,
