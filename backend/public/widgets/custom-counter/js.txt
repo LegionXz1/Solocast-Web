@@ -144,14 +144,18 @@ function applySettings(fieldData) {
         'Prompt': "'Prompt', sans-serif",
         'Kanit': "'Kanit', sans-serif",
         'Chakra Petch': "'Chakra Petch', sans-serif",
-        'Rajdhani': "'Rajdhani', 'Prompt', sans-serif",
-        'Bebas Neue': "'Bebas Neue', 'Prompt', sans-serif",
-        'Cinzel': "'Cinzel', serif",
-        'Press Start 2P': "'Press Start 2P', monospace"
+        'Mitr': "'Mitr', sans-serif",
+        'Bai Jamjuree': "'Bai Jamjuree', sans-serif",
+        'Itim': "'Itim', cursive, sans-serif",
+        'Mali': "'Mali', cursive, sans-serif",
+        'Pridi': "'Pridi', serif",
+        'Sarabun': "'Sarabun', sans-serif"
       };
       const selectedFont = FONT_MAP[font] || (font.includes(' ') ? `'${font}', sans-serif` : `${font}, sans-serif`);
       card.style.setProperty('--counter-font', selectedFont);
       if (root) root.style.setProperty('--counter-font', selectedFont);
+      if (document.body) document.body.style.setProperty('--counter-font', selectedFont);
+      if (document.documentElement) document.documentElement.style.setProperty('--counter-font', selectedFont);
     }
 
     // Colors
