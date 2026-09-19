@@ -41,8 +41,8 @@ function isUserMatchingTarget(data) {
     return String(data).trim().toLowerCase().replace(/^@/, '') === currentTarget;
   }
 
-  const uid = String(data.userId || data.broadcasterId || '').trim().toLowerCase().replace(/^@/, '');
-  const uname = String(data.username || data.name || data.channel || data.broadcasterName || '').trim().toLowerCase().replace(/^@/, '');
+  const uid = String(data.userId || '').trim().toLowerCase().replace(/^@/, '');
+  const uname = String(data.username || data.name || data.channel || '').trim().toLowerCase().replace(/^@/, '');
   if (uid && uid === currentTarget) return true;
   if (uname && uname === currentTarget) return true;
 
@@ -50,8 +50,7 @@ function isUserMatchingTarget(data) {
     return data.associatedUserIds.some(id => String(id || '').trim().toLowerCase().replace(/^@/, '') === currentTarget);
   }
 
-  // เนื่องจากเซิร์ฟเวอร์ส่งข้อความมายัง Room เฉพาะของ User/Channel เท่านั้น หากได้รับอีเวนต์แล้วให้ถือว่าตรงกัน
-  return true;
+  return false;
 }
 
 function joinAllUserRooms() {
@@ -69,25 +68,6 @@ socket.on('connect', () => {
   checkLiveStatus();
   syncSavedSettings();
 });
-
-let currentWidgetToken = (typeof window !== 'undefined' && window.__SOLOCAST_WIDGET_TOKEN) || '';
-socket.on('widget_auth_token', (data) => {
-  if (data && data.token) {
-    currentWidgetToken = data.token;
-  }
-});
-
-function getWidgetHeaders() {
-  const headers = { 'Content-Type': 'application/json' };
-  if (currentWidgetToken) {
-    headers['x-widget-token'] = currentWidgetToken;
-  }
-  const u = targetUser || window.SolocastTargetUser || '';
-  if (u) {
-    headers['x-widget-user'] = u;
-  }
-  return headers;
-}
 
 socket.on('reconnect', () => {
   console.log('[Solocast Adapter] 🔄 Socket reconnected, resyncing rooms and settings...');
@@ -212,17 +192,15 @@ setInterval(() => {
 }, 30000);
 
 // ฟังก์ชันส่งข้อความแชท Twitch ในนามของสตรีมเมอร์เจ้าของช่อง
-window.sendTwitchChat = async function(message, userOverride) {
+window.sendTwitchChat = async function(message) {
   if (!message) return;
-  const target = userOverride || targetUser || window.SolocastTargetUser || '';
-  console.log('[Solocast Adapter] Requesting to send Twitch chat:', message, 'for user:', target);
+  console.log('[Solocast Adapter] Requesting to send Twitch chat:', message);
   try {
     const res = await fetch('/api/chat/send', {
       method: 'POST',
-      credentials: 'include',
-      headers: getWidgetHeaders(),
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        user: target,
+        user: targetUser,
         message: message
       })
     });
@@ -256,8 +234,7 @@ window.recordRollHistory = async function(item) {
   try {
     const res = await fetch(`/api/widgets/${currentWidgetId}/history`, {
       method: 'POST',
-      credentials: 'include',
-      headers: getWidgetHeaders(),
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         user: targetUser,
         item: item
@@ -359,8 +336,7 @@ window.SE_API.store = {
 
       fetch(`/api/widgets/${currentWidgetId}/store/${encodeURIComponent(key)}`, {
         method: 'POST',
-        credentials: 'include',
-        headers: getWidgetHeaders(),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user: u,
           value: val

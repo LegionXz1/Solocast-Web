@@ -579,12 +579,9 @@
             'ผู้โชคร้าย'
           ).toString().trim();
 
-          const cleanRaw = rawReward.trim().toLowerCase();
-          const cleanExpected = (REWARD_NAME || '').trim().toLowerCase();
-          const isRewardMatch = (cleanRaw && cleanExpected && (cleanRaw === cleanExpected || cleanRaw.includes(cleanExpected) || cleanExpected.includes(cleanRaw)));
-          const isKeywordFallback = cleanRaw && (cleanRaw.includes('random killer') || cleanRaw.includes('killer') || cleanRaw.includes('ฆาตกร') || cleanRaw.includes('คิลเลอร์'));
+          console.log('[Dossier] Event Received - Raw Reward:', rawReward, '| Expected Reward:', REWARD_NAME);
 
-          if (isRewardMatch || isKeywordFallback) {
+          if (rawReward !== '' && REWARD_NAME !== '' && rawReward.toLowerCase() === REWARD_NAME.toLowerCase()) {
             const picked = killers[Math.floor(Math.random() * killers.length)];
             if (!enableVisualOverlayState) {
               console.log('[Dossier] 💬 Chat-Only Mode active: Bypassing visual overlay on stream.');
@@ -706,12 +703,11 @@
       console.log('[Dossier] 🤖 Sending Twitch Chat message:', chatMsg);
 
       if (window.sendTwitchChat) {
-        await window.sendTwitchChat(chatMsg, window.SolocastTargetUser || '');
+        await window.sendTwitchChat(chatMsg);
       } else {
         try {
           await fetch('/api/chat/send', {
             method: 'POST',
-            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               user: window.SolocastTargetUser || '',

@@ -593,12 +593,11 @@
 
       console.log('[DBD Perks] 🤖 Sending Twitch Chat message:', msg);
       if (window.sendTwitchChat) {
-        await window.sendTwitchChat(msg, window.SolocastTargetUser || '');
+        await window.sendTwitchChat(msg);
       } else {
         try {
           await fetch('/api/chat/send', {
             method: 'POST',
-            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               user: window.SolocastTargetUser || '',

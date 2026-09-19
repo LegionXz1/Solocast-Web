@@ -758,13 +758,9 @@ function Dashboard() {
   const handleScoreboardUpdate = async (action, target, value) => {
     if (!status.userId) return;
     try {
-      const activeToken = token || localStorage.getItem('solocast_user_token');
       const res = await fetch(`${API_BASE}/api/widgets/dbd-scoreboard/update`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(activeToken ? { 'Authorization': `Bearer ${activeToken}` } : {})
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user: status.userId,
           action,
@@ -800,13 +796,9 @@ function Dashboard() {
   const handleCounterUpdate = async (action, delta, value) => {
     if (!status.userId) return;
     try {
-      const activeToken = token || localStorage.getItem('solocast_user_token');
       const res = await fetch(`${API_BASE}/api/widgets/custom-counter/update`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(activeToken ? { 'Authorization': `Bearer ${activeToken}` } : {})
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user: status.userId,
           action,
@@ -830,13 +822,9 @@ function Dashboard() {
     if (!selectedWidget) return;
     setIsSaving(true);
     try {
-      const activeToken = token || localStorage.getItem('solocast_user_token');
       const res = await fetch(`${API_BASE}/api/widgets/${selectedWidget}/settings`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(activeToken ? { 'Authorization': `Bearer ${activeToken}` } : {})
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user: status.userId,
           settings: dataToSave

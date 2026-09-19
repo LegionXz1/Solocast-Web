@@ -3732,12 +3732,12 @@ function Admin() {
               }}>
                 {activeManageTicket.description}
               </p>
-              {activeManageTicket.screenshotUrl && /^https?:\/\//i.test(activeManageTicket.screenshotUrl) && (
+              {activeManageTicket.screenshotUrl && (
                 <div style={{ marginTop: '0.65rem', paddingTop: '0.65rem', borderTop: '1px solid var(--border-primary)' }}>
                   <a
                     href={activeManageTicket.screenshotUrl}
                     target="_blank"
-                    rel="noopener noreferrer"
+                    rel="noreferrer"
                     style={{ color: 'var(--accent, #3B82F6)', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                   >
                     <span>เปิดดูรูปภาพ/ลิงก์ที่แนบมา</span>
