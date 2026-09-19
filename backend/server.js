@@ -353,6 +353,8 @@ function safeJsonForHtmlScript(obj) {
     .replace(/\u2029/g, '\\u2029');
 }
 
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 function getSessionFromReq(req) {
   const authHeader = req.headers['authorization'];
   let token = '';
@@ -367,6 +369,14 @@ function getSessionFromReq(req) {
   }
   if (token && sessions[token]) {
     const s = sessions[token];
+
+    // 🛡️ ตรวจสอบอายุของเซสชัน (30 วัน)
+    if (s.createdAt && (Date.now() - s.createdAt > SESSION_TTL_MS)) {
+      delete sessions[token];
+      saveSessions(sessions);
+      return null;
+    }
+
     const isAdmin = isUserAdmin(s.userId, s.username);
     s.isAdmin = isAdmin;
     return {
@@ -2800,19 +2810,39 @@ function getTwitchRedirectUri(req) {
   return 'http://localhost:3000/auth/twitch/callback';
 }
 
+// 🛡️ Twitch OAuth CSRF State Nonce Store (In-Memory with 10 min TTL)
+const twitchOAuthStates = new Map();
+function cleanExpiredTwitchStates() {
+  const now = Date.now();
+  for (const [s, exp] of twitchOAuthStates.entries()) {
+    if (now > exp) twitchOAuthStates.delete(s);
+  }
+}
+
 // 1. หน้าสำหรับ Login (Twitch OAuth)
 app.get('/auth/twitch', (req, res) => {
+  cleanExpiredTwitchStates();
+  const stateNonce = crypto.randomBytes(16).toString('hex');
+  twitchOAuthStates.set(stateNonce, Date.now() + 10 * 60 * 1000);
+
   const currentRedirectUri = getTwitchRedirectUri(req);
   const scopes = requestedScopes.join(' ');
-  const authUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(currentRedirectUri)}&response_type=code&scope=${encodeURIComponent(scopes)}`;
+  const authUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(currentRedirectUri)}&response_type=code&scope=${encodeURIComponent(scopes)}&state=${encodeURIComponent(stateNonce)}`;
   res.redirect(authUrl);
 });
 app.get('/api/auth/twitch', (req, res) => res.redirect('/auth/twitch'));
 
 // 2. รับ Token กลับมาจาก Twitch
 app.get('/auth/twitch/callback', async (req, res) => {
-  const code = req.query.code;
-  if (!code) return res.send("Error: No code provided");
+  const { code, state } = req.query;
+  if (!code) return res.status(400).send("Error: No code provided");
+
+  // 🛡️ ป้องกัน OAuth Login CSRF
+  if (!state || !twitchOAuthStates.has(state) || Date.now() > twitchOAuthStates.get(state)) {
+    if (state) twitchOAuthStates.delete(state);
+    return res.status(400).send("Error: Invalid or expired OAuth state parameter. Please try logging in again.");
+  }
+  twitchOAuthStates.delete(state);
 
   try {
     const currentRedirectUri = getTwitchRedirectUri(req);
@@ -4260,8 +4290,10 @@ app.get('/api/support/tickets', (req, res) => {
     // Check if requester is Admin
     const session = getSessionFromReq(req);
     const adminKey = req.headers['x-admin-key'] || req.query.adminKey || req.query.admin_key;
-    const configuredKey = process.env.ADMIN_KEY || 'solocast_admin_2026';
-    const isAdmin = Boolean((session && session.isAdmin) || (adminKey && adminKey === configuredKey));
+    const adminConfig = loadAdminKeyConfig();
+    const activeKey = adminConfig.currentKey || process.env.ADMIN_KEY;
+    const isAdminKeyValid = adminConfig.enabled && activeKey && adminKey && timingSafeKeyMatch(String(adminKey).trim(), activeKey);
+    const isAdmin = Boolean((session && session.isAdmin) || isAdminKeyValid);
 
     if (ticketId) {
       // Direct ticket ID lookup
@@ -4273,16 +4305,22 @@ app.get('/api/support/tickets', (req, res) => {
     }
 
     if (!isAdmin) {
-      // User mode: filter by username or list of ticketIds
+      // 🛡️ Privacy Protection: ป้องกันบุคคลภายนอกสืบค้นตั๋วของผู้อื่น
       let filtered = [];
+      const sessionUsername = session?.username ? String(session.username).trim().toLowerCase() : '';
+
       if (username) {
         const u = username.trim().toLowerCase();
-        filtered = tickets.filter(t => (t.username || '').toLowerCase() === u);
+        if (sessionUsername && sessionUsername === u) {
+          filtered = tickets.filter(t => (t.username || '').toLowerCase() === u);
+        } else if (!ticketIds) {
+          return res.status(403).json({ error: '403 Forbidden: กรุณาเข้าสู่ระบบเพื่อดูรายการแจ้งปัญหาของบัญชีนี้' });
+        }
       }
+
       if (ticketIds) {
         const idList = ticketIds.split(',').map(id => id.trim().toUpperCase());
         const byIds = tickets.filter(t => idList.includes(t.ticketId.toUpperCase()));
-        // Merge without duplicates
         const existingIds = new Set(filtered.map(t => t.ticketId));
         byIds.forEach(t => {
           if (!existingIds.has(t.ticketId)) {
@@ -4290,6 +4328,11 @@ app.get('/api/support/tickets', (req, res) => {
           }
         });
       }
+
+      if (!username && !ticketIds) {
+        return res.json({ success: true, tickets: [] });
+      }
+
       filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       return res.json({ success: true, tickets: filtered });
     }
@@ -4442,12 +4485,12 @@ app.get('/auth/spotify/callback', async (req, res) => {
     return res.status(400).send('Missing code from Spotify');
   }
   try {
-    // Decode state to get userId
-    let userId = '';
-    try {
-      const stateObj = JSON.parse(Buffer.from(state || '', 'base64').toString('utf8'));
-      userId = stateObj.userId || '';
-    } catch (_) {}
+    // 🛡️ ตรวจสอบลายเซ็น HMAC ของ state ป้องกันการสวมรอยผูกบัญชี
+    const verifiedPayload = spotify.verifySpotifyState(state);
+    if (!verifiedPayload || !verifiedPayload.userId) {
+      return res.status(400).send('Invalid or expired Spotify authorization state');
+    }
+    const userId = verifiedPayload.userId;
 
     const redirectUri = getSpotifyRedirectUri(req);
     const tokenData = await spotify.exchangeSpotifyCode(code, redirectUri);
@@ -4546,11 +4589,7 @@ app.post('/api/spotify/request', checkUserAuth, async (req, res) => {
       userId,
       queue: updatedQueue
     });
-    io.emit('spotify_queue_updated', {
-      userId,
-      queue: updatedQueue
-    });
-    io.emit('spotify_new_request', {
+    io.to('user_' + userId).emit('spotify_new_request', {
       userId,
       track,
       requester: requester || req.user?.username || 'Dashboard'

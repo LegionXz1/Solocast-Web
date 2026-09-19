@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 import { saveAllItems } from './database.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -101,7 +102,7 @@ export function getAllSpotifyTokens() {
 }
 
 /**
- * Generate Spotify OAuth Authorize URL
+ * Generate Spotify OAuth Authorize URL with HMAC-signed state
  */
 export function getSpotifyAuthUrl(userId = '', customRedirect = '') {
   const clientId = process.env.SPOTIFY_CLIENT_ID || '';
@@ -114,7 +115,10 @@ export function getSpotifyAuthUrl(userId = '', customRedirect = '') {
     'user-read-recently-played'
   ].join(' ');
 
-  const state = Buffer.from(JSON.stringify({ userId, ts: Date.now() })).toString('base64');
+  const hmacSecret = process.env.SPOTIFY_CLIENT_SECRET || process.env.ADMIN_KEY || 'fastchick_spotify_secret';
+  const payload = { userId, ts: Date.now() };
+  const sig = crypto.createHmac('sha256', hmacSecret).update(JSON.stringify(payload)).digest('hex');
+  const state = Buffer.from(JSON.stringify({ ...payload, sig })).toString('base64');
 
   const params = new URLSearchParams({
     response_type: 'code',
@@ -126,6 +130,29 @@ export function getSpotifyAuthUrl(userId = '', customRedirect = '') {
   });
 
   return `https://accounts.spotify.com/authorize?${params.toString()}`;
+}
+
+export function verifySpotifyState(stateString) {
+  if (!stateString || typeof stateString !== 'string') return null;
+  try {
+    const raw = Buffer.from(stateString, 'base64').toString('utf8');
+    const { sig, ...payload } = JSON.parse(raw);
+    if (!sig) return null;
+    const hmacSecret = process.env.SPOTIFY_CLIENT_SECRET || process.env.ADMIN_KEY || 'fastchick_spotify_secret';
+    const expectedSig = crypto.createHmac('sha256', hmacSecret).update(JSON.stringify(payload)).digest('hex');
+    const b1 = Buffer.from(sig);
+    const b2 = Buffer.from(expectedSig);
+    if (b1.length !== b2.length || !crypto.timingSafeEqual(b1, b2)) {
+      return null;
+    }
+    // Expire state after 15 minutes
+    if (payload.ts && Date.now() - payload.ts > 15 * 60 * 1000) {
+      return null;
+    }
+    return payload;
+  } catch (_) {
+    return null;
+  }
 }
 
 /**
