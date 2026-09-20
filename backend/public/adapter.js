@@ -393,9 +393,13 @@ async function syncSavedSettings() {
     const userParam = targetUser ? `?user=${encodeURIComponent(targetUser)}` : '';
     const res = await fetch(`/api/widgets/${currentWidgetId}/settings${userParam}`);
     if (res.ok) {
-      const saved = await res.json();
-      // การตั้งค่าจากฐานข้อมูลเซิร์ฟเวอร์จะมีความสำคัญกว่า URL Query Params แบบเดิม
-      activeFields = { ...getUrlParams(), ...saved };
+      // ในโหมด Preview ของ Dashboard ให้ URL Query Params ล่าสุดมีความสำคัญสูงสุด
+      // ใน OBS ปกติ (ไม่มี preview=1) การตั้งค่าจากเซิร์ฟเวอร์จะสำคัญกว่า URL Query Params แบบเดิม
+      if (getUrlParams().preview === '1') {
+        activeFields = { ...saved, ...getUrlParams() };
+      } else {
+        activeFields = { ...getUrlParams(), ...saved };
+      }
       if (isWidgetActive) {
         dispatchWidgetLoad(activeFields);
       }
