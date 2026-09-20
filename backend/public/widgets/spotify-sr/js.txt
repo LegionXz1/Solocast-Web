@@ -38,9 +38,6 @@ function applySettings(newSettings) {
 
     // Accent Color
     let accent = settings.accentColor || '#1DB954';
-    if (settings.theme === 'lofi-cafe' && (!settings.accentColor || settings.accentColor === '#1DB954')) {
-      accent = '#d4a373';
-    }
     root.style.setProperty('--accent-color', accent);
     root.style.setProperty('--accent-glow', `${accent}40`);
 
@@ -91,14 +88,10 @@ function applySettings(newSettings) {
       cmdLabel.innerText = `${settings.commandPrefix || '!sr'} ชื่อเพลง`;
     }
 
-    // Status text update for lofi-cafe
+    // Status text update
     const statusText = document.getElementById('status-text');
     if (statusText) {
-      if (settings.theme === 'lofi-cafe') {
-        statusText.innerText = isPlaying ? '☕ LO-FI CHILL' : '☕ PAUSED';
-      } else {
-        statusText.innerText = isPlaying ? 'NOW PLAYING' : 'PAUSED';
-      }
+      statusText.innerText = isPlaying ? 'NOW PLAYING' : 'PAUSED';
     }
   }
 }
@@ -185,11 +178,7 @@ function updatePlayingState(data) {
   }
 
   if (statusText) {
-    if (settings.theme === 'lofi-cafe') {
-      statusText.innerText = isPlaying ? '☕ LO-FI CHILL' : '☕ PAUSED';
-    } else {
-      statusText.innerText = isPlaying ? 'NOW PLAYING' : 'PAUSED';
-    }
+    statusText.innerText = isPlaying ? 'NOW PLAYING' : 'PAUSED';
   }
 
   // Requester Name
