@@ -139,9 +139,14 @@ if (fs.existsSync(frontendDist)) {
 }
 app.use(express.static(path.join(__dirname, 'public'), {
   index: false,
-  maxAge: '7d', // ให้ Cloudflare และ Browser แคชรูปภาพและ assets ไว้ 7 วัน ไม่ต้องดึงใหม่ทุกครั้ง
-  setHeaders: (res) => {
-    res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
+  setHeaders: (res, filePath) => {
+    if (filePath && (filePath.endsWith('.html') || filePath.endsWith('.json') || filePath.endsWith('.js') || filePath.endsWith('.txt'))) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
+    }
   }
 }));
 

@@ -229,12 +229,37 @@ window.addEventListener('onWidgetLoad', function(obj) {
   // Initial fetch for current track
   const params = new URLSearchParams(window.location.search);
   const user = params.get('user') || '';
+  const isPreview = params.get('preview') === '1';
+
+  function showPreviewTrackFallback() {
+    if (isPreview && !currentTrack) {
+      updatePlayingState({
+        isPlaying: true,
+        progressMs: 65000,
+        durationMs: 215000,
+        track: {
+          name: 'YUNG TONY STARK',
+          artists: 'SURIYA MQT, YUNGTARR',
+          albumArt: 'https://i.scdn.co/image/ab67616d0000b2733a7f390ec27fb09dccdeb23c'
+        },
+        requester: 'ChatViewer'
+      });
+    }
+  }
+
   fetch(`/api/spotify/currently-playing?user=${encodeURIComponent(user)}`)
     .then(r => r.ok ? r.json() : null)
     .then(data => {
-      if (data) updatePlayingState(data);
+      if (data && data.track && data.isPlaying) {
+        updatePlayingState(data);
+      } else {
+        showPreviewTrackFallback();
+        if (data && !isPreview) updatePlayingState(data);
+      }
     })
-    .catch(() => {});
+    .catch(() => {
+      showPreviewTrackFallback();
+    });
 });
 
 window.addEventListener('onFieldsUpdate', function(obj) {
