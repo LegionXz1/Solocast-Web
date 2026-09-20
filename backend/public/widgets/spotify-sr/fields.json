@@ -1,14 +1,14 @@
 {
   "theme": {
     "type": "dropdown",
-    "label": "ธีมการแสดงผล (Visual Theme)",
+    "label": "ธีมการแสดงผล",
     "value": "glassmorphism",
     "options": {
-      "glassmorphism": "✨ Glassmorphism (กระจกหรูหรา)",
-      "cyberpunk": "⚡ Cyberpunk Neon (นีออนล้ำยุค)",
-      "minimal": "🖤 Clean Minimalist (เรียบหรู คมชัด)",
-      "vinyl": "💿 Retro Vinyl Record (แผ่นเสียงหมุน)",
-      "waveform": "🎛️ Waveform Compact (คลื่นเสียง มินิมอล)"
+      "glassmorphism": "✨ Glassmorphism",
+      "cyberpunk": "⚡ Cyberpunk Neon",
+      "minimal": "🖤 Clean Minimalist",
+      "vinyl": "💿 Retro Vinyl Record",
+      "waveform": "🎛️ Waveform Compact"
     },
     "group": "Appearance"
   },
