@@ -55,6 +55,20 @@
       </div>
       <div id="track-artist" class="track-artist">ศิลปิน</div>
 
+      <!-- Waveform Row (time + waveform bars + time) — used by waveform theme -->
+      <div id="waveform-row" class="waveform-row hidden">
+        <span id="wf-time-current" class="wf-time">00:00</span>
+        <div class="waveform-bars" id="waveform-bars">
+          <span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span>
+          <span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span>
+          <span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span>
+          <span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span>
+          <span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span>
+          <span class="wb"></span><span class="wb"></span><span class="wb"></span><span class="wb"></span>
+        </div>
+        <span id="wf-time-total" class="wf-time">00:00</span>
+      </div>
+
       <!-- Real-time Progress Bar -->
       <div id="progress-container" class="progress-container">
         <div class="progress-bar-bg">
@@ -66,5 +80,10 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Bottom edge progress bar — waveform theme only -->
+  <div id="bottom-progress-bar" class="bottom-progress-bar hidden">
+    <div id="bottom-progress-fill" class="bottom-progress-fill" style="width: 0%;"></div>
   </div>
 </div>

@@ -3987,6 +3987,13 @@ io.on('connection', (socket) => {
     } catch (_) {}
   });
 
+  socket.on('spotify_now_playing', (payload) => {
+    if (payload?.userId) {
+      io.to('user_' + payload.userId).emit('spotify_now_playing', payload);
+    }
+    io.emit('spotify_now_playing', payload);
+  });
+
   socket.on('simulate_shoutout', (payload) => {
     const { userId, channel } = payload || {};
     const targetChannel = (channel || 'legionxiz').trim().toLowerCase().replace('@', '');

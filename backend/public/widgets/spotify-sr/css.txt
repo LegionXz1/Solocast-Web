@@ -343,3 +343,339 @@ body {
 .hidden {
   display: none !important;
 }
+
+/* ============================================================
+   Theme 5: Waveform Compact
+   Layout: [AlbumArt] [Title / Artist / Time ▌Waveform▌ Time]
+   Bottom edge: thin progress bar
+   ============================================================ */
+
+/* Card override */
+.theme-waveform {
+  background: rgba(10, 12, 18, 0.72);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: none;
+  border-radius: 10px;
+  box-shadow: none;
+  padding: 10px 14px 18px 10px;
+  width: auto;
+  min-height: unset;
+  overflow: visible;
+}
+
+/* Hide status pill and requester on waveform theme */
+.theme-waveform .meta-header-row {
+  display: none !important;
+}
+
+/* Tighter art container */
+.theme-waveform .art-container {
+  width: 70px;
+  height: 70px;
+  flex-shrink: 0;
+}
+
+.theme-waveform .album-art {
+  width: 70px;
+  height: 70px;
+  border-radius: 6px;
+  border: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+  filter: brightness(0.85);
+}
+
+/* Hide built-in visualizer overlay on art */
+.theme-waveform .sound-visualizer {
+  display: none !important;
+}
+
+/* Track details: title / artist / waveform-row stacked */
+.theme-waveform .track-details {
+  gap: 2px;
+}
+
+.theme-waveform .track-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.theme-waveform .track-artist {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 4px;
+}
+
+/* Hide standard progress container on waveform theme */
+.theme-waveform #progress-container {
+  display: none !important;
+}
+
+/* === Waveform Row === */
+.waveform-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.wf-time {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Waveform bars container */
+.waveform-bars {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  height: 22px;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Each individual bar — thin like real audio fingerprint */
+.waveform-bars .wb {
+  flex: 1;
+  min-width: 1.5px;
+  max-width: 4px;
+  border-radius: 1px;
+  background: var(--accent-color);
+  animation: wbPulse var(--wdur, 0.9s) ease-in-out infinite alternate;
+  opacity: 0.88;
+  height: var(--wh, 10px);
+}
+
+/* 44 bars — heights mimic a real audio waveform fingerprint */
+.waveform-bars .wb:nth-child(1)  { --wh: 6px;  --wdur: 0.82s; animation-delay: 0.00s; }
+.waveform-bars .wb:nth-child(2)  { --wh: 13px; --wdur: 0.75s; animation-delay: 0.05s; }
+.waveform-bars .wb:nth-child(3)  { --wh: 9px;  --wdur: 0.91s; animation-delay: 0.11s; }
+.waveform-bars .wb:nth-child(4)  { --wh: 18px; --wdur: 0.68s; animation-delay: 0.03s; }
+.waveform-bars .wb:nth-child(5)  { --wh: 7px;  --wdur: 0.85s; animation-delay: 0.17s; }
+.waveform-bars .wb:nth-child(6)  { --wh: 20px; --wdur: 0.72s; animation-delay: 0.08s; }
+.waveform-bars .wb:nth-child(7)  { --wh: 11px; --wdur: 0.95s; animation-delay: 0.22s; }
+.waveform-bars .wb:nth-child(8)  { --wh: 16px; --wdur: 0.79s; animation-delay: 0.14s; }
+.waveform-bars .wb:nth-child(9)  { --wh: 8px;  --wdur: 0.88s; animation-delay: 0.06s; }
+.waveform-bars .wb:nth-child(10) { --wh: 19px; --wdur: 0.70s; animation-delay: 0.19s; }
+.waveform-bars .wb:nth-child(11) { --wh: 5px;  --wdur: 0.93s; animation-delay: 0.27s; }
+.waveform-bars .wb:nth-child(12) { --wh: 17px; --wdur: 0.76s; animation-delay: 0.10s; }
+.waveform-bars .wb:nth-child(13) { --wh: 12px; --wdur: 0.84s; animation-delay: 0.32s; }
+.waveform-bars .wb:nth-child(14) { --wh: 20px; --wdur: 0.67s; animation-delay: 0.04s; }
+.waveform-bars .wb:nth-child(15) { --wh: 9px;  --wdur: 0.89s; animation-delay: 0.23s; }
+.waveform-bars .wb:nth-child(16) { --wh: 15px; --wdur: 0.73s; animation-delay: 0.15s; }
+.waveform-bars .wb:nth-child(17) { --wh: 6px;  --wdur: 0.97s; animation-delay: 0.37s; }
+.waveform-bars .wb:nth-child(18) { --wh: 18px; --wdur: 0.78s; animation-delay: 0.09s; }
+.waveform-bars .wb:nth-child(19) { --wh: 10px; --wdur: 0.86s; animation-delay: 0.28s; }
+.waveform-bars .wb:nth-child(20) { --wh: 21px; --wdur: 0.65s; animation-delay: 0.01s; }
+.waveform-bars .wb:nth-child(21) { --wh: 7px;  --wdur: 0.92s; animation-delay: 0.34s; }
+.waveform-bars .wb:nth-child(22) { --wh: 16px; --wdur: 0.74s; animation-delay: 0.18s; }
+.waveform-bars .wb:nth-child(23) { --wh: 13px; --wdur: 0.87s; animation-delay: 0.42s; }
+.waveform-bars .wb:nth-child(24) { --wh: 19px; --wdur: 0.71s; animation-delay: 0.12s; }
+.waveform-bars .wb:nth-child(25) { --wh: 8px;  --wdur: 0.94s; animation-delay: 0.25s; }
+.waveform-bars .wb:nth-child(26) { --wh: 20px; --wdur: 0.69s; animation-delay: 0.07s; }
+.waveform-bars .wb:nth-child(27) { --wh: 11px; --wdur: 0.83s; animation-delay: 0.38s; }
+.waveform-bars .wb:nth-child(28) { --wh: 17px; --wdur: 0.77s; animation-delay: 0.20s; }
+.waveform-bars .wb:nth-child(29) { --wh: 6px;  --wdur: 0.96s; animation-delay: 0.44s; }
+.waveform-bars .wb:nth-child(30) { --wh: 14px; --wdur: 0.81s; animation-delay: 0.13s; }
+.waveform-bars .wb:nth-child(31) { --wh: 9px;  --wdur: 0.90s; animation-delay: 0.30s; }
+.waveform-bars .wb:nth-child(32) { --wh: 22px; --wdur: 0.66s; animation-delay: 0.02s; }
+.waveform-bars .wb:nth-child(33) { --wh: 7px;  --wdur: 0.98s; animation-delay: 0.47s; }
+.waveform-bars .wb:nth-child(34) { --wh: 15px; --wdur: 0.80s; animation-delay: 0.16s; }
+.waveform-bars .wb:nth-child(35) { --wh: 12px; --wdur: 0.88s; animation-delay: 0.35s; }
+.waveform-bars .wb:nth-child(36) { --wh: 18px; --wdur: 0.73s; animation-delay: 0.21s; }
+.waveform-bars .wb:nth-child(37) { --wh: 5px;  --wdur: 1.00s; animation-delay: 0.49s; }
+.waveform-bars .wb:nth-child(38) { --wh: 16px; --wdur: 0.76s; animation-delay: 0.26s; }
+.waveform-bars .wb:nth-child(39) { --wh: 10px; --wdur: 0.85s; animation-delay: 0.40s; }
+.waveform-bars .wb:nth-child(40) { --wh: 19px; --wdur: 0.70s; animation-delay: 0.08s; }
+.waveform-bars .wb:nth-child(41) { --wh: 8px;  --wdur: 0.93s; animation-delay: 0.46s; }
+.waveform-bars .wb:nth-child(42) { --wh: 14px; --wdur: 0.78s; animation-delay: 0.31s; }
+.waveform-bars .wb:nth-child(43) { --wh: 11px; --wdur: 0.87s; animation-delay: 0.43s; }
+.waveform-bars .wb:nth-child(44) { --wh: 17px; --wdur: 0.72s; animation-delay: 0.24s; }
+
+@keyframes wbPulse {
+  0%   { height: 3px; opacity: 0.35; }
+  100% { height: var(--wh, 12px); opacity: 1; }
+}
+
+/* === Bottom Edge Progress Bar (waveform theme) === */
+.bottom-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: 0 0 10px 10px;
+  overflow: hidden;
+}
+
+.bottom-progress-fill {
+  height: 100%;
+  background: var(--accent-color);
+  box-shadow: 0 0 8px var(--accent-glow);
+  transition: width 0.3s linear;
+  border-radius: 0 0 10px 10px;
+}
+
+/* ============================================================
+   Theme 6: Lo-Fi Cozy Cafe
+   Aesthetic: Warm dark cocoa glass, polaroid album art,
+   washi tape accent, caramel/honey glow, cozy typography
+   ============================================================ */
+
+.theme-lofi-cafe {
+  background: linear-gradient(135deg, rgba(38, 28, 24, 0.88), rgba(22, 16, 14, 0.94));
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1.5px solid rgba(212, 163, 115, 0.32);
+  border-radius: 20px;
+  box-shadow: 0 14px 40px rgba(12, 8, 6, 0.65), 0 0 24px rgba(212, 163, 115, 0.15);
+  position: relative;
+}
+
+/* Subtle warm highlight on top edge */
+.theme-lofi-cafe::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 15%;
+  right: 15%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(254, 250, 224, 0.35), transparent);
+  pointer-events: none;
+}
+
+/* Polaroid style album art */
+.theme-lofi-cafe .art-container {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  padding: 4px;
+  background: #fdfbf7;
+  border-radius: 12px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+  transform: rotate(-1.5deg);
+  transition: transform 0.3s ease;
+}
+
+.theme-lofi-cafe .art-container:hover {
+  transform: rotate(0deg) scale(1.02);
+}
+
+.theme-lofi-cafe .album-art {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  border: none;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Washi tape sticker over the top corner of the album art */
+.theme-lofi-cafe .art-container::after {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 18px;
+  width: 38px;
+  height: 14px;
+  background: rgba(226, 149, 120, 0.7);
+  backdrop-filter: blur(2px);
+  transform: rotate(-6deg);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);
+  border-left: 2px dashed rgba(255, 255, 255, 0.3);
+  border-right: 2px dashed rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Status Pill in cozy latte style */
+.theme-lofi-cafe .status-pill {
+  background: rgba(212, 163, 115, 0.2);
+  border: 1px solid rgba(212, 163, 115, 0.45);
+  color: #faedcd;
+  border-radius: 16px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+}
+
+.theme-lofi-cafe .pulse-dot {
+  background: #e29578;
+  box-shadow: 0 0 8px rgba(226, 149, 120, 0.85);
+}
+
+/* Requester badge in soft cream/peach tone */
+.theme-lofi-cafe .requester-badge {
+  background: rgba(226, 149, 120, 0.18);
+  border: 1px solid rgba(226, 149, 120, 0.38);
+  color: #fbc3bc;
+  border-radius: 16px;
+}
+
+/* Track title & artist */
+.theme-lofi-cafe .track-title {
+  color: #fefae0;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.theme-lofi-cafe .track-artist {
+  color: #d4a373;
+  font-weight: 500;
+}
+
+/* Sound Visualizer with warm pastel bars */
+.theme-lofi-cafe .sound-visualizer {
+  background: rgba(30, 22, 18, 0.82);
+  border: 1px solid rgba(212, 163, 115, 0.25);
+  border-radius: 8px;
+}
+
+.theme-lofi-cafe .sound-visualizer .bar {
+  background: linear-gradient(180deg, #e29578, #d4a373);
+  border-radius: 3px;
+}
+
+/* Progress bar in caramel-honey gradient */
+.theme-lofi-cafe .progress-bar-bg {
+  height: 6px;
+  background: rgba(254, 250, 224, 0.12);
+  border-radius: 10px;
+}
+
+.theme-lofi-cafe .progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #d4a373, #e29578);
+  border-radius: 10px;
+  box-shadow: 0 0 12px rgba(226, 149, 120, 0.5);
+}
+
+.theme-lofi-cafe .time-labels {
+  color: #d4a373;
+  font-weight: 500;
+}
+
+/* Idle state styling */
+.theme-lofi-cafe .idle-icon-wrapper {
+  background: rgba(212, 163, 115, 0.16);
+  border-color: rgba(212, 163, 115, 0.35);
+  color: #d4a373;
+}
+
+.theme-lofi-cafe .idle-title {
+  color: #fefae0;
+}
+
+.theme-lofi-cafe .idle-desc {
+  color: #d4a373;
+}
+
+.theme-lofi-cafe .highlight-pill {
+  background: rgba(212, 163, 115, 0.2);
+  color: #faedcd;
+}

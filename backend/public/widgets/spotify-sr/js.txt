@@ -37,9 +37,14 @@ function applySettings(newSettings) {
     root.classList.add(`theme-${settings.theme || 'glassmorphism'}`);
 
     // Accent Color
-    const accent = settings.accentColor || '#1DB954';
+    let accent = settings.accentColor || '#1DB954';
+    if (settings.theme === 'lofi-cafe' && (!settings.accentColor || settings.accentColor === '#1DB954')) {
+      accent = '#d4a373';
+    }
     root.style.setProperty('--accent-color', accent);
     root.style.setProperty('--accent-glow', `${accent}40`);
+
+    const isWaveform = settings.theme === 'waveform';
 
     // Vinyl Disc
     const vinylDisc = document.getElementById('vinyl-disc');
@@ -48,18 +53,30 @@ function applySettings(newSettings) {
       else vinylDisc.classList.add('hidden');
     }
 
-    // Visualizer
+    // Visualizer (built-in small art overlay) — hide on waveform
     const visualizer = document.getElementById('visualizer');
     if (visualizer) {
-      if (settings.showVisualizer !== false) visualizer.classList.remove('hidden');
+      if (settings.showVisualizer !== false && !isWaveform) visualizer.classList.remove('hidden');
       else visualizer.classList.add('hidden');
     }
 
-    // Progress Bar
+    // Standard Progress Bar — hide on waveform
     const progContainer = document.getElementById('progress-container');
     if (progContainer) {
-      if (settings.showProgressBar !== false) progContainer.classList.remove('hidden');
+      if (settings.showProgressBar !== false && !isWaveform) progContainer.classList.remove('hidden');
       else progContainer.classList.add('hidden');
+    }
+
+    // Waveform row + bottom progress bar — show only on waveform theme
+    const waveformRow = document.getElementById('waveform-row');
+    const bottomBar = document.getElementById('bottom-progress-bar');
+    if (waveformRow) {
+      if (isWaveform) waveformRow.classList.remove('hidden');
+      else waveformRow.classList.add('hidden');
+    }
+    if (bottomBar) {
+      if (isWaveform) bottomBar.classList.remove('hidden');
+      else bottomBar.classList.add('hidden');
     }
 
     // Requester Badge
@@ -73,6 +90,16 @@ function applySettings(newSettings) {
     if (cmdLabel) {
       cmdLabel.innerText = `${settings.commandPrefix || '!sr'} ชื่อเพลง`;
     }
+
+    // Status text update for lofi-cafe
+    const statusText = document.getElementById('status-text');
+    if (statusText) {
+      if (settings.theme === 'lofi-cafe') {
+        statusText.innerText = isPlaying ? '☕ LO-FI CHILL' : '☕ PAUSED';
+      } else {
+        statusText.innerText = isPlaying ? 'NOW PLAYING' : 'PAUSED';
+      }
+    }
   }
 }
 
@@ -83,15 +110,20 @@ function startProgressTimer() {
     currentProgressMs += 1000;
     if (currentProgressMs > totalDurationMs) currentProgressMs = totalDurationMs;
 
+    const pct = Math.min(100, Math.max(0, (currentProgressMs / totalDurationMs) * 100));
+    const timeStr = formatTime(currentProgressMs);
+
+    // Standard progress bar
     const fill = document.getElementById('progress-bar-fill');
     const timeCurrent = document.getElementById('time-current');
-    if (fill && totalDurationMs > 0) {
-      const pct = Math.min(100, Math.max(0, (currentProgressMs / totalDurationMs) * 100));
-      fill.style.width = `${pct}%`;
-    }
-    if (timeCurrent) {
-      timeCurrent.innerText = formatTime(currentProgressMs);
-    }
+    if (fill && totalDurationMs > 0) fill.style.width = `${pct}%`;
+    if (timeCurrent) timeCurrent.innerText = timeStr;
+
+    // Waveform theme: update wf-time-current + bottom fill
+    const wfCurrent = document.getElementById('wf-time-current');
+    if (wfCurrent) wfCurrent.innerText = timeStr;
+    const bottomFill = document.getElementById('bottom-progress-fill');
+    if (bottomFill && totalDurationMs > 0) bottomFill.style.width = `${pct}%`;
   }, 1000);
 }
 
@@ -141,8 +173,23 @@ function updatePlayingState(data) {
     progressBarFill.style.width = `${pct}%`;
   }
 
+  // Waveform theme: init wf times + bottom bar
+  const wfCurrent = document.getElementById('wf-time-current');
+  const wfTotal = document.getElementById('wf-time-total');
+  const bottomFill = document.getElementById('bottom-progress-fill');
+  if (wfCurrent) wfCurrent.innerText = formatTime(currentProgressMs);
+  if (wfTotal) wfTotal.innerText = formatTime(totalDurationMs);
+  if (bottomFill && totalDurationMs > 0) {
+    const pct = Math.min(100, Math.max(0, (currentProgressMs / totalDurationMs) * 100));
+    bottomFill.style.width = `${pct}%`;
+  }
+
   if (statusText) {
-    statusText.innerText = isPlaying ? 'NOW PLAYING' : 'PAUSED';
+    if (settings.theme === 'lofi-cafe') {
+      statusText.innerText = isPlaying ? '☕ LO-FI CHILL' : '☕ PAUSED';
+    } else {
+      statusText.innerText = isPlaying ? 'NOW PLAYING' : 'PAUSED';
+    }
   }
 
   // Requester Name
@@ -188,6 +235,19 @@ window.addEventListener('onWidgetLoad', function(obj) {
       if (data) updatePlayingState(data);
     })
     .catch(() => {});
+});
+
+window.addEventListener('onFieldsUpdate', function(obj) {
+  const fieldData = obj.detail?.fieldData || obj.detail || {};
+  applySettings(fieldData);
+});
+
+window.addEventListener('message', function(e) {
+  if (e.data && (e.data.type === 'onWidgetLoad' || e.data.type === 'onFieldsUpdate')) {
+    applySettings(e.data.fieldData || {});
+  } else if (e.data && e.data.type === 'spotify_now_playing') {
+    updatePlayingState(e.data.data);
+  }
 });
 
 window.addEventListener('onEventReceived', function(obj) {

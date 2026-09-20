@@ -435,6 +435,16 @@ socket.on('widget_settings_updated', (payload) => {
   }
 });
 
+// รองรับ Live Settings Update จาก Dashboard ผ่าน postMessage ใน iframe preview
+window.addEventListener('message', (e) => {
+  if (e.data && (e.data.type === 'onWidgetLoad' || e.data.type === 'onFieldsUpdate') && e.data.fieldData) {
+    activeFields = { ...activeFields, ...e.data.fieldData };
+    if (isWidgetActive) {
+      dispatchWidgetLoad(activeFields);
+    }
+  }
+});
+
 // ฟัง Live Update สถานะเปิด/ปิด Widget ของ User จาก Dashboard แบบ Real-time
 socket.on('user_widget_status_changed', (payload) => {
   if (!payload || payload.widgetId !== currentWidgetId) return;

@@ -846,6 +846,17 @@ function Dashboard() {
     const updated = { ...fieldData, [key]: value };
     setFieldData(updated);
 
+    // 🚀 ส่ง Signal ไปยัง Preview Iframe ทันทีแบบ Real-Time (Zero-latency)
+    try {
+      const iframes = document.querySelectorAll('.live-preview-iframe');
+      iframes.forEach(iframe => {
+        iframe.contentWindow?.postMessage({
+          type: 'onFieldsUpdate',
+          fieldData: updated
+        }, '*');
+      });
+    } catch (_) {}
+
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       handleSaveSettings(updated);
@@ -970,6 +981,15 @@ function Dashboard() {
         timestamp: Date.now()
       };
       socket.emit('spotify_now_playing', mockTrack);
+      try {
+        const iframes = document.querySelectorAll('.live-preview-iframe');
+        iframes.forEach(iframe => {
+          iframe.contentWindow?.postMessage({
+            type: 'spotify_now_playing',
+            data: mockTrack
+          }, '*');
+        });
+      } catch (_) {}
       socket.emit('test_event', {
         userId: status.userId,
         type: 'spotify_new_request',
