@@ -539,6 +539,7 @@ app.get('/api/admin/verify', (req, res) => {
     authorized: isAdmin,
     isTwitchConnected: Boolean(session),
     connectedUsername: session ? session.username : (isKeyValid ? 'Admin (Key)' : null),
+    connectedUserId: session ? session.userId : null,
     isBroadcaster: isAdmin,
     authMethod: isKeyValid ? 'admin_key' : 'twitch',
     keyToken: keySessionId
@@ -1433,22 +1434,40 @@ app.post('/api/admin/widgets/:id/access', checkAdminAuth, (req, res) => {
   }
 });
 
-// GET /api/admin/users — ดึงรายชื่อผู้ใช้ที่เคยล็อกอินทั้งหมด (สำหรับเลือก Whitelist)
+// GET /api/admin/users — ดึงรายชื่อสมาชิกทั้งหมดที่เคยล็อกอินพร้อมรายละเอียด
 app.get('/api/admin/users', checkAdminAuth, (req, res) => {
   try {
     const userMap = new Map();
+    const rootBroadcasterId = process.env.TWITCH_USER_ID ? String(process.env.TWITCH_USER_ID).trim() : '';
 
     // 1. จาก Sessions
     for (const session of Object.values(sessions)) {
       if (session && session.userId) {
         const uid = String(session.userId);
+        const uname = session.username || '';
+        const dname = session.displayName || session.username || uid;
+        const isOwner = (rootBroadcasterId && uid === rootBroadcasterId) || uname.toLowerCase() === 'legionxiz';
+        const isAdmin = isOwner || Boolean(session.isAdmin) || isUserAdmin(uid, uname);
+
         if (!userMap.has(uid)) {
           userMap.set(uid, {
             userId: uid,
-            username: session.username || '',
-            displayName: session.displayName || session.username || uid,
-            isAdmin: Boolean(session.isAdmin)
+            username: uname,
+            displayName: dname,
+            avatar: session.avatar || '',
+            isAdmin,
+            isOwner,
+            hasTwitchToken: Boolean(userTokens[uid]),
+            hasSpotifyToken: Boolean(spotify.getSpotifyUserToken(uid)),
+            configuredWidgetsCount: 0,
+            lastLogin: session.createdAt || null
           });
+        } else {
+          const u = userMap.get(uid);
+          if (session.avatar && !u.avatar) u.avatar = session.avatar;
+          if (session.createdAt && (!u.lastLogin || new Date(session.createdAt) > new Date(u.lastLogin))) {
+            u.lastLogin = session.createdAt;
+          }
         }
       }
     }
@@ -1456,16 +1475,36 @@ app.get('/api/admin/users', checkAdminAuth, (req, res) => {
     // 2. จาก userTokens (Twurple)
     for (const uid of Object.keys(userTokens)) {
       if (uid && !userMap.has(uid)) {
+        const tokenObj = userTokens[uid];
+        const uname = tokenObj?.userName || tokenObj?.username || uid;
+        const isOwner = (rootBroadcasterId && uid === rootBroadcasterId) || uname.toLowerCase() === 'legionxiz';
         userMap.set(uid, {
           userId: uid,
-          username: uid,
-          displayName: uid,
-          isAdmin: isUserAdmin(uid)
+          username: uname,
+          displayName: uname,
+          avatar: '',
+          isAdmin: isOwner || isUserAdmin(uid, uname),
+          isOwner,
+          hasTwitchToken: true,
+          hasSpotifyToken: Boolean(spotify.getSpotifyUserToken(uid)),
+          configuredWidgetsCount: 0,
+          lastLogin: null
         });
       }
     }
 
+    // 3. คำนวณจำนวน Widget ที่ผู้ใช้คนนี้ได้ตั้งค่าไว้
+    for (const u of userMap.values()) {
+      let count = 0;
+      for (const wId of Object.keys(widgetSettingsStore)) {
+        if (widgetSettingsStore[wId]?.[u.userId]) count++;
+      }
+      u.configuredWidgetsCount = count;
+    }
+
     const users = Array.from(userMap.values()).sort((a, b) => {
+      if (a.isOwner && !b.isOwner) return -1;
+      if (!a.isOwner && b.isOwner) return 1;
       if (a.isAdmin && !b.isAdmin) return -1;
       if (!a.isAdmin && b.isAdmin) return 1;
       return (a.displayName || a.username || '').localeCompare(b.displayName || b.username || '');
@@ -1473,6 +1512,134 @@ app.get('/api/admin/users', checkAdminAuth, (req, res) => {
 
     res.json(users);
   } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /api/admin/users/:userId — ลบสมาชิกและล้างข้อมูลที่เกี่ยวข้องทั้งหมดออกจากระบบ
+app.delete('/api/admin/users/:userId', checkAdminAuth, async (req, res) => {
+  try {
+    const targetUserId = String(req.params.userId || '').trim();
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'กรุณาระบุ User ID ที่ต้องการลบ' });
+    }
+
+    const callingUserId = req.user?.userId ? String(req.user.userId) : '';
+    const rootBroadcasterId = process.env.TWITCH_USER_ID ? String(process.env.TWITCH_USER_ID).trim() : '';
+
+    // ป้องกันการลบตนเอง
+    if (callingUserId && callingUserId === targetUserId) {
+      return res.status(400).json({ error: 'ไม่สามารถลบบัญชีของตัวเองได้' });
+    }
+
+    // ป้องกันการลบเจ้าของระบบ (Owner / Root Broadcaster)
+    if (rootBroadcasterId && targetUserId === rootBroadcasterId) {
+      return res.status(403).json({ error: 'ไม่สามารถลบบัญชีเจ้าของระบบ (Root Owner) ได้' });
+    }
+
+    // ค้นหา username ของผู้ใช้ก่อนลบเพื่อใช้ค้นหาใน Store อื่นๆ
+    let targetUsername = '';
+    for (const session of Object.values(sessions)) {
+      if (session && String(session.userId) === targetUserId) {
+        targetUsername = session.username || '';
+        break;
+      }
+    }
+    if (!targetUsername && userTokens[targetUserId]?.userName) {
+      targetUsername = userTokens[targetUserId].userName;
+    }
+
+    if (targetUsername.toLowerCase() === 'legionxiz') {
+      return res.status(403).json({ error: 'ไม่สามารถลบบัญชีผู้ก่อตั้งระบบได้' });
+    }
+
+    // 1. ลบ Sessions ทั้งหมดของผู้ใช้นี้
+    let deletedSessionsCount = 0;
+    for (const [token, sess] of Object.entries(sessions)) {
+      if (sess && (String(sess.userId) === targetUserId || (targetUsername && String(sess.username).toLowerCase() === targetUsername.toLowerCase()))) {
+        delete sessions[token];
+        deletedSessionsCount++;
+      }
+    }
+    if (deletedSessionsCount > 0) {
+      saveSessions(sessions);
+    }
+
+    // 2. ลบ Twitch Tokens
+    if (userTokens[targetUserId]) {
+      delete userTokens[targetUserId];
+      saveTokens(userTokens);
+    }
+
+    // 3. ปลดสิทธิ์ Admin จาก database หากผู้ใช้นี้มีสิทธิ์อยู่
+    const dynamicAdmins = loadAdminUsers();
+    const updatedAdmins = dynamicAdmins.filter(a =>
+      String(a.userId) !== targetUserId &&
+      (!targetUsername || String(a.username || '').toLowerCase() !== targetUsername.toLowerCase())
+    );
+    if (updatedAdmins.length !== dynamicAdmins.length) {
+      saveAdminUsers(updatedAdmins);
+    }
+
+    // 4. ลบการตั้งค่า Widget (widgetSettingsStore)
+    for (const wId of Object.keys(widgetSettingsStore)) {
+      if (widgetSettingsStore[wId]?.[targetUserId]) {
+        delete widgetSettingsStore[wId][targetUserId];
+      }
+      if (targetUsername && widgetSettingsStore[wId]?.[targetUsername.toLowerCase()]) {
+        delete widgetSettingsStore[wId][targetUsername.toLowerCase()];
+      }
+    }
+    saveWidgetSettings(widgetSettingsStore);
+
+    // 5. ลบสถานะเปิด/ปิด Widget ของผู้ใช้ (userWidgetStatus)
+    if (userWidgetStatus[targetUserId]) {
+      delete userWidgetStatus[targetUserId];
+      saveUserWidgetStatus(userWidgetStatus);
+    }
+
+    // 6. ลบ Spotify Tokens และ Queue
+    try {
+      const spotifyTokens = spotify.getAllSpotifyTokens ? spotify.getAllSpotifyTokens() : {};
+      if (spotifyTokens[targetUserId]) {
+        delete spotifyTokens[targetUserId];
+        spotify.saveSpotifyTokens(spotifyTokens);
+      }
+      spotify.clearSongQueue(targetUserId);
+    } catch (_) {}
+
+    // 7. ลบออกจาก Whitelist ใน globalWidgetStatus
+    let whitelistChanged = false;
+    for (const wId of Object.keys(globalWidgetStatus)) {
+      const s = globalWidgetStatus[wId];
+      if (Array.isArray(s?.allowedUsers)) {
+        const prevLen = s.allowedUsers.length;
+        s.allowedUsers = s.allowedUsers.filter(u => {
+          const lower = String(u).toLowerCase();
+          return lower !== targetUserId.toLowerCase() && (!targetUsername || lower !== targetUsername.toLowerCase());
+        });
+        if (s.allowedUsers.length !== prevLen) whitelistChanged = true;
+      }
+    }
+    if (whitelistChanged) {
+      saveGlobalWidgetStatus(globalWidgetStatus);
+    }
+
+    // 8. ตัดการเชื่อมต่อ Socket ของผู้ใช้นี้
+    io.to('user_' + targetUserId).emit('auth_revoked', { message: 'บัญชีของคุณถูกลบออกจากระบบโดยผู้ดูแลระบบ' });
+    io.to('user_' + targetUserId).disconnectSockets();
+    if (targetUsername) {
+      io.to('user_' + targetUsername.toLowerCase()).disconnectSockets();
+    }
+
+    console.log(`[Admin] 🗑️ Member ${targetUserId} (@${targetUsername || 'unknown'}) was deleted by ${req.user?.username || 'Admin'}`);
+
+    res.json({
+      success: true,
+      message: `ลบสมาชิก @${targetUsername || targetUserId} ออกจากระบบเรียบร้อยแล้ว`
+    });
+  } catch (e) {
+    console.error('Error deleting user:', e);
     res.status(500).json({ error: e.message });
   }
 });

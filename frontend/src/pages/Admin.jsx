@@ -89,9 +89,10 @@ function Admin() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Section Selector ('widgets' | 'dbd_perks')
+  // Section Selector ('widgets' | 'dbd_perks' | 'tickets' | 'announcements' | 'admins' | 'users')
+  const initialTab = searchParams.get('tab');
   const [adminSection, setAdminSection] = useState(
-    searchParams.get('tab') === 'dbd_perks' ? 'dbd_perks' : 'widgets'
+    ['dbd_perks', 'tickets', 'announcements', 'admins', 'users'].includes(initialTab) ? initialTab : 'widgets'
   );
 
   // Auth State
@@ -100,6 +101,7 @@ function Admin() {
     checked: false,
     isTwitchConnected: false,
     connectedUsername: null,
+    connectedUserId: null,
     isBroadcaster: false
   });
 
@@ -191,6 +193,23 @@ function Admin() {
       (a.note || '').toLowerCase().includes(q)
     );
   }, [adminsList, adminSearchQuery]);
+
+  // Users Management State
+  const [usersList, setUsersList] = useState([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+
+  const filteredUsersList = useMemo(() => {
+    if (!userSearchQuery.trim()) return usersList;
+    const q = userSearchQuery.trim().toLowerCase();
+    return usersList.filter(u =>
+      (u.username || '').toLowerCase().includes(q) ||
+      (u.displayName || '').toLowerCase().includes(q) ||
+      (u.userId || '').toLowerCase().includes(q)
+    );
+  }, [usersList, userSearchQuery]);
 
   const loadAnnouncementData = async () => {
     setIsLoadingAnnouncement(true);
@@ -290,12 +309,14 @@ function Admin() {
           checked: true,
           isTwitchConnected: true,
           connectedUsername: 'Admin Key',
+          connectedUserId: null,
           isBroadcaster: true
         });
         fetchWidgets();
         fetchDbdPerks();
         fetchAdminUsers();
         fetchAdminsList();
+        fetchUsersList();
         fetchKeyConfig();
         showToast('เข้าสู่ระบบแอดมินด้วย Admin Key สำเร็จ!', 'success');
       } else {
@@ -604,6 +625,51 @@ function Admin() {
     }
   };
 
+  // Fetch Users List
+  const fetchUsersList = async () => {
+    setIsLoadingUsers(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/users`, {
+        headers: getAuthHeader()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setUsersList(data);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching users list:', err);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  // Delete User & wipe all user data
+  const handleDeleteUser = async (userId) => {
+    if (!userId) return;
+    setIsDeletingUser(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(userId)}`, {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(data.message || 'ลบสมาชิกและล้างข้อมูลเรียบร้อยแล้ว', 'success');
+        setDeleteConfirmUser(null);
+        fetchUsersList();
+        fetchAdminUsers();
+      } else {
+        showToast(data.error || 'ไม่สามารถลบสมาชิกได้', 'error');
+      }
+    } catch (err) {
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+    } finally {
+      setIsDeletingUser(false);
+    }
+  };
+
   // Sync DBD Perks from Wiki
   const handleSyncDbd = async () => {
     setIsSyncingDbd(true);
@@ -724,6 +790,7 @@ function Admin() {
         checked: true,
         isTwitchConnected: data.isTwitchConnected,
         connectedUsername: data.connectedUsername,
+        connectedUserId: data.connectedUserId || null,
         isBroadcaster: data.isBroadcaster
       });
 
@@ -734,6 +801,7 @@ function Admin() {
         fetchSupportTickets();
         fetchAdminUsers();
         fetchAdminsList();
+        fetchUsersList();
         fetchKeyConfig();
       } else {
         setIsAuthorized(false);
@@ -1263,6 +1331,30 @@ function Admin() {
                 </span>
               )}
             </button>
+            <button
+              type="button"
+              className={`admin-section-btn ${adminSection === 'users' ? 'active' : ''}`}
+              onClick={() => {
+                setAdminSection('users');
+                setSearchParams({ tab: 'users' });
+                fetchUsersList();
+              }}
+            >
+              <Users size={15} />
+              <span>จัดการสมาชิก</span>
+              {usersList.length > 0 && (
+                <span style={{
+                  fontSize: '0.7rem',
+                  background: adminSection === 'users' ? 'var(--accent-contrast)' : 'var(--surface-3)',
+                  color: adminSection === 'users' ? 'var(--accent-color)' : 'var(--text-primary)',
+                  padding: '1px 6px',
+                  marginLeft: '2px',
+                  borderRadius: 'var(--radius-xs)'
+                }}>
+                  {usersList.length}
+                </span>
+              )}
+            </button>
           </div>
 
           {adminSection === 'widgets' && (
@@ -1334,6 +1426,18 @@ function Admin() {
             >
               <RotateCw size={14} className={isLoadingAdmins ? 'spin' : ''} />
               <span>รีเฟรชรายชื่อ</span>
+            </button>
+          )}
+
+          {adminSection === 'users' && (
+            <button
+              type="button"
+              onClick={fetchUsersList}
+              disabled={isLoadingUsers}
+              className="btn-island"
+            >
+              <RotateCw size={14} className={isLoadingUsers ? 'spin' : ''} />
+              <span>รีเฟรชสมาชิก</span>
             </button>
           )}
         </div>
@@ -3370,6 +3474,320 @@ function Admin() {
         </div>
       )}
 
+      {/* 6. USERS MANAGEMENT VIEW (จัดการสมาชิก) */}
+      {adminSection === 'users' && (
+        <div className="admin-users-dashboard animate-fade-up">
+          {/* Header Info Banner */}
+          <div className="admin-roles-header-banner doppel-shell" style={{ marginBottom: '1.5rem', padding: '1.25rem 1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+                  <Users size={22} style={{ color: 'var(--accent-color)' }} />
+                  <span>จัดการสมาชิกในระบบ (User & Member Management)</span>
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  ตรวจสอบรายชื่อผู้ใช้งานทั้งหมด สถานะการเชื่อมต่อ และสามารถลบสมาชิกพร้อมล้างข้อมูลที่เกี่ยวข้องทั้งหมดได้
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span className="admin-badge-owner" style={{ padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Users size={14} /> ทั้งหมด: {usersList.length}
+                </span>
+                <span className="admin-badge-admin" style={{ padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <ShieldCheck size={14} /> แอดมิน: {usersList.filter(u => u.isAdmin).length}
+                </span>
+                <span style={{
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  background: 'rgba(145, 70, 255, 0.12)',
+                  color: '#9146FF',
+                  border: '1px solid rgba(145, 70, 255, 0.25)'
+                }}>
+                  Twitch: {usersList.filter(u => u.hasTwitchToken).length}
+                </span>
+                <span style={{
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  background: 'rgba(29, 185, 84, 0.12)',
+                  color: '#1DB954',
+                  border: '1px solid rgba(29, 185, 84, 0.25)'
+                }}>
+                  Spotify: {usersList.filter(u => u.hasSpotifyToken).length}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Search & Filter Bar */}
+          <div className="doppel-shell" style={{ padding: '1.25rem 1.5rem', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
+                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  value={userSearchQuery}
+                  onChange={(e) => setUserSearchQuery(e.target.value)}
+                  placeholder="ค้นหาด้วยชื่อผู้ใช้, ชื่อแสดง (Display Name) หรือ User ID..."
+                  style={{
+                    width: '100%',
+                    padding: '0.6rem 0.85rem 0.6rem 2.2rem',
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border-primary)',
+                    borderRadius: '8px',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.88rem'
+                  }}
+                />
+                {userSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setUserSearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                แสดง <strong>{filteredUsersList.length}</strong> จากทั้งหมด {usersList.length} คน
+              </div>
+            </div>
+          </div>
+
+          {/* Members Table */}
+          <div className="doppel-shell" style={{ padding: '1.5rem' }}>
+            {isLoadingUsers ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 0', color: 'var(--text-secondary)' }}>
+                <Loader2 size={32} className="spin" style={{ color: 'var(--accent-color)', marginBottom: '0.75rem' }} />
+                <span>กำลังโหลดรายชื่อสมาชิก...</span>
+              </div>
+            ) : filteredUsersList.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--text-secondary)' }}>
+                <UserX size={36} style={{ opacity: 0.4, marginBottom: '0.5rem' }} />
+                <p style={{ margin: 0, fontWeight: 600 }}>ไม่พบรายชื่อสมาชิกที่ตรงกับเงื่อนไขค้นหา</p>
+              </div>
+            ) : (
+              <div className="admin-table-container" style={{ overflowX: 'auto' }}>
+                <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left' }}>สมาชิก</th>
+                      <th style={{ textAlign: 'left' }}>บทบาท / สิทธิ์</th>
+                      <th style={{ textAlign: 'left' }}>การเชื่อมต่อ</th>
+                      <th style={{ textAlign: 'left' }}>Widgets ที่ตั้งค่า</th>
+                      <th style={{ textAlign: 'left' }}>เข้าใช้งานล่าสุด</th>
+                      <th style={{ textAlign: 'right' }}>จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsersList.map(u => {
+                      const isCurrentUser = authStatus.connectedUserId && String(authStatus.connectedUserId) === String(u.userId);
+                      const isOwnerUser = Boolean(u.isOwner);
+
+                      return (
+                        <tr key={u.userId}>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                              {u.avatar ? (
+                                <img
+                                  src={u.avatar}
+                                  alt={u.displayName || u.username}
+                                  style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-primary)' }}
+                                />
+                              ) : (
+                                <div style={{
+                                  width: '36px',
+                                  height: '36px',
+                                  borderRadius: '50%',
+                                  background: 'linear-gradient(135deg, var(--accent-color), #7928CA)',
+                                  color: '#fff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 800
+                                }}>
+                                  {(u.displayName || u.username || 'U').charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span>{u.displayName || u.username || 'Unnamed'}</span>
+                                  {isCurrentUser && (
+                                    <span style={{
+                                      fontSize: '0.68rem',
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      background: 'rgba(59, 130, 246, 0.15)',
+                                      color: '#3b82f6',
+                                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                                      fontWeight: 700
+                                    }}>
+                                      คุณ
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span>@{u.username || 'unknown'}</span>
+                                  <span style={{ color: 'var(--text-muted)' }}>•</span>
+                                  <code style={{ fontSize: '0.72rem', background: 'var(--surface-2)', padding: '1px 5px', borderRadius: '4px' }}>ID: {u.userId}</code>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            {u.isOwner ? (
+                              <span className="admin-badge-owner" style={{ padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <Crown size={12} /> เจ้าของระบบ
+                              </span>
+                            ) : u.isAdmin ? (
+                              <span className="admin-badge-admin" style={{ padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <ShieldCheck size={12} /> ผู้ดูแลระบบ
+                              </span>
+                            ) : (
+                              <span style={{
+                                padding: '0.25rem 0.6rem',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                background: 'var(--surface-2)',
+                                color: 'var(--text-secondary)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}>
+                                <User size={12} /> สมาชิกทั่วไป
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                              {u.hasTwitchToken ? (
+                                <span style={{
+                                  padding: '2px 7px',
+                                  borderRadius: '4px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  background: 'rgba(145, 70, 255, 0.12)',
+                                  color: '#9146FF',
+                                  border: '1px solid rgba(145, 70, 255, 0.25)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px'
+                                }}>
+                                  Twitch
+                                </span>
+                              ) : (
+                                <span style={{
+                                  padding: '2px 7px',
+                                  borderRadius: '4px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 500,
+                                  background: 'var(--surface-2)',
+                                  color: 'var(--text-muted)'
+                                }}>
+                                  No Twitch
+                                </span>
+                              )}
+                              {u.hasSpotifyToken && (
+                                <span style={{
+                                  padding: '2px 7px',
+                                  borderRadius: '4px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  background: 'rgba(29, 185, 84, 0.12)',
+                                  color: '#1DB954',
+                                  border: '1px solid rgba(29, 185, 84, 0.25)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px'
+                                }}>
+                                  Spotify
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <span style={{
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              background: u.configuredWidgetsCount > 0 ? 'rgba(59, 130, 246, 0.12)' : 'var(--surface-2)',
+                              color: u.configuredWidgetsCount > 0 ? '#3b82f6' : 'var(--text-muted)',
+                              border: u.configuredWidgetsCount > 0 ? '1px solid rgba(59, 130, 246, 0.25)' : 'none'
+                            }}>
+                              {u.configuredWidgetsCount} วิดเจ็ต
+                            </span>
+                          </td>
+                          <td>
+                            {u.lastLogin ? (
+                              <div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+                                  {new Date(u.lastLogin).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                  {new Date(u.lastLogin).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>-</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            {isOwnerUser ? (
+                              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0.3rem 0.5rem' }}>
+                                เจ้าของระบบ
+                              </span>
+                            ) : isCurrentUser ? (
+                              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0.3rem 0.5rem' }}>
+                                บัญชีคุณ
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirmUser(u)}
+                                className="code-action-btn danger"
+                                style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}
+                                title="ลบสมาชิกคนนี้ออกจากระบบและล้างข้อมูลทั้งหมด"
+                              >
+                                <Trash2 size={13} />
+                                <span>ลบสมาชิก</span>
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirm Modal */}
       {showDeleteModal && (
         <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
@@ -3901,6 +4319,96 @@ function Admin() {
                 style={{ padding: '0.65rem 1.25rem' }}
               >
                 {isDeletingAdmin ? 'กำลังปลดสิทธิ์...' : 'ยืนยันปลดสิทธิ์'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Confirm Modal */}
+      {deleteConfirmUser && (
+        <div className="modal-overlay" onClick={() => setDeleteConfirmUser(null)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '460px' }}>
+            <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.75rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={20} style={{ color: '#EF4444' }} /> ยืนยันการลบสมาชิกออกจากระบบ
+            </h3>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              padding: '0.85rem',
+              background: 'var(--surface-2)',
+              borderRadius: '8px',
+              marginBottom: '1rem',
+              border: '1px solid var(--border-primary)'
+            }}>
+              {deleteConfirmUser.avatar ? (
+                <img
+                  src={deleteConfirmUser.avatar}
+                  alt={deleteConfirmUser.displayName || deleteConfirmUser.username}
+                  style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
+                />
+              ) : (
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, var(--accent-color), #7928CA)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  color: '#fff'
+                }}>
+                  {(deleteConfirmUser.displayName || deleteConfirmUser.username || 'U').charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                  {deleteConfirmUser.displayName || deleteConfirmUser.username}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                  @{deleteConfirmUser.username} • <code style={{ fontSize: '0.72rem' }}>ID: {deleteConfirmUser.userId}</code>
+                </div>
+              </div>
+            </div>
+
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.5, marginBottom: '0.75rem' }}>
+              คุณแน่ใจหรือไม่ว่าต้องการลบสมาชิกรายนี้ออกจากระบบ? การกระทำนี้จะมีผลลัพธ์ดังต่อไปนี้ทันที:
+            </p>
+
+            <ul style={{
+              margin: '0 0 1.25rem 0',
+              paddingLeft: '1.25rem',
+              fontSize: '0.82rem',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.6
+            }}>
+              <li>ปิดและเพิกถอนเซสชัน (Session) ที่ใช้งานอยู่ทั้งหมด</li>
+              <li>เพิกถอนการเชื่อมต่อ Twitch Token และ EventSub</li>
+              <li>ลบข้อมูลการตั้งค่า Widget ทั้งหมดที่สมาชิกปรับแต่งไว้</li>
+              <li>เพิกถอนการเชื่อมต่อ Spotify และลบคิวเพลง</li>
+              <li>ลบชื่อออกจาก Whitelist การเข้าถึง Widget (ถ้ามี)</li>
+            </ul>
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmUser(null)}
+                className="btn-island"
+                style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--shell-border)' }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingUser}
+                onClick={() => handleDeleteUser(deleteConfirmUser.userId)}
+                className="btn-danger"
+                style={{ padding: '0.65rem 1.25rem' }}
+              >
+                {isDeletingUser ? 'กำลังลบข้อมูล...' : 'ยืนยันลบสมาชิก'}
               </button>
             </div>
           </div>
