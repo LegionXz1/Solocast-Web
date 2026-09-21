@@ -72,7 +72,10 @@ function getClientRealIp(req) {
          '127.0.0.1';
 }
 
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(compression({
   threshold: 1024,
   filter: (req, res) => {

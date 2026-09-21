@@ -36,9 +36,7 @@ export default function Dock() {
     }
     try {
       setError(null);
-      const res = await fetch(`${API_BASE}/api/dock/overview?user=${encodeURIComponent(targetUser)}`, {
-        credentials: 'include'
-      });
+      const res = await fetch(`${API_BASE}/api/dock/overview?user=${encodeURIComponent(targetUser)}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `HTTP ${res.status}`);
@@ -148,8 +146,7 @@ export default function Dock() {
       await fetch(`${API_BASE}/api/spotify/playback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: targetUser, action: 'toggle' }),
-        credentials: 'include'
+        body: JSON.stringify({ user: targetUser, action: 'toggle' })
       });
       setSpotifyData(prev => ({ ...prev, isPlaying: !prev.isPlaying }));
     } catch (e) {
@@ -166,8 +163,7 @@ export default function Dock() {
       await fetch(`${API_BASE}/api/spotify/skip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: targetUser }),
-        credentials: 'include'
+        body: JSON.stringify({ user: targetUser })
       });
       setTimeout(fetchOverview, 1000);
     } catch (e) {
@@ -180,8 +176,7 @@ export default function Dock() {
   const handleDeleteQueueItem = async (itemId) => {
     try {
       await fetch(`${API_BASE}/api/spotify/queue/${itemId}?user=${encodeURIComponent(targetUser)}`, {
-        method: 'DELETE',
-        credentials: 'include'
+        method: 'DELETE'
       });
       setSpotifyData(prev => ({
         ...prev,
@@ -196,8 +191,7 @@ export default function Dock() {
     if (!window.confirm('คุณต้องการล้างคิวเพลงทั้งหมดใช่หรือไม่?')) return;
     try {
       await fetch(`${API_BASE}/api/spotify/queue?user=${encodeURIComponent(targetUser)}`, {
-        method: 'DELETE',
-        credentials: 'include'
+        method: 'DELETE'
       });
       setSpotifyData(prev => ({ ...prev, queue: [] }));
     } catch (e) {
