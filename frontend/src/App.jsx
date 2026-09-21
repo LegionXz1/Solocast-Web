@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Landing from './pages/Landing';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -14,6 +14,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Admin = lazy(() => import('./pages/Admin'));
 const FAQ = lazy(() => import('./pages/FAQ'));
 const Support = lazy(() => import('./pages/Support'));
+const Dock = lazy(() => import('./pages/Dock'));
 
 function DirectLoginRedirect() {
   React.useEffect(() => {
@@ -46,28 +47,52 @@ function PageLoadingFallback() {
   );
 }
 
+function AppContent() {
+  const location = useLocation();
+  const isDock = location.pathname.startsWith('/dock');
+
+  if (isDock) {
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<PageLoadingFallback />}>
+          <Routes>
+            <Route path="/dock" element={<Dock />} />
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
+    );
+  }
+
+  return (
+    <>
+      <Navbar />
+      <main className="app-layout-content">
+        <ErrorBoundary>
+          <Suspense fallback={<PageLoadingFallback />}>
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route path="/login" element={<DirectLoginRedirect />} />
+              <Route path="/support" element={<Support />} />
+              <Route path="/report" element={<Support />} />
+              <Route path="/dock" element={<Dock />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
+      </main>
+      <Footer />
+    </>
+  );
+}
+
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
         <Router>
-          <Navbar />
-          <main className="app-layout-content">
-            <ErrorBoundary>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <Routes>
-                  <Route path="/" element={<Landing />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/admin" element={<Admin />} />
-                  <Route path="/faq" element={<FAQ />} />
-                  <Route path="/login" element={<DirectLoginRedirect />} />
-                  <Route path="/support" element={<Support />} />
-                  <Route path="/report" element={<Support />} />
-                </Routes>
-              </Suspense>
-            </ErrorBoundary>
-          </main>
-          <Footer />
+          <AppContent />
         </Router>
       </AuthProvider>
     </ThemeProvider>

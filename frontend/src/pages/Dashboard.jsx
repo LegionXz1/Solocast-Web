@@ -286,6 +286,7 @@ function Dashboard() {
   const [saveSuccess, setSaveSuccess] = useState('');
   const saveTimeoutRef = useRef(null);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedDockUrl, setCopiedDockUrl] = useState(false);
 
   // Tab & History State
   const [activeTab, setActiveTab] = useState('workspace'); // 'workspace' | 'history'
@@ -1251,6 +1252,14 @@ function Dashboard() {
     setTimeout(() => setCopiedUrl(false), 2500);
   };
 
+  const handleCopyDockUrl = () => {
+    const userParam = status.userId || status.username || '';
+    const dockUrl = `${window.location.origin}/dock?user=${encodeURIComponent(userParam)}`;
+    navigator.clipboard.writeText(dockUrl);
+    setCopiedDockUrl(true);
+    setTimeout(() => setCopiedDockUrl(false), 2500);
+  };
+
   const getWidgetObsUrl = (wId) => {
     const params = new URLSearchParams();
     if (status.userId) params.append('user', status.userId);
@@ -1686,6 +1695,31 @@ function Dashboard() {
                 <option value="name">เรียงตาม: ชื่อ</option>
                 <option value="active">เรียงตาม: สถานะเปิดใช้งาน</option>
               </select>
+
+              <button
+                type="button"
+                className={`my-overlays-dock-btn ${copiedDockUrl ? 'copied' : ''}`}
+                onClick={handleCopyDockUrl}
+                title="คัดลอกลิงก์ OBS Custom Browser Dock สำหรับควบคุมทุก Widget จากใน OBS"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.42rem 0.85rem',
+                  borderRadius: '8px',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  background: copiedDockUrl ? 'rgba(16, 185, 129, 0.15)' : 'rgba(99, 102, 241, 0.12)',
+                  border: copiedDockUrl ? '1px solid #10b981' : '1px solid rgba(99, 102, 241, 0.35)',
+                  color: copiedDockUrl ? '#34d399' : '#a5b4fc',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {copiedDockUrl ? <Check size={14} /> : <Zap size={14} />}
+                <span>{copiedDockUrl ? 'คัดลอก OBS Dock แล้ว!' : '🔗 OBS Quick Dock'}</span>
+              </button>
             </div>
           </div>
 

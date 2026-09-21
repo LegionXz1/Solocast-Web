@@ -4462,11 +4462,14 @@ app.post('/api/spotify/request', checkUserAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/spotify/queue/:id — ลบรายการออกจาก Queue (เจ้าของ Queue เท่านั้น)
-app.delete('/api/spotify/queue/:id', checkUserAuth, (req, res) => {
+// DELETE /api/spotify/queue/:id — ลบรายการออกจาก Queue (เจ้าของ Queue หรือจาก Dock)
+app.delete('/api/spotify/queue/:id', (req, res) => {
   try {
+    const session = getSessionFromReq(req);
+    const userId = req.user?.userId || session?.userId || req.query.user || req.query.userId || req.body?.user || req.body?.userId || '';
+    if (!userId) return res.status(401).json({ error: 'กรุณาระบุผู้ใช้ (user)' });
+
     const { id } = req.params;
-    const userId = req.user?.userId || '';
     const removed = spotify.removeQueueItem(id, userId);
     if (!removed) return res.status(404).json({ error: 'ไม่พบรายการนี้ใน Queue หรือไม่มีสิทธิ์ลบ' });
     io.to('user_' + userId).emit('spotify_queue_updated', {
@@ -4480,9 +4483,12 @@ app.delete('/api/spotify/queue/:id', checkUserAuth, (req, res) => {
 });
 
 // DELETE /api/spotify/queue — ล้าง Queue ของตัวเอง
-app.delete('/api/spotify/queue', checkUserAuth, (req, res) => {
+app.delete('/api/spotify/queue', (req, res) => {
   try {
-    const userId = req.user?.userId || '';
+    const session = getSessionFromReq(req);
+    const userId = req.user?.userId || session?.userId || req.query.user || req.query.userId || req.body?.user || req.body?.userId || '';
+    if (!userId) return res.status(401).json({ error: 'กรุณาระบุผู้ใช้ (user)' });
+
     spotify.clearSongQueue(userId || undefined);
     io.to('user_' + userId).emit('spotify_queue_updated', { userId, queue: [] });
     res.json({ success: true, message: 'Queue cleared' });
@@ -4491,10 +4497,13 @@ app.delete('/api/spotify/queue', checkUserAuth, (req, res) => {
   }
 });
 
-// POST /api/spotify/skip — ข้ามเพลง (เจ้าของบัญชีนั้นเท่านั้น)
-app.post('/api/spotify/skip', checkUserAuth, async (req, res) => {
+// POST /api/spotify/skip — ข้ามเพลง (เจ้าของบัญชีนั้น หรือจาก Dock)
+app.post('/api/spotify/skip', async (req, res) => {
   try {
-    const userId = req.user?.userId || '';
+    const session = getSessionFromReq(req);
+    const userId = req.user?.userId || session?.userId || req.query.user || req.query.userId || req.body?.user || req.body?.userId || '';
+    if (!userId) return res.status(401).json({ error: 'กรุณาระบุผู้ใช้ (user)' });
+
     const accessToken = await spotify.getValidAccessToken(userId || undefined);
     if (!accessToken) return res.status(503).json({ error: 'ยังไม่ได้เชื่อมต่อ Spotify' });
     await spotify.skipSpotifyTrack(accessToken);
@@ -4504,6 +4513,206 @@ app.post('/api/spotify/skip', checkUserAuth, async (req, res) => {
     if (msg === 'NO_ACTIVE_DEVICE') msg = 'กรุณาเปิด Spotify และเล่นเพลงก่อน';
     if (msg === 'PREMIUM_REQUIRED') msg = 'ต้องการ Spotify Premium';
     res.status(500).json({ error: msg });
+  }
+});
+
+// POST /api/spotify/playback — Play / Pause สลับสถานะเล่นเพลง
+app.post('/api/spotify/playback', async (req, res) => {
+  try {
+    const session = getSessionFromReq(req);
+    const userId = req.user?.userId || session?.userId || req.query.user || req.query.userId || req.body?.user || req.body?.userId || '';
+    if (!userId) return res.status(401).json({ error: 'กรุณาระบุผู้ใช้ (user)' });
+
+    const accessToken = await spotify.getValidAccessToken(userId || undefined);
+    if (!accessToken) return res.status(503).json({ error: 'ยังไม่ได้เชื่อมต่อ Spotify' });
+
+    const action = req.body?.action; // 'play', 'pause', or 'toggle'
+    if (action === 'play') {
+      await spotify.playSpotifyTrack(accessToken);
+    } else if (action === 'pause') {
+      await spotify.pauseSpotifyTrack(accessToken);
+    } else {
+      // Toggle
+      const current = await spotify.getCurrentlyPlaying(accessToken);
+      if (current.isPlaying) {
+        await spotify.pauseSpotifyTrack(accessToken);
+      } else {
+        await spotify.playSpotifyTrack(accessToken);
+      }
+    }
+    res.json({ success: true });
+  } catch (err) {
+    let msg = err.message;
+    if (msg === 'NO_ACTIVE_DEVICE') msg = 'กรุณาเปิด Spotify และเล่นเพลงก่อน';
+    if (msg === 'PREMIUM_REQUIRED') msg = 'ต้องการ Spotify Premium';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// GET /api/dock/overview — รวบรวม Widget ที่สตรีมเมอร์คนนี้เปิดใช้งานสำหรับ OBS Custom Dock
+app.get('/api/dock/overview', async (req, res) => {
+  try {
+    const session = getSessionFromReq(req);
+    const userParam = req.query.user || req.query.userId || session?.userId || '';
+    if (!userParam) {
+      return res.status(400).json({ error: 'กรุณาระบุพารามิเตอร์ ?user=<userId หรือ username>' });
+    }
+
+    const cleanUser = String(userParam).trim().toLowerCase().replace('@', '');
+    let matchedUserId = cleanUser;
+    let matchedUsername = cleanUser;
+    let displayName = cleanUser;
+    let avatarUrl = '';
+
+    // ค้นหาใน sessions
+    for (const s of Object.values(sessions)) {
+      if (String(s.userId).toLowerCase() === cleanUser || String(s.username).toLowerCase() === cleanUser) {
+        matchedUserId = String(s.userId);
+        matchedUsername = s.username || cleanUser;
+        displayName = s.displayName || s.username || cleanUser;
+        avatarUrl = s.avatar || '';
+        break;
+      }
+    }
+    const tokens = loadTokens();
+    if (!avatarUrl && tokens[matchedUserId]?.displayName) {
+      displayName = tokens[matchedUserId].displayName;
+    }
+
+    const activeTabs = [];
+
+    // 1. Spotify SR
+    const hasSpotifySettings = Boolean(widgetSettingsStore['spotify-sr']?.[matchedUserId]);
+    const isSpotifyActive = isWidgetActiveForUser(matchedUserId, 'spotify-sr', matchedUsername);
+    const hasSpotifyToken = Boolean(spotify.getSpotifyUserToken(matchedUserId));
+    if ((isSpotifyActive || hasSpotifySettings || hasSpotifyToken) && isUserAllowedForWidget(matchedUserId, matchedUsername, 'spotify-sr')) {
+      activeTabs.push({
+        id: 'spotify-sr',
+        name: 'Spotify SR',
+        icon: '🎵',
+        tag: 'เพลง'
+      });
+    }
+
+    // 2. Custom Counter
+    const hasCounterSettings = Boolean(widgetSettingsStore['custom-counter']?.[matchedUserId]) || Boolean(widgetSettingsStore['custom-counter']?.[cleanUser]);
+    const isCounterActive = isWidgetActiveForUser(matchedUserId, 'custom-counter', matchedUsername);
+    if ((isCounterActive || hasCounterSettings) && isUserAllowedForWidget(matchedUserId, matchedUsername, 'custom-counter')) {
+      activeTabs.push({
+        id: 'custom-counter',
+        name: 'Counter',
+        icon: '🔢',
+        tag: 'สถิติ'
+      });
+    }
+
+    // 3. DBD Scoreboard
+    const hasScoreboardSettings = Boolean(widgetSettingsStore['dbd-scoreboard']?.[matchedUserId]) || Boolean(widgetStore['dbd-scoreboard']?.[cleanUser]);
+    const isScoreboardActive = isWidgetActiveForUser(matchedUserId, 'dbd-scoreboard', matchedUsername);
+    if ((isScoreboardActive || hasScoreboardSettings) && isUserAllowedForWidget(matchedUserId, matchedUsername, 'dbd-scoreboard')) {
+      activeTabs.push({
+        id: 'dbd-scoreboard',
+        name: 'DBD Scoreboard',
+        icon: '💀',
+        tag: 'เกม DBD'
+      });
+    }
+
+    // 4. DBD Perks
+    const hasPerkSettings = Boolean(widgetSettingsStore['dbd-perks']?.[matchedUserId]);
+    const isPerkActive = isWidgetActiveForUser(matchedUserId, 'dbd-perks', matchedUsername);
+    if ((isPerkActive || hasPerkSettings) && isUserAllowedForWidget(matchedUserId, matchedUsername, 'dbd-perks')) {
+      activeTabs.push({
+        id: 'dbd-perks',
+        name: 'DBD Perks',
+        icon: '🎲',
+        tag: 'สุ่มเปิร์ค'
+      });
+    }
+
+    // 5. Random Killer
+    const hasKillerSettings = Boolean(widgetSettingsStore['random-killer']?.[matchedUserId]);
+    const isKillerActive = isWidgetActiveForUser(matchedUserId, 'random-killer', matchedUsername);
+    if ((isKillerActive || hasKillerSettings) && isUserAllowedForWidget(matchedUserId, matchedUsername, 'random-killer')) {
+      activeTabs.push({
+        id: 'random-killer',
+        name: 'Killer Roulette',
+        icon: '🪓',
+        tag: 'สุ่มคิลเลอร์'
+      });
+    }
+
+    // 6. Loyalty Card
+    const hasLoyaltySettings = Boolean(widgetSettingsStore['loyalty-card']?.[matchedUserId]);
+    const isLoyaltyActive = isWidgetActiveForUser(matchedUserId, 'loyalty-card', matchedUsername);
+    if ((isLoyaltyActive || hasLoyaltySettings) && isUserAllowedForWidget(matchedUserId, matchedUsername, 'loyalty-card')) {
+      activeTabs.push({
+        id: 'loyalty-card',
+        name: 'Loyalty Card',
+        icon: '🎫',
+        tag: 'เช็คอิน'
+      });
+    }
+
+    // Live data collection
+    let spotifyData = { connected: false, isPlaying: false, track: null, queue: [] };
+    if (activeTabs.some(t => t.id === 'spotify-sr')) {
+      try {
+        const accessToken = await spotify.getValidAccessToken(matchedUserId);
+        if (accessToken) {
+          const current = await spotify.getCurrentlyPlaying(accessToken);
+          const queue = spotify.getSongQueueList(matchedUserId);
+          spotifyData = { ...current, queue, connected: true };
+        }
+      } catch (_) {}
+    }
+
+    let counterData = { title: 'สถิติ', count: 0, unit: 'ครั้ง', stepAmount: 1 };
+    if (activeTabs.some(t => t.id === 'custom-counter')) {
+      const cs = widgetSettingsStore['custom-counter']?.[matchedUserId] || widgetSettingsStore['custom-counter']?.[cleanUser] || {};
+      counterData = {
+        title: cs.counterTitle || 'จำนวนครั้งที่กรี๊ด',
+        count: Number(cs.currentCount) || 0,
+        unit: cs.unitText || 'ครั้ง',
+        stepAmount: Number(cs.stepAmount) || 1
+      };
+    }
+
+    let scoreboardData = { killerKills: 0, killerDraws: 0, killerEscapes: 0, title: 'DBD Scoreboard', stat1Title: 'WINS', stat2Title: 'LOSES', stat3Title: 'DRAWS' };
+    if (activeTabs.some(t => t.id === 'dbd-scoreboard')) {
+      const sbSettings = widgetSettingsStore['dbd-scoreboard']?.[matchedUserId] || {};
+      const raw = widgetStore['dbd-scoreboard']?.[cleanUser]?.['dbd_scoreboard_data'];
+      let parsed = {};
+      if (raw) {
+        try { parsed = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (_) {}
+      }
+      scoreboardData = {
+        killerKills: Number(parsed.killerKills) || 0,
+        killerDraws: Number(parsed.killerDraws) || 0,
+        killerEscapes: Number(parsed.killerEscapes) || 0,
+        title: sbSettings.killerRoleTitle || 'The Mastermind',
+        stat1Title: sbSettings.killerStat1Title || 'WINS',
+        stat2Title: sbSettings.killerStat2Title || 'LOSES',
+        stat3Title: sbSettings.killerStat3Title || 'DRAWS'
+      };
+    }
+
+    res.json({
+      user: {
+        userId: matchedUserId,
+        username: matchedUsername,
+        displayName,
+        avatar: avatarUrl
+      },
+      activeTabs,
+      data: {
+        spotify: spotifyData,
+        counter: counterData,
+        scoreboard: scoreboardData
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

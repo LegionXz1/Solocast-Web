@@ -400,6 +400,38 @@ export async function skipSpotifyTrack(accessToken) {
 }
 
 /**
+ * Pause playback in Spotify
+ */
+export async function pauseSpotifyTrack(accessToken) {
+  if (!accessToken) throw new Error('Missing accessToken');
+  const res = await fetch('https://api.spotify.com/v1/me/player/pause', {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  if (!res.ok && res.status !== 204) {
+    if (res.status === 404) throw new Error('NO_ACTIVE_DEVICE');
+    if (res.status === 403) throw new Error('PREMIUM_REQUIRED');
+  }
+  return true;
+}
+
+/**
+ * Resume / Play playback in Spotify
+ */
+export async function playSpotifyTrack(accessToken) {
+  if (!accessToken) throw new Error('Missing accessToken');
+  const res = await fetch('https://api.spotify.com/v1/me/player/play', {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  if (!res.ok && res.status !== 204) {
+    if (res.status === 404) throw new Error('NO_ACTIVE_DEVICE');
+    if (res.status === 403) throw new Error('PREMIUM_REQUIRED');
+  }
+  return true;
+}
+
+/**
  * Check user cooldown
  */
 export function checkUserCooldown(userId, chatterName, cooldownSeconds = 60) {
