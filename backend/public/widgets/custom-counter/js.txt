@@ -276,10 +276,12 @@ window.addEventListener('onEventReceived', function (obj) {
   const eventType = detail.listener || detail.type || detail.event?.type;
   if (eventType === 'counter_update' || eventType === 'counter_updated') {
     const data = detail.event?.data || detail.data || {};
-    const currentTarget = getWidgetTargetUser();
-    const eventUserId = detail.event?.userId || data.userId;
-    if (currentTarget && eventUserId && String(eventUserId).toLowerCase() !== String(currentTarget).toLowerCase()) {
-      return;
+    const currentTarget = String(getWidgetTargetUser() || '').trim().toLowerCase().replace(/^@/, '');
+    const eventUserId = String(detail.event?.userId || data.userId || detail.userId || '').trim().toLowerCase().replace(/^@/, '');
+    if (currentTarget && eventUserId && eventUserId !== currentTarget) {
+      const associated = detail.associatedUserIds || data.associatedUserIds || detail.event?.associatedUserIds || [];
+      const isMatch = Array.isArray(associated) && associated.some(id => String(id || '').trim().toLowerCase().replace(/^@/, '') === currentTarget);
+      if (!isMatch) return;
     }
     if (data.title) {
       const titleEl = document.getElementById('counter-title');
@@ -297,9 +299,12 @@ window.addEventListener('onEventReceived', function (obj) {
 if (typeof socket !== 'undefined') {
   socket.on('counter_updated', function (data) {
     if (!data) return;
-    const currentTarget = getWidgetTargetUser();
-    if (currentTarget && data.userId && String(data.userId).toLowerCase() !== String(currentTarget).toLowerCase()) {
-      return;
+    const currentTarget = String(getWidgetTargetUser() || '').trim().toLowerCase().replace(/^@/, '');
+    const eventUserId = String(data.userId || '').trim().toLowerCase().replace(/^@/, '');
+    if (currentTarget && eventUserId && eventUserId !== currentTarget) {
+      const associated = data.associatedUserIds || [];
+      const isMatch = Array.isArray(associated) && associated.some(id => String(id || '').trim().toLowerCase().replace(/^@/, '') === currentTarget);
+      if (!isMatch) return;
     }
     if (data.title) {
       const titleEl = document.getElementById('counter-title');

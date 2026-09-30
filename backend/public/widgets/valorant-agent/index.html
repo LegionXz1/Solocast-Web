@@ -812,12 +812,21 @@
       // Check Channel Points Redemption
       if (obj.listener === 'redemption-latest' || obj.event?.type === 'redemption' || obj.type === 'redemption') {
         const ev = obj.event || obj;
-        const rewardTitle = (ev.data?.rewardTitle || ev.reward?.title || '').trim().toLowerCase();
-        const configuredReward = (config.rewardName || '').trim().toLowerCase();
+        // On real Twitch redemptions, the backend EventSub handler already calls performValorantRoll and emits valorant_agent_roll.
+        // We only call the roll API on client side if this is a simulation test.
+        const isTest = Boolean(ev.isTest !== undefined ? ev.isTest : (ev.data?.isTest !== undefined ? ev.data.isTest : obj.isTest));
+        if (!isTest) {
+          // Real Twitch redemption: backend automatically executes roll and emits 'valorant_agent_roll'
+          return;
+        }
+
+        const cleanStr = (s) => (s || '').toString().replace(/\u00a0/g, ' ').trim().toLowerCase();
+        const rewardTitle = cleanStr(ev.data?.rewardTitle || ev.rewardTitle || ev.reward?.title || ev.redemption);
+        const configuredReward = cleanStr(config.rewardName);
 
         if (configuredReward !== '' && rewardTitle === configuredReward) {
-          // Trigger roll via API or local random
-          const username = ev.data?.userName || ev.data?.name || 'Viewer';
+          // Trigger roll via API for test simulations
+          const username = ev.data?.userName || ev.data?.name || ev.displayName || ev.username || 'Viewer';
           fetch('/api/widgets/valorant-agent/roll', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

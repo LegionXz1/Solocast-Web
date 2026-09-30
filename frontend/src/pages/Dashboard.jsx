@@ -916,7 +916,13 @@ function Dashboard() {
   };
 
   const handleSimulateRedemption = () => {
-    const title = (fieldData['rewardName'] || 'สุ่มคิลเลอร์').trim();
+    let title = (
+      fieldData['rewardName'] ||
+      fieldData['rewardNameSurvivor'] ||
+      fieldData['rewardNameKiller'] ||
+      fieldData['channelPointsReward'] ||
+      'สุ่มเปิร์ค'
+    ).trim();
     // บันทึกค่าล่าสุดทันทีเพื่อให้มั่นใจว่า Widget ได้รับการอัพเดท
     handleSaveSettings(fieldData);
 
@@ -929,6 +935,7 @@ function Dashboard() {
         name: testUser,
         displayName: testUser,
         rewardTitle: title,
+        input: fieldData['testInput'] || '',
         avatar: `/api/twitch/avatar/${encodeURIComponent(testUser)}`,
         profileImage: `/api/twitch/avatar/${encodeURIComponent(testUser)}`,
         isTest: true

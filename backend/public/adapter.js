@@ -541,6 +541,7 @@ socket.on('onEventReceived', (event) => {
     const rTitle = event.data.rewardTitle || event.data.title || event.data.redemption || '';
     const uName = event.data.name || event.data.user || event.data.username || 'User';
     const av = event.data.avatar || event.data.profileImage || event.data.profileImageUrl || `/api/twitch/avatar/${encodeURIComponent(uName)}`;
+    const rInput = event.data.input || event.data.user_input || event.data.message || event.input || '';
 
     seEventDetail = {
       listener: 'redemption-latest',
@@ -555,6 +556,9 @@ socket.on('onEventReceived', (event) => {
         avatar: av,
         profileImage: av,
         profileImageUrl: av,
+        message: rInput,
+        user_input: rInput,
+        input: rInput,
         data: {
           name: uName,
           rewardTitle: rTitle,
@@ -562,7 +566,10 @@ socket.on('onEventReceived', (event) => {
           title: rTitle,
           avatar: av,
           profileImage: av,
-          profileImageUrl: av
+          profileImageUrl: av,
+          message: rInput,
+          user_input: rInput,
+          input: rInput
         },
         user: {
           name: uName,

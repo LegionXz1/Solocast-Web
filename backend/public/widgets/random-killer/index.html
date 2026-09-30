@@ -559,17 +559,21 @@
         } else if (data.listener === 'event' && data.event && (data.event.type === 'channelPointsRedemption' || data.event.type === 'redemption')) {
           isRedemptionEvent = true;
           eventObj = data.event.data || data.event || {};
+        } else if (data.type === 'redemption' || data.event?.type === 'redemption') {
+          isRedemptionEvent = true;
+          eventObj = data.event?.data || data.event || data.data || data;
         }
 
         if (isRedemptionEvent && eventObj) {
-          const rawReward = (
+          const cleanStr = (s) => (s || '').toString().replace(/\u00a0/g, ' ').trim().toLowerCase();
+          const rawReward = cleanStr(
             eventObj.redemption ||
             eventObj.rewardTitle ||
             eventObj.title ||
             (eventObj.reward && (eventObj.reward.title || eventObj.reward.name)) ||
             (eventObj.data && (eventObj.data.redemption || eventObj.data.title || eventObj.data.rewardTitle)) ||
             ''
-          ).toString().trim();
+          );
 
           const username = (
             eventObj.displayName ||
@@ -579,9 +583,10 @@
             'ผู้โชคร้าย'
           ).toString().trim();
 
-          console.log('[Dossier] Event Received - Raw Reward:', rawReward, '| Expected Reward:', REWARD_NAME);
+          const targetReward = cleanStr(REWARD_NAME || 'สุ่มคิลเลอร์');
+          console.log('[Dossier] Event Received - Clean Reward:', rawReward, '| Expected Reward:', targetReward);
 
-          if (rawReward !== '' && REWARD_NAME !== '' && rawReward.toLowerCase() === REWARD_NAME.toLowerCase()) {
+          if (rawReward !== '' && targetReward !== '' && rawReward === targetReward) {
             const picked = killers[Math.floor(Math.random() * killers.length)];
             if (!enableVisualOverlayState) {
               console.log('[Dossier] 💬 Chat-Only Mode active: Bypassing visual overlay on stream.');

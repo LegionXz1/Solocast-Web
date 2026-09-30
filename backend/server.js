@@ -3900,9 +3900,15 @@ function startEventSub(userId) {
         }
 
         console.log(`[EventSub] 🎁 Redemption received for user ${userId} by ${e.userName}: "${e.rewardTitle}" (avatar: ${avatar ? 'found' : 'none'})`);
+    const cleanUid = String(userId).trim().toLowerCase().replace(/^@/, '');
+    const allIds = getAssociatedUserIdentifiers(cleanUid);
+    allIds.add(cleanUid);
+    const associatedUserIdsList = Array.from(allIds);
+
     const ev = {
       type: 'redemption',
       userId,
+      associatedUserIds: associatedUserIdsList,
       isTest: false,
       data: {
         name: e.userDisplayName || e.userName,
@@ -3914,12 +3920,10 @@ function startEventSub(userId) {
         profileImageUrl: avatar,
         rewardTitle: e.rewardTitle,
         input: e.input,
-        isTest: false
+        isTest: false,
+        associatedUserIds: associatedUserIdsList
       }
     };
-    const cleanUid = String(userId).trim().toLowerCase().replace(/^@/, '');
-    const allIds = getAssociatedUserIdentifiers(cleanUid);
-    allIds.add(cleanUid);
     for (const id of allIds) {
       io.to('user_' + id).emit('onEventReceived', ev);
       io.to('channel_' + id).emit('onEventReceived', ev);
@@ -3928,10 +3932,21 @@ function startEventSub(userId) {
     // ตรวจสอบการแลกแต้มสำหรับ Custom Counter (ถ้าเปิดใช้งาน)
     try {
       if (isWidgetActiveForUser(userId, 'custom-counter')) {
-        let cs = widgetSettingsStore['custom-counter']?.[userId] || widgetSettingsStore['custom-counter']?.['default'] || {};
+        let cs = widgetSettingsStore['custom-counter']?.[userId];
+        if (!cs) {
+          for (const id of allIds) {
+            if (widgetSettingsStore['custom-counter']?.[id]) {
+              cs = widgetSettingsStore['custom-counter'][id];
+              break;
+            }
+          }
+        }
+        if (!cs) cs = widgetSettingsStore['custom-counter']?.['default'] || {};
+
         const isTriggerPoints = cs.triggerChannelPoints === true || cs.triggerChannelPoints === 'yes' || cs.triggerChannelPoints === 'true';
-        const targetReward = (cs.rewardName || 'เพิ่มยอดกรี๊ด').trim().toLowerCase();
-        if (isTriggerPoints && e.rewardTitle && e.rewardTitle.trim().toLowerCase() === targetReward) {
+        const targetReward = (cs.rewardName || 'เพิ่มยอดกรี๊ด').replace(/\u00a0/g, ' ').trim().toLowerCase();
+        const incomingReward = (e.rewardTitle || '').replace(/\u00a0/g, ' ').trim().toLowerCase();
+        if (isTriggerPoints && targetReward !== '' && incomingReward === targetReward) {
           const prevCount = Number(cs.currentCount) || 0;
           const step = Number(cs.stepAmount) || 1;
           const newCount = prevCount + step;
@@ -3942,21 +3957,29 @@ function startEventSub(userId) {
 
           const payload = {
             userId,
+            associatedUserIds: associatedUserIdsList,
             widgetId: 'custom-counter',
             count: newCount,
             delta: step,
             title: cs.counterTitle || 'จำนวนครั้งที่กรี๊ด',
             updatedBy: e.userDisplayName || e.userName
           };
-          const cleanUser = String(userId).trim().toLowerCase().replace('@', '');
-          const allIds = getAssociatedUserIdentifiers(cleanUser);
-          allIds.add(cleanUser);
 
           for (const id of allIds) {
             io.to('user_' + id).emit('counter_updated', payload);
+            io.to('channel_' + id).emit('counter_updated', payload);
             io.to('user_' + id).emit('onEventReceived', {
               type: 'counter_update',
+              listener: 'counter_updated',
               userId,
+              associatedUserIds: associatedUserIdsList,
+              data: payload
+            });
+            io.to('channel_' + id).emit('onEventReceived', {
+              type: 'counter_update',
+              listener: 'counter_updated',
+              userId,
+              associatedUserIds: associatedUserIdsList,
               data: payload
             });
           }
@@ -3984,8 +4007,8 @@ function startEventSub(userId) {
           srSettings = widgetSettingsStore['spotify-sr']?.['default'] || {};
         }
 
-        const targetRewardName = (srSettings.channelPointsReward || '').trim().toLowerCase();
-        const incomingReward = (e.rewardTitle || '').trim().toLowerCase();
+        const targetRewardName = (srSettings.channelPointsReward || '').replace(/\u00a0/g, ' ').trim().toLowerCase();
+        const incomingReward = (e.rewardTitle || '').replace(/\u00a0/g, ' ').trim().toLowerCase();
 
         // ตรวจสอบชื่อ Reward: ตรงกันแบบ Exact Match (100%) เพื่อป้องกันการแย่งกันทำงานข้าม Widget
         const isRewardMatch = targetRewardName !== '' && incomingReward === targetRewardName;
@@ -4021,8 +4044,8 @@ function startEventSub(userId) {
         }
         if (!vs) vs = widgetSettingsStore['valorant-agent']?.['default'] || {};
 
-        const targetReward = (vs.rewardName || '').trim().toLowerCase();
-        const currReward = (e.rewardTitle || '').trim().toLowerCase();
+        const targetReward = (vs.rewardName || '').replace(/\u00a0/g, ' ').trim().toLowerCase();
+        const currReward = (e.rewardTitle || '').replace(/\u00a0/g, ' ').trim().toLowerCase();
         if (targetReward !== '' && currReward === targetReward) {
           await performValorantRoll({
             userId,
@@ -4164,8 +4187,19 @@ io.on('connection', (socket) => {
 
   socket.on('test_event', async (payload) => {
     if (payload?.userId) {
-      // ส่งเฉพาะห้องของผู้ใช้คนนี้เท่านั้น ไม่กวนจอของผู้ใช้อื่น
-      io.to('user_' + payload.userId).emit('onEventReceived', payload);
+      const cleanUid = String(payload.userId).trim().toLowerCase().replace(/^@/, '');
+      const allIds = getAssociatedUserIdentifiers(cleanUid);
+      allIds.add(cleanUid);
+      const associatedList = Array.from(allIds);
+      payload.associatedUserIds = associatedList;
+      if (payload.data) {
+        payload.data.associatedUserIds = associatedList;
+      }
+
+      for (const id of allIds) {
+        io.to('user_' + id).emit('onEventReceived', payload);
+        io.to('channel_' + id).emit('onEventReceived', payload);
+      }
     } else {
       io.emit('onEventReceived', payload);
     }
@@ -4173,9 +4207,20 @@ io.on('connection', (socket) => {
     // รองรับการทดสอบแลกแต้มขอเพลง Spotify จาก Dashboard
     try {
       if (payload?.type === 'redemption' && payload?.data?.input && payload?.userId) {
-        const rewardTitle = (payload.data.rewardTitle || '').trim().toLowerCase();
-        let srSettings = widgetSettingsStore['spotify-sr']?.[payload.userId] || widgetSettingsStore['spotify-sr']?.['default'] || {};
-        const targetReward = (srSettings.channelPointsReward || '').trim().toLowerCase();
+        const rewardTitle = (payload.data.rewardTitle || '').replace(/\u00a0/g, ' ').trim().toLowerCase();
+        let srSettings = widgetSettingsStore['spotify-sr']?.[payload.userId];
+        if (!srSettings) {
+          const ids = getAssociatedUserIdentifiers(payload.userId);
+          for (const id of ids) {
+            if (widgetSettingsStore['spotify-sr']?.[id]) {
+              srSettings = widgetSettingsStore['spotify-sr'][id];
+              break;
+            }
+          }
+        }
+        if (!srSettings) srSettings = widgetSettingsStore['spotify-sr']?.['default'] || {};
+
+        const targetReward = (srSettings.channelPointsReward || '').replace(/\u00a0/g, ' ').trim().toLowerCase();
         if (targetReward !== '' && rewardTitle === targetReward) {
           await processSpotifySongRequest({
             userId: payload.userId,
@@ -4185,6 +4230,70 @@ io.on('connection', (socket) => {
             source: 'channel_points',
             channelRewardName: payload.data.rewardTitle
           });
+        }
+      }
+    } catch (_) {}
+
+    // รองรับการทดสอบแลกแต้ม Custom Counter จาก Dashboard
+    try {
+      if (payload?.type === 'redemption' && payload?.data?.rewardTitle && payload?.userId) {
+        let cs = widgetSettingsStore['custom-counter']?.[payload.userId];
+        if (!cs) {
+          const ids = getAssociatedUserIdentifiers(payload.userId);
+          for (const id of ids) {
+            if (widgetSettingsStore['custom-counter']?.[id]) {
+              cs = widgetSettingsStore['custom-counter'][id];
+              break;
+            }
+          }
+        }
+        if (!cs) cs = widgetSettingsStore['custom-counter']?.['default'] || {};
+
+        const isTriggerPoints = cs.triggerChannelPoints === true || cs.triggerChannelPoints === 'yes' || cs.triggerChannelPoints === 'true';
+        const targetReward = (cs.rewardName || 'เพิ่มยอดกรี๊ด').replace(/\u00a0/g, ' ').trim().toLowerCase();
+        const incomingReward = (payload.data.rewardTitle || '').replace(/\u00a0/g, ' ').trim().toLowerCase();
+        if (isTriggerPoints && targetReward !== '' && incomingReward === targetReward) {
+          const prevCount = Number(cs.currentCount) || 0;
+          const step = Number(cs.stepAmount) || 1;
+          const newCount = prevCount + step;
+          cs.currentCount = newCount;
+          widgetSettingsStore['custom-counter'] = widgetSettingsStore['custom-counter'] || {};
+          widgetSettingsStore['custom-counter'][payload.userId] = cs;
+          saveWidgetSettings(widgetSettingsStore);
+
+          const cleanUid = String(payload.userId).trim().toLowerCase().replace(/^@/, '');
+          const allIds = getAssociatedUserIdentifiers(cleanUid);
+          allIds.add(cleanUid);
+          const associatedList = Array.from(allIds);
+
+          const counterPayload = {
+            userId: payload.userId,
+            associatedUserIds: associatedList,
+            widgetId: 'custom-counter',
+            count: newCount,
+            delta: step,
+            title: cs.counterTitle || 'จำนวนครั้งที่กรี๊ด',
+            updatedBy: payload.data.userDisplayName || payload.data.name || 'TestViewer'
+          };
+
+          for (const id of allIds) {
+            io.to('user_' + id).emit('counter_updated', counterPayload);
+            io.to('channel_' + id).emit('counter_updated', counterPayload);
+            io.to('user_' + id).emit('onEventReceived', {
+              type: 'counter_update',
+              listener: 'counter_updated',
+              userId: payload.userId,
+              associatedUserIds: associatedList,
+              data: counterPayload
+            });
+            io.to('channel_' + id).emit('onEventReceived', {
+              type: 'counter_update',
+              listener: 'counter_updated',
+              userId: payload.userId,
+              associatedUserIds: associatedList,
+              data: counterPayload
+            });
+          }
         }
       }
     } catch (_) {}
