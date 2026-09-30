@@ -941,9 +941,31 @@ app.get('/api/widgets/:id/settings', (req, res) => {
       }
     }
 
-    // 1. ถ้ามี User ID ให้ดึงการตั้งค่าเฉพาะของ User คนนั้น
-    if (user && widgetSettingsStore[widgetId] && widgetSettingsStore[widgetId][user]) {
-      return res.json(widgetSettingsStore[widgetId][user]);
+    // 1. ถ้ามี User ID หรือ Username ให้ดึงการตั้งค่าเฉพาะของ User คนนั้น (รองรับทั้ง userId และ username)
+    if (user && widgetSettingsStore[widgetId]) {
+      // 1.1 ตรวจสอบแบบตรงตัว (Exact Key Match)
+      if (widgetSettingsStore[widgetId][user]) {
+        return res.json(widgetSettingsStore[widgetId][user]);
+      }
+      // 1.2 ตรวจสอบผ่าน User Identifiers ที่เชื่อมโยงกัน (userId <-> username)
+      const cleanUser = String(user).trim().toLowerCase().replace(/^@/, '');
+      const allIds = getAssociatedUserIdentifiers(cleanUser);
+      allIds.add(cleanUser);
+      for (const id of allIds) {
+        if (widgetSettingsStore[widgetId][id]) {
+          return res.json(widgetSettingsStore[widgetId][id]);
+        }
+      }
+      // 1.3 ตรวจสอบแบบ Case-insensitive
+      for (const key of Object.keys(widgetSettingsStore[widgetId])) {
+        if (key.toLowerCase() === cleanUser) {
+          return res.json(widgetSettingsStore[widgetId][key]);
+        }
+      }
+      // 1.4 ถ้าไม่มีการตั้งค่าเฉพาะ ให้ใช้การตั้งค่า default (ถ้ามี)
+      if (widgetSettingsStore[widgetId]['default']) {
+        return res.json(widgetSettingsStore[widgetId]['default']);
+      }
     }
 
     // 2. ถ้ายังไม่เคยตั้งค่า ให้ดึงค่ามาตรฐานจาก fields.json (ไม่กระทบกับ User อื่น)
@@ -3895,7 +3917,13 @@ function startEventSub(userId) {
         isTest: false
       }
     };
-    io.to('user_' + userId).emit('onEventReceived', ev);
+    const cleanUid = String(userId).trim().toLowerCase().replace(/^@/, '');
+    const allIds = getAssociatedUserIdentifiers(cleanUid);
+    allIds.add(cleanUid);
+    for (const id of allIds) {
+      io.to('user_' + id).emit('onEventReceived', ev);
+      io.to('channel_' + id).emit('onEventReceived', ev);
+    }
 
     // ตรวจสอบการแลกแต้มสำหรับ Custom Counter (ถ้าเปิดใช้งาน)
     try {

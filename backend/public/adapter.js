@@ -350,8 +350,19 @@ window.SE_API.store = {
 };
 
 
-// เก็บ Fields ปัจจุบัน
+// เก็บ Fields ปัจจุบัน พร้อมโหลดค่าแคชจาก LocalStorage เพื่อให้ Widget ใช้งานได้ทันที 100% แม้เซิร์ฟเวอร์ยังตอบสนองไม่เสร็จ
 let activeFields = { ...getUrlParams() };
+try {
+  const initialStorageKey = `solocast_settings_${currentWidgetId}_${targetUser || 'default'}`;
+  const cachedSettings = localStorage.getItem(initialStorageKey);
+  if (cachedSettings) {
+    const parsed = JSON.parse(cachedSettings);
+    if (parsed && typeof parsed === 'object') {
+      activeFields = { ...parsed, ...activeFields };
+      console.log('[Solocast Adapter] 📦 Loaded cached settings from localStorage:', activeFields);
+    }
+  }
+} catch (_) {}
 
 // ฟังก์ชันส่งอีเวนต์ onWidgetLoad และ onFieldsUpdate ไปยัง Custom Widget
 function dispatchWidgetLoad(fieldsToApply) {
@@ -390,20 +401,28 @@ function dispatchWidgetLoad(fieldsToApply) {
 async function syncSavedSettings() {
   if (!currentWidgetId) return;
   try {
-    const userParam = targetUser ? `?user=${encodeURIComponent(targetUser)}` : '';
+    const u = targetUser || window.SolocastTargetUser || '';
+    const userParam = u ? `?user=${encodeURIComponent(u)}` : '';
     const res = await fetch(`/api/widgets/${currentWidgetId}/settings${userParam}`);
     if (res.ok) {
-      // ในโหมด Preview ของ Dashboard ให้ URL Query Params ล่าสุดมีความสำคัญสูงสุด
-      // ใน OBS ปกติ (ไม่มี preview=1) การตั้งค่าจากเซิร์ฟเวอร์จะสำคัญกว่า URL Query Params แบบเดิม
-      if (getUrlParams().preview === '1') {
-        activeFields = { ...saved, ...getUrlParams() };
-      } else {
-        activeFields = { ...getUrlParams(), ...saved };
+      const saved = await res.json();
+      if (saved && typeof saved === 'object') {
+        // ในโหมด Preview ของ Dashboard ให้ URL Query Params ล่าสุดมีความสำคัญสูงสุด
+        // ใน OBS ปกติ (ไม่มี preview=1) การตั้งค่าจากเซิร์ฟเวอร์จะสำคัญกว่า URL Query Params แบบเดิม
+        if (getUrlParams().preview === '1') {
+          activeFields = { ...saved, ...getUrlParams() };
+        } else {
+          activeFields = { ...getUrlParams(), ...saved };
+        }
+        try {
+          const storeUser = u || 'default';
+          localStorage.setItem(`solocast_settings_${currentWidgetId}_${storeUser}`, JSON.stringify(activeFields));
+        } catch (_) {}
+        if (isWidgetActive) {
+          dispatchWidgetLoad(activeFields);
+        }
+        console.log('[Solocast Adapter] ✅ Synchronized saved settings from server:', activeFields);
       }
-      if (isWidgetActive) {
-        dispatchWidgetLoad(activeFields);
-      }
-      console.log('[Solocast Adapter] Synchronized saved settings from server:', activeFields);
     }
   } catch (err) {
     console.warn('[Solocast Adapter] Could not fetch saved settings:', err);
@@ -434,6 +453,10 @@ socket.on('widget_settings_updated', (payload) => {
 
   console.log('[Solocast Adapter] ⚡ Live settings update received from Dashboard:', payload.settings);
   activeFields = { ...activeFields, ...payload.settings };
+  try {
+    const storeUser = targetUser || window.SolocastTargetUser || 'default';
+    localStorage.setItem(`solocast_settings_${currentWidgetId}_${storeUser}`, JSON.stringify(activeFields));
+  } catch (_) {}
   if (isWidgetActive) {
     dispatchWidgetLoad(activeFields);
   }

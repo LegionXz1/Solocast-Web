@@ -361,16 +361,19 @@
       // 1. Channel Points Redemption
       if (obj.listener === 'redemption-latest' || obj.event?.type === 'redemption' || obj.type === 'redemption') {
         const ev = obj.event || obj;
-        const rewardTitle = (ev.data?.rewardTitle || ev.reward?.title || '').trim().toLowerCase();
-        const survReward = (config.rewardNameSurvivor || '').trim().toLowerCase();
-        const killerReward = (config.rewardNameKiller || '').trim().toLowerCase();
-        const generalReward = (config.rewardName || '').trim().toLowerCase();
-        const userInput = (ev.data?.input || ev.input || '').trim().toLowerCase();
+        const cleanReward = (s) => String(s || '').replace(/\u00a0/g, ' ').trim().toLowerCase();
+        const rewardTitle = cleanReward(ev.data?.rewardTitle || ev.reward?.title || '');
+        const survReward = cleanReward(config.rewardNameSurvivor);
+        const killerReward = cleanReward(config.rewardNameKiller);
+        const generalReward = cleanReward(config.rewardName);
+        const userInput = cleanReward(ev.data?.input || ev.input || '');
 
         // ตรวจจับชื่อรางวัลแบบ Exact Match (100%) เพื่อป้องกันการแย่งกันทำงานข้าม Widget
         const isSurvReward = survReward !== '' && rewardTitle === survReward;
         const isKillerReward = killerReward !== '' && rewardTitle === killerReward;
         const isGeneralReward = generalReward !== '' && rewardTitle === generalReward;
+
+        console.log(`[DBD Perks] 🎁 Redemption check: incoming="${rewardTitle}" | surv="${survReward}" (${isSurvReward}) | killer="${killerReward}" (${isKillerReward}) | general="${generalReward}" (${isGeneralReward})`);
 
         if (isSurvReward || isKillerReward || isGeneralReward) {
           shouldTrigger = true;
