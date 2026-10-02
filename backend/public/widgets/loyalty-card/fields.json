@@ -1,12 +1,8 @@
 {
   "triggerChannelPoints": {
-    "type": "dropdown",
-    "label": "Twitch Channel Points Trigger",
-    "value": "yes",
-    "options": {
-      "yes": "Enabled",
-      "no": "Disabled"
-    },
+    "type": "checkbox",
+    "label": "เปิดใช้งานการเช็คอินด้วยแต้มช่อง (Twitch Channel Points Trigger)",
+    "value": true,
     "group": "Twitch Triggers"
   },
   "rewardName": {
@@ -29,13 +25,13 @@
       "Quicksand": "Quicksand (Cute & Rounded)",
       "Fredoka": "Fredoka (Bubbly & Playful)",
       "Nunito": "Nunito (Soft & Clean)",
-      "Mali": "Mali (Handwritten Journal 🇹🇭)",
-      "Itim": "Itim (Friendly Casual 🇹🇭)",
-      "Kanit": "Kanit (Modern & Bold 🇹🇭)",
-      "Prompt": "Prompt (Sleek Modern 🇹🇭)",
-      "Kodchasan": "Kodchasan (Cute Quirky 🇹🇭)",
-      "Chakra Petch": "Chakra Petch (Tech & Gaming 🇹🇭)",
-      "Charm": "Charm (Elegant Script 🇹🇭)",
+      "Mali": "Mali (Handwritten Journal - Thai)",
+      "Itim": "Itim (Friendly Casual - Thai)",
+      "Kanit": "Kanit (Modern & Bold - Thai)",
+      "Prompt": "Prompt (Sleek Modern - Thai)",
+      "Kodchasan": "Kodchasan (Cute Quirky - Thai)",
+      "Chakra Petch": "Chakra Petch (Tech & Gaming - Thai)",
+      "Charm": "Charm (Elegant Script - Thai)",
       "Comfortaa": "Comfortaa (Minimal Rounded)",
       "Outfit": "Outfit (Modern Premium)",
       "Poppins": "Poppins (Clean Geometric)",
@@ -56,13 +52,9 @@
     "group": "Typography"
   },
   "showRemainingNote": {
-    "type": "dropdown",
+    "type": "checkbox",
     "label": "แสดงข้อความบอกจำนวนแต้มที่เหลือ (Show Remaining Note)",
-    "value": "yes",
-    "options": {
-      "yes": "Enabled",
-      "no": "Disabled"
-    },
+    "value": true,
     "group": "Typography"
   },
   "checkinText": {
@@ -186,13 +178,9 @@
     "group": "Layout & Appearance"
   },
   "showSpirals": {
-    "type": "dropdown",
+    "type": "checkbox",
     "label": "แสดงห่วงสมุดโน้ตด้านบน (Show Spiral Rings)",
-    "value": "yes",
-    "options": {
-      "yes": "Enabled",
-      "no": "Disabled"
-    },
+    "value": true,
     "group": "Layout & Appearance"
   },
   "stampShape": {
@@ -274,13 +262,9 @@
     "group": "Layout & Appearance"
   },
   "enableVisualOverlay": {
-    "type": "dropdown",
+    "type": "checkbox",
     "label": "แสดงผลการ์ดบนจอ OBS (Show Visual Overlay on Stream)",
-    "value": "yes",
-    "options": {
-      "yes": "Enabled (แสดงการ์ดบนจอ)",
-      "no": "Disabled (โหมดแชทอย่างเดียว Chat-Only)"
-    },
+    "value": true,
     "group": "General Settings"
   },
   "displayDuration": {
@@ -293,23 +277,15 @@
     "group": "General Settings"
   },
   "enableChatMsg": {
-    "type": "dropdown",
-    "label": "Send Chat Confirmation Message",
-    "value": "yes",
-    "options": {
-      "yes": "Enabled",
-      "no": "Disabled"
-    },
+    "type": "checkbox",
+    "label": "ส่งข้อความยืนยันลงแชท Twitch (Send Chat Confirmation Message)",
+    "value": true,
     "group": "Bot Chat Messages"
   },
   "enableChatCmd": {
-    "type": "dropdown",
-    "label": "Chat Command",
-    "value": "yes",
-    "options": {
-      "yes": "Enabled",
-      "no": "Disabled"
-    },
+    "type": "checkbox",
+    "label": "เปิดใช้งานคำสั่งแชท (Chat Command เช่น !loyalty)",
+    "value": true,
     "group": "Bot Chat Messages"
   },
   "chatCmdPrefix": {

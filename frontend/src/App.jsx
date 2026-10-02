@@ -15,6 +15,7 @@ const Admin = lazy(() => import('./pages/Admin'));
 const FAQ = lazy(() => import('./pages/FAQ'));
 const Support = lazy(() => import('./pages/Support'));
 const Dock = lazy(() => import('./pages/Dock'));
+const SecretSettings = lazy(() => import('./pages/SecretSettings'));
 
 function DirectLoginRedirect() {
   React.useEffect(() => {
@@ -78,6 +79,8 @@ function AppContent() {
               <Route path="/support" element={<Support />} />
               <Route path="/report" element={<Support />} />
               <Route path="/dock" element={<Dock />} />
+              <Route path="/settings" element={<SecretSettings />} />
+              <Route path="/secret-settings" element={<SecretSettings />} />
             </Routes>
           </Suspense>
         </ErrorBoundary>

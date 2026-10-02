@@ -303,7 +303,7 @@
     let REWARD_NAME     = 'Random Killer';
     let JWT_TOKEN       = '';
     let CHANNEL_ID      = '';
-    let CHAT_TEMPLATE   = '☠ {username} rolled → {killer} ☠';
+    let CHAT_TEMPLATE   = '[Roll] {username} rolled -> {killer}';
     let ENABLE_CHAT     = true;
     let SPIN_SUBTITLE   = 'analyzing biological threat';
     let CHOSEN_SUBTITLE = 'SUBJECT IDENTIFIED';
@@ -645,6 +645,9 @@
           photoImg.src = temp.img;
           resultName.innerText = temp.name.toUpperCase();
           cycleIdx++;
+          if (!SPIN_SOUND && SOUND_VOLUME > 0) {
+            playSynthScanTick();
+          }
         }
       }, 85);
 
@@ -662,7 +665,11 @@
         resultSub.innerText = CHOSEN_SUBTITLE;
         resultSub.classList.add('revealed');
 
-        playAudio(WIN_SOUND);
+        if (WIN_SOUND) {
+          playAudio(WIN_SOUND);
+        } else if (SOUND_VOLUME > 0) {
+          playSynthLockSting();
+        }
         sendChat(username, finalKillerName);
 
         // Record roll history for Solocast Dashboard
@@ -688,11 +695,78 @@
       }, SPIN_DURATION * 1000);
     }
 
+    let audioCtx = null;
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioClass) audioCtx = new AudioClass();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playSynthScanTick() {
+      if (SOUND_VOLUME <= 0) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const vol = SOUND_VOLUME * 0.12;
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(520, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 0.04);
+
+        gain.gain.setValueAtTime(vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.04);
+      } catch (_) {}
+    }
+
+    function playSynthLockSting() {
+      if (SOUND_VOLUME <= 0) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const vol = SOUND_VOLUME * 0.28;
+
+        osc1.type = 'sawtooth';
+        osc1.frequency.setValueAtTime(180, ctx.currentTime);
+        osc1.frequency.exponentialRampToValueAtTime(65, ctx.currentTime + 0.38);
+
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(95, ctx.currentTime);
+        osc2.frequency.exponentialRampToValueAtTime(45, ctx.currentTime + 0.45);
+
+        gain.gain.setValueAtTime(vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc1.start();
+        osc2.start();
+        osc1.stop(ctx.currentTime + 0.45);
+        osc2.stop(ctx.currentTime + 0.45);
+      } catch (_) {}
+    }
+
     function playAudio(src) {
-      if (!src) return;
+      if (!src || SOUND_VOLUME <= 0) return;
       try {
         const audio = new Audio(src);
-        audio.volume = SOUND_VOLUME;
+        audio.volume = Math.max(0, Math.min(1, SOUND_VOLUME));
         audio.play().catch(e => console.warn('[Dossier] Audio play prevented:', e));
       } catch (_) {}
     }
@@ -702,7 +776,7 @@
         console.log('[Dossier] 🔇 Twitch Chat is disabled in settings.');
         return;
       }
-      const chatMsg = (CHAT_TEMPLATE || '☠ {username} rolled → {killer} ☠')
+      const chatMsg = (CHAT_TEMPLATE || '[Roll] {username} rolled -> {killer}')
         .replace(/{username}/g, username)
         .replace(/{killer}/g, killerName);
       console.log('[Dossier] 🤖 Sending Twitch Chat message:', chatMsg);

@@ -66,29 +66,24 @@
     "group": "Color Customization"
   },
   "enableTextShadow": {
-    "type": "dropdown",
+    "type": "checkbox",
     "label": "เปิดเงาและขอบตัวอักษร (Text Shadow & Outline)",
-    "value": "true",
-    "options": {
-      "true": "เปิดใช้งาน (Enabled)",
-      "false": "ปิดใช้งาน (Disabled)"
-    },
+    "value": true,
     "group": "Color Customization"
   },
   "enableSound": {
-    "type": "dropdown",
+    "type": "checkbox",
     "label": "เปิดเสียงเอฟเฟกต์ (Sound Effects)",
-    "value": "true",
-    "options": {
-      "true": "เปิดใช้งาน (Enabled)",
-      "false": "ปิดใช้งาน (Disabled)"
-    },
+    "value": true,
     "group": "เสียงเอฟเฟกต์ (Sound Effects)"
   },
   "soundVolume": {
-    "type": "number",
-    "label": "ระดับเสียงเอฟเฟกต์ (0-100)",
+    "type": "slider",
+    "label": "ระดับเสียงเอฟเฟกต์ (Sound Volume %)",
     "value": 50,
+    "min": 0,
+    "max": 100,
+    "step": 5,
     "group": "เสียงเอฟเฟกต์ (Sound Effects)"
   },
   "initKills": {

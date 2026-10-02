@@ -129,17 +129,15 @@ app.get('/robots.txt', (req, res) => {
 });
 
 const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
-if (fs.existsSync(frontendDist)) {
-  app.use(express.static(frontendDist, {
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith('.html')) {
-        res.setHeader('Cache-Control', 'no-cache');
-      } else {
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-      }
+app.use(express.static(frontendDist, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     }
-  }));
-}
+  }
+}));
 app.use(express.static(path.join(__dirname, 'public'), {
   index: false,
   setHeaders: (res, filePath) => {
@@ -2783,6 +2781,23 @@ let authProvider;
 let apiClient;
 let eventSubListener;
 const registeredEventSubUsers = new Set();
+const disabledTwitchUsers = new Set();
+const userEventSubSubscriptions = new Map();
+
+function stopEventSub(userId) {
+  if (!userId) return;
+  const uidStr = String(userId);
+  registeredEventSubUsers.delete(uidStr);
+  const subs = userEventSubSubscriptions.get(uidStr);
+  if (subs && Array.isArray(subs)) {
+    for (const sub of subs) {
+      try {
+        if (typeof sub?.stop === 'function') sub.stop();
+      } catch (_) {}
+    }
+  }
+  userEventSubSubscriptions.delete(uidStr);
+}
 
 const requestedScopes = [
   'channel:manage:redemptions',
@@ -2808,6 +2823,17 @@ if (clientId && clientSecret) {
     userTokens[userId] = newTokenData;
     saveTokens(userTokens);
     console.log(`[Twurple] Token refreshed and persisted for user: ${userId}`);
+  });
+  authProvider.onRefreshFailure(async (userId, error) => {
+    const uidStr = String(userId);
+    disabledTwitchUsers.add(uidStr);
+    console.warn(`[Twurple] ⚠️ Token refresh failed for user ${uidStr} (${error?.message || 'Invalid refresh token'}). Suspending background EventSub until re-login.`);
+    try {
+      if (authProvider.hasUser(uidStr)) {
+        authProvider.removeUser(uidStr);
+      }
+    } catch (_) {}
+    stopEventSub(uidStr);
   });
 
   for (const [userId, tokenData] of Object.entries(userTokens)) {
@@ -2869,8 +2895,18 @@ app.get('/auth/twitch/callback', async (req, res) => {
         userTokens[uid] = tData;
         saveTokens(userTokens);
       });
+      authProvider.onRefreshFailure(async (uid, err) => {
+        const uidStr = String(uid);
+        disabledTwitchUsers.add(uidStr);
+        console.warn(`[Twurple] ⚠️ User ${uidStr} token refresh failed (${err?.message || 'Invalid token'}).`);
+        try {
+          if (authProvider.hasUser(uidStr)) authProvider.removeUser(uidStr);
+        } catch (_) {}
+        stopEventSub(uidStr);
+      });
     }
 
+    disabledTwitchUsers.delete(String(userId));
     authProvider.addUser(userId, tokenData, requestedScopes);
     apiClient = new ApiClient({ authProvider });
 
@@ -3840,6 +3876,9 @@ async function processChatMessage(userId, e) {
 function startEventSub(userId) {
   if (!userId) return;
   const uidStr = String(userId);
+  if (disabledTwitchUsers.has(uidStr)) {
+    return;
+  }
   if (registeredEventSubUsers.has(uidStr)) {
     return;
   }
@@ -3853,8 +3892,10 @@ function startEventSub(userId) {
   registeredEventSubUsers.add(uidStr);
   console.log(`✅ [EventSub] Subscribed for Twitch events for user ID: ${uidStr}...`);
 
+  const subs = [];
+
   try {
-    el.onChannelFollow(userId, userId, (e) => {
+    const sFollow = el.onChannelFollow(userId, userId, (e) => {
       try {
         console.log(`New Follower for ${userId}: ${e.userDisplayName}`);
         const ev = { type: 'follower', userId, data: { name: e.userDisplayName } };
@@ -3864,12 +3905,13 @@ function startEventSub(userId) {
         console.error('[EventSub] Error in follow handler:', err);
       }
     });
+    if (sFollow) subs.push(sFollow);
   } catch (err) {
     console.warn(`[EventSub] Follow listener setup warning for ${userId}:`, err?.message || err);
   }
 
   try {
-    el.onChannelSubscription(userId, (e) => {
+    const sSub = el.onChannelSubscription(userId, (e) => {
       try {
         console.log(`New Subscriber for ${userId}: ${e.userDisplayName}`);
         const ev = { type: 'subscriber', userId, data: { name: e.userDisplayName, tier: e.tier } };
@@ -3879,12 +3921,13 @@ function startEventSub(userId) {
         console.error('[EventSub] Error in sub handler:', err);
       }
     });
+    if (sSub) subs.push(sSub);
   } catch (err) {
     console.warn(`[EventSub] Subscription listener setup warning for ${userId}:`, err?.message || err);
   }
 
   try {
-    el.onChannelRedemptionAdd(userId, async (e) => {
+    const sRedemption = el.onChannelRedemptionAdd(userId, async (e) => {
       try {
         let avatar = '';
         try {
@@ -4064,12 +4107,13 @@ function startEventSub(userId) {
     console.error(`[EventSub] Error in redemption handler for ${userId}:`, rErr);
   }
 });
+  if (sRedemption) subs.push(sRedemption);
 } catch (err) {
   console.warn(`[EventSub] Redemption listener setup warning for ${userId}:`, err?.message || err);
 }
 
   try {
-    el.onChannelShoutoutCreate(userId, userId, (e) => {
+    const sShoutout = el.onChannelShoutoutCreate(userId, userId, (e) => {
       if (!isWidgetActiveForUser(userId, 'twitch-shoutout')) {
         console.log(`[EventSub] ⚠️ Shoutout widget is DISABLED for user ${userId}, skipping shoutout event`);
         return;
@@ -4089,6 +4133,7 @@ function startEventSub(userId) {
       };
       io.to('user_' + userId).emit('onEventReceived', ev);
     });
+    if (sShoutout) subs.push(sShoutout);
   } catch (err) {
     console.warn(`[EventSub] Shoutout listener setup warning for ${userId}:`, err?.message || err);
   }
@@ -4096,13 +4141,16 @@ function startEventSub(userId) {
 
   // ดักฟังข้อความแชทจาก EventSub
   try {
-    el.onChannelChatMessage(userId, userId, async (e) => {
+    const sChat = el.onChannelChatMessage(userId, userId, async (e) => {
       await processChatMessage(userId, e);
     });
+    if (sChat) subs.push(sChat);
     console.log(`✅ [EventSub] Subscribed to chat messages for user ID: ${userId}`);
   } catch (err) {
     console.warn(`[EventSub] Chat message listener setup warning for ${userId}:`, err?.message || err);
   }
+
+  userEventSubSubscriptions.set(uidStr, subs);
 }
 
 // 🧪 API สำหรับทดสอบคำสั่งแชท (จำลองการพิมพ์ใน Twitch Chat)
@@ -5048,6 +5096,7 @@ async function hydrateFromMongo() {
 
     if (authProvider) {
       for (const [uid, tData] of Object.entries(userTokens)) {
+        if (disabledTwitchUsers.has(String(uid))) continue;
         if (!authProvider.hasUser(uid) && tData?.refreshToken) {
           try {
             authProvider.addUser(uid, tData, requestedScopes);
@@ -5087,14 +5136,15 @@ async function hydrateFromMongo() {
 }
 
 // SPA Fallback: Serve React Frontend for non-API routes in production
-if (fs.existsSync(frontendDist)) {
-  app.use((req, res, next) => {
-    if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/auth') && !req.path.startsWith('/widgets') && !req.path.startsWith('/socket.io')) {
-      return res.sendFile(path.join(frontendDist, 'index.html'));
+app.use((req, res, next) => {
+  if ((req.method === 'GET' || req.method === 'HEAD') && !req.path.startsWith('/api') && !req.path.startsWith('/auth') && !req.path.startsWith('/widgets') && !req.path.startsWith('/socket.io')) {
+    const indexPath = path.join(frontendDist, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
     }
-    next();
-  });
-}
+  }
+  next();
+});
 
 // 🛡️ Global Express Error Handling Middleware
 app.use((err, req, res, next) => {

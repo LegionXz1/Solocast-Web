@@ -182,6 +182,20 @@
         }
     });
 
+    window.addEventListener('onWidgetChange', function(evt) {
+        if (evt && evt.detail) {
+            fieldData = Object.assign({}, fieldData, evt.detail.fieldData || evt.detail);
+            updateScoreboardUI(null, null, true);
+        }
+    });
+
+    window.addEventListener('onFieldsUpdate', function(evt) {
+        if (evt && evt.detail) {
+            fieldData = Object.assign({}, fieldData, evt.detail.fieldData || evt.detail);
+            updateScoreboardUI(null, null, true);
+        }
+    });
+
     function isTargetUserMatch(data) {
         if (!data) return true;
         const currentTarget = String(getWidgetTargetUser() || '').trim().toLowerCase().replace(/^@/, '');

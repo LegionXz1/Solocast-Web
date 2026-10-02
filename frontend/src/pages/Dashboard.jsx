@@ -5,6 +5,7 @@ import { io } from 'socket.io-client';
 import { API_BASE, WS_BASE } from '../config';
 import {
   Sliders,
+  Sparkles,
   History,
   CalendarCheck,
   Save,
@@ -256,17 +257,20 @@ function Dashboard() {
   const [status, setStatus] = useState({ connected: false, username: '', isAdmin: false, userId: '' });
   const [events, setEvents] = useState([]);
 
+  // Forward directly to new Settings Studio if widget query param is present
+  useEffect(() => {
+    try {
+      const p = new URLSearchParams(window.location.search).get('widget');
+      if (p) {
+        navigate(`/settings?widget=${p}`, { replace: true });
+      }
+    } catch {}
+  }, [navigate]);
+
   // Widget Data & My Overlays Gallery State
   const [widgets, setWidgets] = useState([]);
   const [isWidgetsLoading, setIsWidgetsLoading] = useState(true);
-  const [selectedWidget, setSelectedWidget] = useState(() => {
-    try {
-      const p = new URLSearchParams(window.location.search).get('widget');
-      return p || '';
-    } catch {
-      return '';
-    }
-  });
+  const [selectedWidget, setSelectedWidget] = useState('');
   const [favorites, setFavorites] = useState(() => {
     try {
       const saved = localStorage.getItem('solocast_fav_overlays');
@@ -377,7 +381,7 @@ function Dashboard() {
     }
     if (params.get('spotify_connected') === '1') {
       setSelectedWidget('spotify-sr');
-      setSpotifyMsg({ type: 'success', text: 'เชื่อมต่อบัญชี Spotify สำเร็จแล้ว! พร้อมใช้งาน 🎉' });
+      setSpotifyMsg({ type: 'success', text: 'เชื่อมต่อบัญชี Spotify สำเร็จแล้ว! พร้อมใช้งาน' });
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -1275,10 +1279,7 @@ function Dashboard() {
   };
 
   const handleOpenWidget = (widgetId) => {
-    setSelectedWidget(widgetId);
-    const url = new URL(window.location);
-    url.searchParams.set('widget', widgetId);
-    window.history.pushState({}, '', url.toString());
+    navigate(`/settings?widget=${widgetId}`);
   };
 
   const handleBackToGallery = () => {
@@ -1554,6 +1555,27 @@ function Dashboard() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => navigate('/settings')}
+                className="btn-island"
+                style={{
+                  padding: '0.55rem 1rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, rgba(253, 88, 37, 0.15), rgba(249, 115, 22, 0.15))',
+                  color: 'var(--accent-color)',
+                  border: '1px solid rgba(253, 88, 37, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.45rem'
+                }}
+                title="เปิดสตูดิโอตั้งค่าวิดเจ็ตทั้งหมด"
+              >
+                <Sliders size={16} />
+                <span>สตูดิโอตั้งค่า Widget</span>
+              </button>
+
               {status.isAdmin && (
                 <button
                   type="button"
@@ -1725,7 +1747,7 @@ function Dashboard() {
                 }}
               >
                 {copiedDockUrl ? <Check size={14} /> : <Zap size={14} />}
-                <span>{copiedDockUrl ? 'คัดลอก OBS Dock แล้ว!' : '🔗 OBS Quick Dock'}</span>
+                <span>{copiedDockUrl ? 'คัดลอก OBS Dock แล้ว!' : 'OBS Quick Dock'}</span>
               </button>
             </div>
           </div>
@@ -2365,7 +2387,7 @@ function Dashboard() {
                                     title="สุ่มตัวละคร 1 ตัวทันที"
                                   >
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                      <Crosshair size={14} /> {isRollingValorant ? 'กำลังสุ่ม...' : '🎯 สุ่มเดี่ยว 1 ตัว'}
+                                      <Crosshair size={14} /> {isRollingValorant ? 'กำลังสุ่ม...' : 'สุ่มเดี่ยว 1 ตัว'}
                                     </span>
                                   </button>
                                   <button
@@ -2988,7 +3010,7 @@ function Dashboard() {
                                       }}
                                       title="ปรับแต่งคำสั่งแชทตามใจชอบ"
                                     >
-                                      <Sliders size={12} /> {showDbdCmdEditor ? 'ซ่อนตั้งค่าคำสั่ง' : '⚙️ ตั้งค่าคำสั่งแชท'}
+                                      <Sliders size={12} /> {showDbdCmdEditor ? 'ซ่อนตั้งค่าคำสั่ง' : 'ตั้งค่าคำสั่งแชท'}
                                     </button>
                                   </div>
 

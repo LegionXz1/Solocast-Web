@@ -241,5 +241,14 @@
     "label": "คิลเลอร์ที่ไม่ต้องการให้สุ่ม (Excluded Killers)",
     "value": [],
     "group": "Excluded Killers"
+  },
+  "soundVolume": {
+    "type": "slider",
+    "label": "ระดับเสียงเอฟเฟกต์ (Sound Volume %)",
+    "value": 60,
+    "min": 0,
+    "max": 100,
+    "step": 5,
+    "group": "Audio"
   }
 }
