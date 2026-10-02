@@ -2120,12 +2120,51 @@ const rollHistoryStore = loadRollHistory();
 app.get('/api/widgets/:id/history', (req, res) => {
   try {
     const widgetId = req.params.id;
-    const user = req.query.user || req.query.channel || 'default';
-    let list = rollHistoryStore[widgetId]?.[user] || [];
+    let user = (req.query.user || req.query.channel || '').trim();
+
+    // If no user specified in query, check auth session
+    if (!user) {
+      const sess = getSessionFromReq(req);
+      if (sess && sess.userId) user = sess.userId;
+    }
+
+    let list = user ? rollHistoryStore[widgetId]?.[user] : null;
+
+    // Search across associated identifiers (userId, username, displayName)
+    if ((!list || list.length === 0) && user) {
+      const allIds = getAssociatedUserIdentifiers(user);
+      for (const id of allIds) {
+        if (rollHistoryStore[widgetId]?.[id] && rollHistoryStore[widgetId][id].length > 0) {
+          list = rollHistoryStore[widgetId][id];
+          break;
+        }
+      }
+    }
+
+    // Fallback: check case-insensitive match on keys
+    if ((!list || list.length === 0) && user && rollHistoryStore[widgetId]) {
+      const cleanTarget = user.toLowerCase().replace(/^@/, '');
+      for (const [k, v] of Object.entries(rollHistoryStore[widgetId])) {
+        if (k.toLowerCase() === cleanTarget && Array.isArray(v) && v.length > 0) {
+          list = v;
+          break;
+        }
+      }
+    }
+
+    // Fallback: if only 1 user exists or single owner
+    if ((!list || list.length === 0) && !user && rollHistoryStore[widgetId]) {
+      const keys = Object.keys(rollHistoryStore[widgetId]).filter(k => k !== 'default');
+      if (keys.length === 1 && Array.isArray(rollHistoryStore[widgetId][keys[0]])) {
+        list = rollHistoryStore[widgetId][keys[0]];
+      }
+    }
+
+    if (!list) list = [];
 
     // สำหรับ loyalty-card: หากประวัติยังว่างอยู่ ให้สร้างรายการจากยอดเช็คอินที่บันทึกไว้ใน widgetStore
-    if (widgetId === 'loyalty-card' && list.length === 0 && widgetStore['loyalty-card']?.[user]) {
-      const storeData = widgetStore['loyalty-card'][user];
+    if (widgetId === 'loyalty-card' && list.length === 0 && widgetStore['loyalty-card']?.[user || 'default']) {
+      const storeData = widgetStore['loyalty-card'][user || 'default'];
       const items = [];
       for (const [k, v] of Object.entries(storeData)) {
         if (k.startsWith('ci_')) {
@@ -2238,11 +2277,22 @@ app.post('/api/widgets/:id/history', (req, res) => {
 app.delete('/api/widgets/:id/history', (req, res) => {
   try {
     const widgetId = req.params.id;
-    const user = req.query.user || req.query.channel || 'default';
-    if (rollHistoryStore[widgetId]?.[user]) {
-      rollHistoryStore[widgetId][user] = [];
-      saveRollHistory(rollHistoryStore);
+    let user = (req.query.user || req.query.channel || '').trim();
+    if (!user) {
+      const sess = getSessionFromReq(req);
+      if (sess && sess.userId) user = sess.userId;
     }
+
+    const allIds = getAssociatedUserIdentifiers(user);
+    if (user) allIds.add(user);
+
+    for (const id of allIds) {
+      if (rollHistoryStore[widgetId]?.[id]) {
+        rollHistoryStore[widgetId][id] = [];
+      }
+    }
+    saveRollHistory(rollHistoryStore);
+
     if (user) {
       io.to('user_' + user).emit('widget_roll_history_cleared', { widgetId });
     } else {

@@ -174,7 +174,7 @@ export default function SecretSettings() {
         url.searchParams.set('widget', selectedWidget);
         window.history.replaceState({}, '', url.toString());
       }
-    } catch {}
+    } catch { }
   }, [selectedWidget]);
 
   // Widget Switcher Modal State
@@ -277,6 +277,7 @@ export default function SecretSettings() {
 
   // Roll History State
   const [rollHistory, setRollHistory] = useState([]);
+  const [historySearch, setHistorySearch] = useState('');
 
   // Check URL query parameters (e.g. Spotify Auth Return)
   useEffect(() => {
@@ -308,7 +309,7 @@ export default function SecretSettings() {
           socket.emit('join_user', { token: activeToken, userId: data.user.userId });
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [token]);
 
   // Load Widgets
@@ -323,7 +324,7 @@ export default function SecretSettings() {
           }
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // Fetch Status Overview
@@ -336,7 +337,7 @@ export default function SecretSettings() {
           setWidgetStatusOverview(data);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [status.userId, status.username]);
 
   useEffect(() => {
@@ -356,7 +357,7 @@ export default function SecretSettings() {
       if (resStatus) setSpotifyStatus(resStatus);
       if (resQueue && Array.isArray(resQueue.queue)) setSpotifyQueue(resQueue.queue);
       if (resCurrent) setNowPlaying(resCurrent);
-    } catch (_) {}
+    } catch (_) { }
   }, [selectedWidget, status.userId]);
 
   // Load Schema and Saved Settings for Active Widget
@@ -383,23 +384,23 @@ export default function SecretSettings() {
 
     // Special Content data
     if (selectedWidget === 'random-killer') {
-      fetch(`${API_BASE}/api/widgets/random-killer/killers`).then(r => r.json()).then(setKillersList).catch(() => {});
+      fetch(`${API_BASE}/api/widgets/random-killer/killers`).then(r => r.json()).then(setKillersList).catch(() => { });
     } else if (selectedWidget === 'dbd-perks') {
-      fetch(`${API_BASE}/api/widgets/dbd-perks/perks`).then(r => r.json()).then(setDbdPerksList).catch(() => {});
+      fetch(`${API_BASE}/api/widgets/dbd-perks/perks`).then(r => r.json()).then(setDbdPerksList).catch(() => { });
     } else if (selectedWidget === 'valorant-agent') {
-      fetch(`${API_BASE}/api/widgets/valorant-agent/agents`).then(r => r.json()).then(setAgentsList).catch(() => {});
+      fetch(`${API_BASE}/api/widgets/valorant-agent/agents`).then(r => r.json()).then(setAgentsList).catch(() => { });
     } else if (selectedWidget === 'custom-counter') {
       fetch(`${API_BASE}/api/widgets/custom-counter/data?user=${encodeURIComponent(status.userId || status.username || '')}`)
         .then(r => r.json())
         .then(d => {
           if (d && d.count !== undefined) setCounterCount(d.count);
-        }).catch(() => {});
+        }).catch(() => { });
     } else if (selectedWidget === 'dbd-scoreboard') {
       fetch(`${API_BASE}/api/widgets/dbd-scoreboard/data?user=${encodeURIComponent(status.userId || status.username || '')}`)
         .then(r => r.json())
         .then(d => {
           if (d && d.scoreData) setScoreboardData(d.scoreData);
-        }).catch(() => {});
+        }).catch(() => { });
     } else if (selectedWidget === 'spotify-sr') {
       fetchSpotifyData();
     }
@@ -410,7 +411,7 @@ export default function SecretSettings() {
         .then(r => r.ok ? r.json() : [])
         .then(d => {
           setRollHistory(Array.isArray(d) ? d : []);
-        }).catch(() => {});
+        }).catch(() => { });
     } else {
       setRollHistory([]);
     }
@@ -555,7 +556,7 @@ export default function SecretSettings() {
             fieldData: next,
             ...next
           }, '*');
-        } catch (_) {}
+        } catch (_) { }
       }
 
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -663,7 +664,7 @@ export default function SecretSettings() {
       } else {
         alert(data.error || 'ไม่สามารถเปลี่ยนสถานะ Widget ได้');
       }
-    } catch (_) {}
+    } catch (_) { }
   };
 
   // DBD Scoreboard Update Handler
@@ -1027,7 +1028,7 @@ export default function SecretSettings() {
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.31);
-    } catch (_) {}
+    } catch (_) { }
   };
 
   // Format Helpers
@@ -1062,6 +1063,27 @@ export default function SecretSettings() {
     });
     return Object.values(map).sort((a, b) => b.count - a.count);
   }, [selectedWidget, rollHistory]);
+
+  // Filtered Roll History for Search
+  const filteredRollHistory = useMemo(() => {
+    if (!historySearch.trim()) return rollHistory;
+    const q = historySearch.toLowerCase().trim();
+    return rollHistory.filter(item => {
+      const u = (item.username || '').toLowerCase();
+      const r = (item.rewardTitle || '').toLowerCase();
+      const res = (item.result || '').toLowerCase();
+      const killer = (item.killer || '').toLowerCase();
+      const agent = (item.agent || '').toLowerCase();
+      const role = (item.role || '').toLowerCase();
+      const perksMatch = Array.isArray(item.perks) && item.perks.some(p =>
+        (p.name || '').toLowerCase().includes(q) || (p.character || '').toLowerCase().includes(q)
+      );
+      const agentsMatch = Array.isArray(item.agents) && item.agents.some(a =>
+        (a.name || '').toLowerCase().includes(q) || (a.role || '').toLowerCase().includes(q)
+      );
+      return u.includes(q) || r.includes(q) || res.includes(q) || killer.includes(q) || agent.includes(q) || role.includes(q) || perksMatch || agentsMatch;
+    });
+  }, [rollHistory, historySearch]);
 
   // OBS URL Generation
   const obsUrl = useMemo(() => {
@@ -1332,6 +1354,160 @@ export default function SecretSettings() {
     });
   };
 
+  // Spotify Account Connection Banner
+  const renderSpotifyConnectionBanner = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem' }}>
+      {/* Spotify Notification Alert */}
+      {spotifyMsg.text && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: 'var(--radius-sm)',
+          background: spotifyMsg.type === 'error' ? 'rgba(255, 69, 58, 0.12)' : 'rgba(48, 209, 88, 0.12)',
+          border: spotifyMsg.type === 'error' ? '1px solid rgba(255, 69, 58, 0.3)' : '1px solid rgba(48, 209, 88, 0.3)',
+          color: spotifyMsg.type === 'error' ? '#FF453A' : '#30D158',
+          fontSize: '0.875rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.5rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {spotifyMsg.type === 'error' ? <AlertCircle size={18} /> : <Check size={18} />}
+            <span>{spotifyMsg.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSpotifyMsg({ type: '', text: '' })}
+            style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', padding: '2px' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Spotify Connection Banner */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(29, 185, 84, 0.08), rgba(20, 20, 26, 0.8))',
+        border: '1px solid rgba(29, 185, 84, 0.25)',
+        borderRadius: 'var(--radius-md)',
+        padding: '1.25rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '1rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #1DB954, #158a3e)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            boxShadow: '0 4px 16px rgba(29, 185, 84, 0.35)',
+            flexShrink: 0
+          }}>
+            <Music size={26} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h4 style={{ margin: 0, fontSize: '1.05rem', color: '#fff', fontWeight: 700 }}>
+                Spotify Song Request
+              </h4>
+              {spotifyStatus.connected ? (
+                <span style={{
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  color: '#1DB954',
+                  background: 'rgba(29, 185, 84, 0.15)',
+                  border: '1px solid rgba(29, 185, 84, 0.35)',
+                  padding: '2px 8px',
+                  borderRadius: '100px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1DB954' }} />
+                  เชื่อมต่อแล้ว
+                </span>
+              ) : (
+                <span style={{
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary)',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  padding: '2px 8px',
+                  borderRadius: '100px'
+                }}>
+                  ยังไม่ได้เชื่อมต่อ
+                </span>
+              )}
+            </div>
+            <p style={{ margin: '4px 0 0', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
+              {spotifyStatus.connected
+                ? `บัญชี Spotify: ${spotifyStatus.displayName || 'กำลังใช้งาน'} ${spotifyStatus.product ? `(${spotifyStatus.product})` : ''}`
+                : 'เชื่อมต่อกับบัญชี Spotify ของคุณเพื่อให้ผู้ชมสามารถพิมพ์ !sr ในแชท Twitch ได้ทันที'}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          {spotifyStatus.connected ? (
+            <>
+              <button
+                type="button"
+                onClick={handleConnectSpotify}
+                disabled={spotifyLoading}
+                className="btn-island"
+                style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+                title="เชื่อมต่อใหม่อีกครั้ง"
+              >
+                <RotateCw size={13} />
+                <span>เชื่อมต่อใหม่</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDisconnectSpotify}
+                disabled={spotifyLoading}
+                className="btn-island"
+                style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem', color: '#FF453A', borderColor: 'rgba(255, 69, 58, 0.3)' }}
+              >
+                <LogOut size={13} />
+                <span>ยกเลิกการเชื่อมต่อ</span>
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={handleConnectSpotify}
+              disabled={spotifyLoading}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.55rem 1.15rem',
+                background: 'linear-gradient(135deg, #1DB954, #158a3e)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 'var(--radius-sm)',
+                fontWeight: 700,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(29, 185, 84, 0.3)'
+              }}
+            >
+              {spotifyLoading ? <Loader2 size={16} className="spin" /> : <Music size={16} />}
+              <span>เชื่อมต่อกับ Spotify</span>
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="secret-settings-page">
       {/* ── Top Header ── */}
@@ -1342,11 +1518,11 @@ export default function SecretSettings() {
           </div>
           <div>
             <div className="secret-header-title">
-              <span>Studio Widget Settings</span>
+              <span>แผงควบคุม</span>
               <span className="secret-badge">Pro Studio</span>
             </div>
             <p className="secret-header-desc">
-              ระบบตั้งค่าวิดเจ็ตสตรีมเมอร์แบบเต็มรูปแบบ จัดหมวดหมู่ชัดเจน รองรับ Live Control, Spotify Queue และ Dynamic Schema 100%
+              ระบบตั้งค่าวิดเจ็ตสตรีมเมอร์แบบเต็มรูปแบบ
             </p>
           </div>
         </div>
@@ -1396,32 +1572,54 @@ export default function SecretSettings() {
           <div className="settings-inner-core">
             {/* Active Widget Hero Bar */}
             <div className="active-widget-bar">
-              <button
-                type="button"
-                className="active-widget-trigger-card"
-                onClick={() => setIsSwitcherOpen(true)}
-                title="คลิกเพื่อเลือกหรือสลับ Widget อื่น"
-              >
-                <div className="active-widget-icon-large" style={{ background: activeWidgetMeta.gradient || activeWidgetMeta.color }}>
-                  {activeWidgetMeta.icon}
-                </div>
-                <div className="active-widget-details">
-                  <div className="active-widget-title-row">
-                    <h2 className="active-widget-title">{activeWidgetMeta.name}</h2>
-                    <ChevronDown size={18} className="switcher-dropdown-chevron" />
-                    <span className="secret-badge" style={{
-                      background: isWidgetUserActive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                      color: isWidgetUserActive ? '#10b981' : '#f87171',
-                      borderColor: isWidgetUserActive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'
-                    }}>
-                      {isWidgetUserActive ? 'Live บน Stream' : 'ปิดอยู่'}
-                    </span>
+              <div className="active-widget-top-row">
+                <button
+                  type="button"
+                  className="active-widget-trigger-card"
+                  onClick={() => setIsSwitcherOpen(true)}
+                  title="คลิกเพื่อเลือกหรือสลับ Widget อื่น"
+                >
+                  <div className="active-widget-icon-large" style={{ background: activeWidgetMeta.gradient || activeWidgetMeta.color }}>
+                    {activeWidgetMeta.icon}
                   </div>
-                  <p className="active-widget-desc">{activeWidgetMeta.desc}</p>
-                </div>
-              </button>
+                  <div className="active-widget-details">
+                    <div className="active-widget-title-row">
+                      <h2 className="active-widget-title">{activeWidgetMeta.name}</h2>
+                      <ChevronDown size={18} className="switcher-dropdown-chevron" />
+                      <span className="secret-badge" style={{
+                        background: isWidgetUserActive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: isWidgetUserActive ? '#10b981' : '#f87171',
+                        borderColor: isWidgetUserActive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'
+                      }}>
+                        {isWidgetUserActive ? 'Live บน Stream' : 'ปิดอยู่'}
+                      </span>
+                    </div>
+                    <p className="active-widget-desc">{activeWidgetMeta.desc}</p>
+                  </div>
+                </button>
 
-              <div className="active-widget-actions">
+                {/* History Button - Positioned in the top right corner as requested */}
+                <button
+                  type="button"
+                  className={`active-widget-history-btn ${activeCategory === 'history' ? 'active' : ''}`}
+                  onClick={() => {
+                    if (activeCategory === 'history') {
+                      setActiveCategory('quick');
+                    } else {
+                      setActiveCategory('history');
+                    }
+                  }}
+                  title="คลิกเพื่อดูประวัติการแลกแต้มและการสุ่มทั้งหมด"
+                >
+                  <History size={16} />
+                  <span>ประวัติแลกแต้ม</span>
+                  <span className="active-widget-history-badge">
+                    {rollHistory.length}
+                  </span>
+                </button>
+              </div>
+
+              <div className="active-widget-bottom-row">
                 <div className="widget-quick-nav">
                   <button
                     type="button"
@@ -1564,8 +1762,43 @@ export default function SecretSettings() {
             {/* ── TAB 1: QUICK START ── */}
             {activeCategory === 'quick' && (
               <div className="animate-fade-up">
+                {/* Spotify Account Connection Card (Quick Start) */}
+                {selectedWidget === 'spotify-sr' && renderSpotifyConnectionBanner()}
+
+                {/* Spotify Chat Command (Quick Start) */}
+                {selectedWidget === 'spotify-sr' && schema?.commandPrefix && (
+                  <div className="setting-card">
+                    <div className="setting-card-header">
+                      <div>
+                        <h4 className="setting-card-title">คำสั่งพิมพ์ขอผ่าน Twitch Chat</h4>
+                        <p className="setting-card-desc">
+                          ผู้ชมสามารถพิมพ์คำสั่งนี้ใน Twitch Chat เพื่อขอเพลง (เช่น <code>{fieldData.commandPrefix || '!sr'} Sunflower</code> หรือวางลิงก์ Spotify)
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: '0.65rem' }}>
+                      <input
+                        type="text"
+                        value={fieldData.commandPrefix || '!sr'}
+                        onChange={e => handleFieldChange('commandPrefix', e.target.value)}
+                        style={{
+                          width: '100%',
+                          background: 'var(--surface-input)',
+                          border: '1px solid var(--border-primary)',
+                          padding: '0.6rem 0.85rem',
+                          borderRadius: 'var(--radius-md)',
+                          fontFamily: 'monospace',
+                          fontSize: '0.9rem',
+                          color: 'var(--accent-color)'
+                        }}
+                        placeholder="!sr"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* 1. Twitch Channel Point Reward Banner */}
-                {(schema?.rewardName || schema?.rewardNameSurvivor || schema?.channelPointsReward) && (
+                {(schema?.rewardName || schema?.rewardNameSurvivor || schema?.channelPointsReward) && selectedWidget !== 'custom-counter' && selectedWidget !== 'spotify-sr' && (
                   <div className="reward-setup-banner">
                     <div className="reward-setup-title">
                       <Sparkles size={18} />
@@ -1656,13 +1889,14 @@ export default function SecretSettings() {
                 )}
 
                 {/* 2. Quick Test & Roll Action Card */}
-                <div className="setting-card">
-                  <div className="setting-card-header">
-                    <div>
-                      <h4 className="setting-card-title">ทดสอบการทำงานและสุ่มผลลัพธ์ (Quick Actions & Test Roll)</h4>
-                      <p className="setting-card-desc">คลิกปุ่มเพื่อทดสอบให้กราฟิกแสดงผลขึ้นบน OBS หรือ Live Preview ทันที</p>
+                {selectedWidget !== 'spotify-sr' && (
+                  <div className="setting-card">
+                    <div className="setting-card-header">
+                      <div>
+                        <h4 className="setting-card-title">ทดสอบการทำงานและสุ่มผลลัพธ์ (Quick Actions & Test Roll)</h4>
+                        <p className="setting-card-desc">คลิกปุ่มเพื่อทดสอบให้กราฟิกแสดงผลขึ้นบน OBS หรือ Live Preview ทันที</p>
+                      </div>
                     </div>
-                  </div>
                   <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', marginTop: '0.65rem' }}>
                     {selectedWidget === 'dbd-perks' && (
                       <>
@@ -1794,6 +2028,7 @@ export default function SecretSettings() {
                     )}
                   </div>
                 </div>
+                )}
 
                 {/* 3. Visual Overlay Toggle Card */}
                 {schema?.enableVisualOverlay && (
@@ -1866,6 +2101,23 @@ export default function SecretSettings() {
                       <span>{copiedUrl ? 'คัดลอกแล้ว!' : 'คัดลอก URL'}</span>
                     </button>
                   </div>
+                </div>
+
+                {/* 6. All Settings Guidance Notice */}
+                <div className="quick-all-settings-notice">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <Info size={17} style={{ color: 'var(--accent-color)', flexShrink: 0 }} />
+                    <span>หากหาการตั้งค่าไหนไม่เจอ ให้ดูที่แท็บ <strong>"การตั้งค่าทั้งหมด"</strong></span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-island"
+                    onClick={() => setActiveCategory('all')}
+                    style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                  >
+                    <Sliders size={14} />
+                    <span>ไปที่การตั้งค่าทั้งหมด</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -2008,17 +2260,19 @@ export default function SecretSettings() {
             {activeCategory === 'twitch' && (
               <div className="animate-fade-up">
                 {/* Reward Matching Instructions */}
-                <div className="setting-card" style={{ borderLeft: '4px solid #9146ff' }}>
-                  <h4 className="setting-card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#c084fc' }}>
-                    <Sparkles size={18} />
-                    <span>คำแนะนำการผูกกับ Twitch Channel Points</span>
-                  </h4>
-                  <ol style={{ margin: '0.5rem 0 0 1.25rem', padding: 0, fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                    <li>ไปที่ <strong>Twitch Creator Dashboard &gt; Viewer Rewards &gt; Channel Points</strong></li>
-                    <li>กด <strong>Create a Custom Reward</strong></li>
-                    <li>ตั้งชื่อให้ <strong>ตรงกับชื่อในกล่องด้านล่างนี้ 100%</strong> (สามารถกดปุ่ม "คัดลอก" เพื่อนำไปวางได้ทันที)</li>
-                  </ol>
-                </div>
+                {selectedWidget !== 'custom-counter' && selectedWidget !== 'spotify-sr' && (schema?.rewardName || schema?.rewardNameSurvivor || schema?.channelPointsReward) && (
+                  <div className="setting-card" style={{ borderLeft: '4px solid #9146ff' }}>
+                    <h4 className="setting-card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#c084fc' }}>
+                      <Sparkles size={18} />
+                      <span>คำแนะนำการผูกกับ Twitch Channel Points</span>
+                    </h4>
+                    <ol style={{ margin: '0.5rem 0 0 1.25rem', padding: 0, fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                      <li>ไปที่ <strong>Twitch Creator Dashboard &gt; Viewer Rewards &gt; Channel Points</strong></li>
+                      <li>กด <strong>Create a Custom Reward</strong></li>
+                      <li>ตั้งชื่อให้ <strong>ตรงกับชื่อในกล่องด้านล่างนี้ 100%</strong> (สามารถกดปุ่ม "คัดลอก" เพื่อนำไปวางได้ทันที)</li>
+                    </ol>
+                  </div>
+                )}
 
                 {/* Chat Command Prefix */}
                 {schema?.commandPrefix && (
@@ -2407,154 +2661,7 @@ export default function SecretSettings() {
                 {/* 2. Spotify Song Request Workspace */}
                 {selectedWidget === 'spotify-sr' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                    {/* Spotify Notification Alert */}
-                    {spotifyMsg.text && (
-                      <div style={{
-                        padding: '0.75rem 1rem',
-                        borderRadius: 'var(--radius-sm)',
-                        background: spotifyMsg.type === 'error' ? 'rgba(255, 69, 58, 0.12)' : 'rgba(48, 209, 88, 0.12)',
-                        border: spotifyMsg.type === 'error' ? '1px solid rgba(255, 69, 58, 0.3)' : '1px solid rgba(48, 209, 88, 0.3)',
-                        color: spotifyMsg.type === 'error' ? '#FF453A' : '#30D158',
-                        fontSize: '0.875rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '0.5rem'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          {spotifyMsg.type === 'error' ? <AlertCircle size={18} /> : <Check size={18} />}
-                          <span>{spotifyMsg.text}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setSpotifyMsg({ type: '', text: '' })}
-                          style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', padding: '2px' }}
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Spotify Connection Banner */}
-                    <div style={{
-                      background: 'linear-gradient(135deg, rgba(29, 185, 84, 0.08), rgba(20, 20, 26, 0.8))',
-                      border: '1px solid rgba(29, 185, 84, 0.25)',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '1.25rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: '1rem'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{
-                          width: '48px',
-                          height: '48px',
-                          borderRadius: '50%',
-                          background: 'linear-gradient(135deg, #1DB954, #158a3e)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#fff',
-                          boxShadow: '0 4px 16px rgba(29, 185, 84, 0.35)',
-                          flexShrink: 0
-                        }}>
-                          <Music size={26} />
-                        </div>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <h4 style={{ margin: 0, fontSize: '1.05rem', color: '#fff', fontWeight: 700 }}>
-                              Spotify Song Request
-                            </h4>
-                            {spotifyStatus.connected ? (
-                              <span style={{
-                                fontSize: '0.7rem',
-                                fontWeight: 700,
-                                color: '#1DB954',
-                                background: 'rgba(29, 185, 84, 0.15)',
-                                border: '1px solid rgba(29, 185, 84, 0.35)',
-                                padding: '2px 8px',
-                                borderRadius: '100px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}>
-                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1DB954' }} />
-                                เชื่อมต่อแล้ว
-                              </span>
-                            ) : (
-                              <span style={{
-                                fontSize: '0.7rem',
-                                fontWeight: 600,
-                                color: 'var(--text-secondary)',
-                                background: 'rgba(255, 255, 255, 0.08)',
-                                padding: '2px 8px',
-                                borderRadius: '100px'
-                              }}>
-                                ยังไม่ได้เชื่อมต่อ
-                              </span>
-                            )}
-                          </div>
-                          <p style={{ margin: '4px 0 0', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
-                            {spotifyStatus.connected
-                              ? `บัญชี Spotify: ${spotifyStatus.displayName || 'กำลังใช้งาน'} ${spotifyStatus.product ? `(${spotifyStatus.product})` : ''}`
-                              : 'เชื่อมต่อกับบัญชี Spotify ของคุณเพื่อให้ผู้ชมสามารถพิมพ์ !sr ในแชท Twitch ได้ทันที'}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                        {spotifyStatus.connected ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={handleConnectSpotify}
-                              disabled={spotifyLoading}
-                              className="btn-island"
-                              style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
-                              title="เชื่อมต่อใหม่อีกครั้ง"
-                            >
-                              <RotateCw size={13} />
-                              <span>เชื่อมต่อใหม่</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleDisconnectSpotify}
-                              disabled={spotifyLoading}
-                              className="btn-island"
-                              style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem', color: '#FF453A', borderColor: 'rgba(255, 69, 58, 0.3)' }}
-                            >
-                              <LogOut size={13} />
-                              <span>ยกเลิกการเชื่อมต่อ</span>
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={handleConnectSpotify}
-                            disabled={spotifyLoading}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.5rem',
-                              padding: '0.55rem 1.15rem',
-                              background: 'linear-gradient(135deg, #1DB954, #158a3e)',
-                              color: '#fff',
-                              border: 'none',
-                              borderRadius: 'var(--radius-sm)',
-                              fontWeight: 700,
-                              fontSize: '0.875rem',
-                              cursor: 'pointer',
-                              boxShadow: '0 4px 14px rgba(29, 185, 84, 0.3)'
-                            }}
-                          >
-                            {spotifyLoading ? <Loader2 size={16} className="spin" /> : <Music size={16} />}
-                            <span>เชื่อมต่อกับ Spotify</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    {renderSpotifyConnectionBanner()}
 
                     {/* Now Playing Card */}
                     <div className="setting-card">
@@ -3236,26 +3343,78 @@ export default function SecretSettings() {
             {activeCategory === 'history' && (
               <div className="animate-fade-up">
                 <div className="setting-card">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
                     <div>
                       <h4 className="setting-card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                         <History size={18} />
-                        <span>ประวัติการใช้งานและกิจกรรมล่าสุด ({rollHistory.length})</span>
+                        <span>ประวัติการแลกแต้มและกิจกรรมล่าสุด ({rollHistory.length})</span>
                       </h4>
                       <p className="setting-card-desc">บันทึกผลการสุ่ม, การเช็คอิน และคำสั่งแชทแบบ Real-time</p>
                     </div>
-                    {rollHistory.length > 0 && (
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <button
                         type="button"
-                        onClick={handleClearHistory}
+                        onClick={() => setActiveCategory('quick')}
                         className="btn-island"
-                        style={{ color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                        style={{ fontSize: '0.8rem', padding: '0.4rem 0.85rem' }}
                       >
-                        <Trash2 size={14} />
-                        <span>ล้างประวัติทั้งหมด</span>
+                        <ArrowLeft size={14} />
+                        <span>กลับไปหน้าตั้งค่า</span>
                       </button>
-                    )}
+
+                      {rollHistory.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearHistory}
+                          className="btn-island"
+                          style={{ color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.3)', fontSize: '0.8rem', padding: '0.4rem 0.85rem' }}
+                        >
+                          <Trash2 size={14} />
+                          <span>ล้างประวัติทั้งหมด</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* History Search Bar */}
+                  {rollHistory.length > 0 && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      marginBottom: '1rem',
+                      background: 'var(--surface-input)',
+                      border: '1px solid var(--border-primary)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '0.5rem 0.75rem'
+                    }}>
+                      <Search size={15} style={{ color: 'var(--text-secondary)' }} />
+                      <input
+                        type="text"
+                        placeholder="ค้นหาในประวัติ (ชื่อผู้ชม, รางวัล, เปิร์ค, ฆาตกร, เอเจนท์)..."
+                        value={historySearch}
+                        onChange={(e) => setHistorySearch(e.target.value)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          outline: 'none',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.84rem',
+                          width: '100%'
+                        }}
+                      />
+                      {historySearch && (
+                        <button
+                          type="button"
+                          onClick={() => setHistorySearch('')}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.75rem' }}
+                        >
+                          ล้าง
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {/* Loyalty Card User Summary Leaderboard */}
                   {selectedWidget === 'loyalty-card' && loyaltyUserSummary.length > 0 && (
@@ -3326,14 +3485,31 @@ export default function SecretSettings() {
                         ยังไม่มีประวัติกิจกรรมในขณะนี้
                       </p>
                       <p style={{ margin: '4px 0 0', fontSize: '0.78rem' }}>
-                        เมื่อผู้ชมแลกแต้มในช่อง หรือคุณกดปุ่ม "ทดสอบการทำงาน" ผลลัพธ์จะถูกบันทึกและแสดงที่นี่ทันที
+                        เมื่อผู้ชมแลกแต้มในช่อง หรือคุณกดปุ่ม "จำลองการแลกแต้ม" ผลลัพธ์จะถูกบันทึกและแสดงที่นี่ทันที
                       </p>
+                    </div>
+                  ) : filteredRollHistory.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-secondary)' }}>
+                      <Search size={30} style={{ opacity: 0.35, marginBottom: '0.5rem' }} />
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        ไม่พบผลการค้นหาที่ตรงกับ "{historySearch}"
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setHistorySearch('')}
+                        className="btn-island"
+                        style={{ marginTop: '0.5rem', fontSize: '0.78rem', padding: '0.35rem 0.75rem' }}
+                      >
+                        ล้างคำค้นหา
+                      </button>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                      {rollHistory.map((item) => {
+                      {filteredRollHistory.map((item) => {
                         const isValorant = selectedWidget === 'valorant-agent' || Boolean(item.agent || item.agents);
                         const isDbd = selectedWidget === 'dbd-perks' || Array.isArray(item.perks);
+                        const isKiller = selectedWidget === 'random-killer' || Boolean(item.killer || item.killerImg);
+                        const isLoyalty = selectedWidget === 'loyalty-card' || item.count !== undefined;
                         const isTeam = item.mode === 'team' || (Array.isArray(item.agents) && item.agents.length > 0);
 
                         return (
@@ -3360,13 +3536,28 @@ export default function SecretSettings() {
                                   }}
                                 />
                                 <div>
-                                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                    @{item.username || 'Streamer'}
-                                  </span>
-                                  {item.rewardTitle && (
-                                    <span style={{ marginLeft: '0.5rem', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                                      ({item.rewardTitle})
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                      @{item.username || 'Streamer'}
                                     </span>
+                                    {isDbd && item.role && (
+                                      <span style={{
+                                        fontSize: '0.68rem',
+                                        fontWeight: 700,
+                                        padding: '1px 6px',
+                                        borderRadius: '3px',
+                                        background: item.role === 'killer' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                                        color: item.role === 'killer' ? '#f87171' : '#60a5fa',
+                                        border: item.role === 'killer' ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid rgba(59, 130, 246, 0.25)'
+                                      }}>
+                                        {item.role === 'killer' ? 'ฝั่งฆาตกร (Killer)' : 'ฝั่งผู้รอดชีวิต (Survivor)'}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {item.rewardTitle && (
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '1px' }}>
+                                      รางวัล: {item.rewardTitle}
+                                    </div>
                                   )}
                                 </div>
                               </div>
@@ -3407,25 +3598,56 @@ export default function SecretSettings() {
 
                             {/* DBD Perks Result */}
                             {isDbd && Array.isArray(item.perks) && (
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.5rem', marginTop: '0.25rem' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.5rem', marginTop: '0.25rem' }}>
                                 {item.perks.map((p, idx) => (
-                                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--surface-1)', padding: '0.3rem 0.5rem', borderRadius: '4px' }}>
+                                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', background: 'var(--surface-1)', padding: '0.35rem 0.55rem', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
                                     <img
                                       src={p.icon ? (p.icon.startsWith('http') ? p.icon : `${API_BASE}${p.icon}`) : ''}
                                       alt={p.name}
-                                      style={{ width: '26px', height: '26px', objectFit: 'contain' }}
+                                      style={{ width: '28px', height: '28px', objectFit: 'contain', flexShrink: 0 }}
                                     />
                                     <div style={{ minWidth: 0, flex: 1 }}>
-                                      <div style={{ fontSize: '0.75rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                                      {p.character && <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{p.character}</div>}
+                                      <div style={{ fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                                      {p.character && <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.character}</div>}
                                     </div>
                                   </div>
                                 ))}
                               </div>
                             )}
 
+                            {/* Random Killer Result */}
+                            {isKiller && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginTop: '0.25rem', background: 'var(--surface-1)', padding: '0.45rem 0.65rem', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+                                {item.killerImg ? (
+                                  <img
+                                    src={item.killerImg.startsWith('http') ? item.killerImg : `${API_BASE}${item.killerImg}`}
+                                    alt={item.killer || 'Killer'}
+                                    style={{ width: '38px', height: '38px', objectFit: 'contain', borderRadius: '4px', flexShrink: 0 }}
+                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                  />
+                                ) : (
+                                  <div style={{ width: '38px', height: '38px', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444', flexShrink: 0 }}>
+                                    <Skull size={20} />
+                                  </div>
+                                )}
+                                <div>
+                                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                    {item.killer || item.result || 'ไม่ระบุชื่อ'}
+                                  </div>
+                                  <span style={{ fontSize: '0.68rem', color: '#ef4444', fontWeight: 600 }}>ฆาตกรที่สุ่มได้</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Loyalty Card Result */}
+                            {isLoyalty && !isDbd && !isKiller && !isValorant && (
+                              <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', marginTop: '0.25rem' }}>
+                                เช็คอินสะสมครั้งที่ <strong>{item.count || 1}</strong> {item.result ? `(${item.result})` : ''}
+                              </div>
+                            )}
+
                             {/* Generic Result */}
-                            {!isValorant && !isDbd && (
+                            {!isValorant && !isDbd && !isKiller && !isLoyalty && (
                               <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', marginTop: '0.25rem' }}>
                                 {item.result || item.action || JSON.stringify(item.data || '')}
                               </div>
@@ -3597,6 +3819,48 @@ export default function SecretSettings() {
                   <span>{copiedUrl ? 'คัดลอกแล้ว' : 'คัดลอก URL'}</span>
                 </button>
               </div>
+            </div>
+
+            {/* Quick History Status Box in Right Column */}
+            <div className="preview-history-quick-box">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <History size={15} style={{ color: 'var(--accent-color)' }} />
+                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    ประวัติกิจกรรมล่าสุด
+                  </span>
+                  <span className="studio-view-count-badge">{rollHistory.length}</span>
+                </div>
+                <button
+                  type="button"
+                  className="btn-island"
+                  onClick={() => setActiveCategory('history')}
+                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}
+                >
+                  <span>ดูประวัติทั้งหมด</span>
+                  <ChevronRight size={13} />
+                </button>
+              </div>
+
+              {rollHistory.length > 0 ? (
+                <div style={{ marginTop: '0.65rem', padding: '0.5rem', background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                      @{rollHistory[0]?.username || 'Streamer'}
+                    </span>
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      {formatTime(rollHistory[0]?.timestamp)}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--accent-color)', fontWeight: 600, marginTop: '2px' }}>
+                    {rollHistory[0]?.killer || rollHistory[0]?.agent || (Array.isArray(rollHistory[0]?.perks) ? `${rollHistory[0].perks.length} เปิร์ค DBD` : rollHistory[0]?.result || 'กิจกรรมล่าสุด')}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  ยังไม่มีประวัติการแลกแต้มในขณะนี้
+                </div>
+              )}
             </div>
           </div>
         </div>

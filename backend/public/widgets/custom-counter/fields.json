@@ -165,17 +165,5 @@
     "label": "รูปแบบข้อความตอบกลับในแชท",
     "value": "{user} อัปเดต {title} เป็น {count} {unit} แล้ว!",
     "group": "Twitch Chat Commands"
-  },
-  "triggerChannelPoints": {
-    "type": "checkbox",
-    "label": "เปิดใช้งานแลกแต้ม Channel Points เพื่อนับเพิ่ม +1",
-    "value": false,
-    "group": "Channel Points Integration"
-  },
-  "rewardName": {
-    "type": "text",
-    "label": "ชื่อรางวัล Channel Points ที่ต้องการผูก",
-    "value": "แต้มได้ออกประตู",
-    "group": "Channel Points Integration"
   }
 }
