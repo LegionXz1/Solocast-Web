@@ -286,6 +286,10 @@ export default function SecretSettings() {
       setSelectedWidget('spotify-sr');
       setSpotifyMsg({ type: 'success', text: 'เชื่อมต่อบัญชี Spotify สำเร็จแล้ว! พร้อมใช้งาน' });
       window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (params.get('spotify_error')) {
+      setSelectedWidget('spotify-sr');
+      setSpotifyMsg({ type: 'error', text: `การเชื่อมต่อ Spotify ไม่สำเร็จ: ${params.get('spotify_error')}` });
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
@@ -407,7 +411,9 @@ export default function SecretSettings() {
 
     // Load Roll History
     if (selectedWidget !== 'twitch-shoutout') {
-      fetch(`${API_BASE}/api/widgets/${selectedWidget}/history?user=${encodeURIComponent(status.userId || status.username || '')}`)
+      fetch(`${API_BASE}/api/widgets/${selectedWidget}/history?user=${encodeURIComponent(status.userId || status.username || '')}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      })
         .then(r => r.ok ? r.json() : [])
         .then(d => {
           setRollHistory(Array.isArray(d) ? d : []);
@@ -793,8 +799,9 @@ export default function SecretSettings() {
   const handleClearHistory = async () => {
     if (!window.confirm('คุณต้องการล้างประวัติกิจกรรมทั้งหมดใช่หรือไม่?')) return;
     try {
-      await fetch(`${API_BASE}/api/widgets/${selectedWidget}/history?user=${encodeURIComponent(status.userId || '')}`, {
-        method: 'DELETE'
+      await fetch(`${API_BASE}/api/widgets/${selectedWidget}/history?user=${encodeURIComponent(status.userId || status.username || '')}`, {
+        method: 'DELETE',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
       setRollHistory([]);
     } catch (err) {
@@ -807,7 +814,7 @@ export default function SecretSettings() {
     setSpotifyLoading(true);
     setSpotifyMsg({ type: '', text: '' });
     try {
-      const res = await fetch(`${API_BASE}/api/spotify/auth-url?userId=${encodeURIComponent(status.userId || '')}`, {
+      const res = await fetch(`${API_BASE}/api/spotify/auth-url?userId=${encodeURIComponent(status.userId || '')}&returnTo=${encodeURIComponent('/settings?widget=spotify-sr')}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -2031,8 +2038,21 @@ export default function SecretSettings() {
                         </button>
                       </>
                     )}
+                    </div>
+                    <div style={{
+                      marginTop: '0.85rem',
+                      paddingTop: '0.75rem',
+                      borderTop: '1px solid var(--border-subtle)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      fontSize: '0.8rem',
+                      color: 'var(--text-muted)'
+                    }}>
+                      <Info size={14} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                      <span>หากเทสแล้วผลลัพธ์ไม่ขึ้น โปรดตรวจเช็คว่าได้เปิดใช้งาน widget นั้นแล้วหรือไม่</span>
+                    </div>
                   </div>
-                </div>
                 )}
 
                 {/* 3. Visual Overlay Toggle Card */}
@@ -2109,20 +2129,26 @@ export default function SecretSettings() {
                 </div>
 
                 {/* 6. All Settings Guidance Notice */}
-                <div className="quick-all-settings-notice">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <Info size={17} style={{ color: 'var(--accent-color)', flexShrink: 0 }} />
-                    <span>หากหาการตั้งค่าไหนไม่เจอ ให้ดูที่แท็บ <strong>"การตั้งค่าทั้งหมด"</strong></span>
+                <div className="quick-all-settings-notice" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.65rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <Info size={17} style={{ color: 'var(--accent-color)', flexShrink: 0 }} />
+                      <span>หากหาการตั้งค่าไหนไม่เจอ ให้ดูที่แท็บ <strong>"การตั้งค่าทั้งหมด"</strong></span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-island"
+                      onClick={() => setActiveCategory('all')}
+                      style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                    >
+                      <Sliders size={14} />
+                      <span>ไปที่การตั้งค่าทั้งหมด</span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="btn-island"
-                    onClick={() => setActiveCategory('all')}
-                    style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
-                  >
-                    <Sliders size={14} />
-                    <span>ไปที่การตั้งค่าทั้งหมด</span>
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.65rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    <AlertCircle size={15} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                    <span>หากเทสแล้วผลลัพธ์ไม่ขึ้น โปรดตรวจเช็คว่าได้เปิดใช้งาน widget นั้นแล้วหรือไม่</span>
+                  </div>
                 </div>
               </div>
             )}

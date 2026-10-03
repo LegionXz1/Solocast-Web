@@ -651,13 +651,15 @@ function Dashboard() {
       setRollHistory([]);
       return;
     }
-    fetch(`${API_BASE}/api/widgets/${selectedWidget}/history?user=${encodeURIComponent(status.userId || '')}`)
+    fetch(`${API_BASE}/api/widgets/${selectedWidget}/history?user=${encodeURIComponent(status.userId || status.username || '')}`, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    })
       .then(res => res.ok ? res.json() : [])
       .then(data => {
         setRollHistory(Array.isArray(data) ? data : []);
       })
       .catch(err => console.error('Error fetching roll history:', err));
-  }, [selectedWidget, status.userId]);
+  }, [selectedWidget, status.userId, status.username, token]);
 
   // 6. ฟัง Event เข้ามา (Twitch Live Events & Real-time Roll History & Spotify)
   useEffect(() => {
@@ -1090,8 +1092,9 @@ function Dashboard() {
   const handleClearHistory = async () => {
     if (!window.confirm('คุณต้องการล้างประวัติการสุ่มทั้งหมดใช่หรือไม่?')) return;
     try {
-      await fetch(`${API_BASE}/api/widgets/${selectedWidget}/history?user=${encodeURIComponent(status.userId || '')}`, {
-        method: 'DELETE'
+      await fetch(`${API_BASE}/api/widgets/${selectedWidget}/history?user=${encodeURIComponent(status.userId || status.username || '')}`, {
+        method: 'DELETE',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
       setRollHistory([]);
     } catch (err) {
@@ -1104,7 +1107,7 @@ function Dashboard() {
     setSpotifyLoading(true);
     setSpotifyMsg({ type: '', text: '' });
     try {
-      const res = await fetch(`${API_BASE}/api/spotify/auth-url?userId=${encodeURIComponent(status.userId || '')}`, {
+      const res = await fetch(`${API_BASE}/api/spotify/auth-url?userId=${encodeURIComponent(status.userId || '')}&returnTo=${encodeURIComponent('/dashboard?widget=spotify-sr')}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();

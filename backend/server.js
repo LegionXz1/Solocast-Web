@@ -2162,70 +2162,6 @@ app.get('/api/widgets/:id/history', (req, res) => {
 
     if (!list) list = [];
 
-    // สำหรับ loyalty-card: หากประวัติยังว่างอยู่ ให้สร้างรายการจากยอดเช็คอินที่บันทึกไว้ใน widgetStore
-    if (widgetId === 'loyalty-card' && list.length === 0 && widgetStore['loyalty-card']?.[user || 'default']) {
-      const storeData = widgetStore['loyalty-card'][user || 'default'];
-      const items = [];
-      for (const [k, v] of Object.entries(storeData)) {
-        if (k.startsWith('ci_')) {
-          const parts = k.split('_');
-          const cleanUser = parts.slice(2).join('_');
-          const count = parseInt(v) || 1;
-          items.push({
-            id: 'store_' + k,
-            username: cleanUser,
-            count: count,
-            avatar: `/api/twitch/avatar/${encodeURIComponent(cleanUser)}`,
-            rewardTitle: 'จุ่มๆๆๆ',
-            result: `เช็คอินครั้งที่ ${count}`,
-            timestamp: Date.now()
-          });
-        }
-      }
-      if (items.length > 0) {
-        if (!rollHistoryStore[widgetId]) rollHistoryStore[widgetId] = {};
-        rollHistoryStore[widgetId][user] = items;
-        saveRollHistory(rollHistoryStore);
-        list = items;
-      }
-    }
-
-    // สำหรับ spotify-sr: หากประวัติยังว่างอยู่ ให้ดึงจากคิวเพลงที่มีอยู่ใน spotifyQueue มาแปลงเป็นประวัติ
-    if (widgetId === 'spotify-sr' && list.length === 0) {
-      const allIds = user ? getAssociatedUserIdentifiers(user) : new Set();
-      if (user) allIds.add(user);
-      let matchedQueue = [];
-      if (allIds.size > 0) {
-        for (const uid of allIds) {
-          const q = spotify.getSongQueueList(uid);
-          if (q && q.length > 0) {
-            matchedQueue = q;
-            break;
-          }
-        }
-      }
-      if (matchedQueue.length === 0) {
-        matchedQueue = spotify.getSongQueueList();
-      }
-      if (matchedQueue && matchedQueue.length > 0) {
-        const items = matchedQueue.map(q => ({
-          id: q.id,
-          widgetId: 'spotify-sr',
-          username: q.requester || 'User',
-          requester: q.requester || 'User',
-          avatar: `/api/twitch/avatar/${encodeURIComponent(q.requester || '')}`,
-          track: q.track,
-          source: q.source || 'chat',
-          result: q.track ? `${q.track.name} - ${q.track.artists || q.track.artist || ''}` : 'ขอเพลง',
-          timestamp: q.requestedAt || Date.now()
-        }));
-        if (!rollHistoryStore[widgetId]) rollHistoryStore[widgetId] = {};
-        rollHistoryStore[widgetId][user || 'default'] = items;
-        saveRollHistory(rollHistoryStore);
-        list = items;
-      }
-    }
-
     res.json(list);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -2320,14 +2256,36 @@ app.delete('/api/widgets/:id/history', (req, res) => {
     }
 
     const allIds = getAssociatedUserIdentifiers(user);
-    if (user) allIds.add(user);
+    if (user) {
+      allIds.add(user);
+      allIds.add(user.toLowerCase());
+      allIds.add(user.toLowerCase().replace(/^@/, ''));
+    }
 
-    for (const id of allIds) {
-      if (rollHistoryStore[widgetId]?.[id]) {
-        rollHistoryStore[widgetId][id] = [];
+    // ล้างทุกคีย์ที่เกี่ยวข้องใน rollHistoryStore[widgetId]
+    if (rollHistoryStore[widgetId]) {
+      const cleanUser = user ? user.toLowerCase().replace(/^@/, '') : '';
+      for (const k of Object.keys(rollHistoryStore[widgetId])) {
+        const kLower = k.toLowerCase().replace(/^@/, '');
+        if (!user || allIds.has(k) || allIds.has(kLower) || (cleanUser && kLower === cleanUser)) {
+          rollHistoryStore[widgetId][k] = [];
+        }
+      }
+      // ถ้าไม่มีคีย์อื่น หรือไม่ระบุ user ให้ล้าง default ด้วย
+      const nonDefaultKeys = Object.keys(rollHistoryStore[widgetId]).filter(k => k !== 'default');
+      if (!user || nonDefaultKeys.length <= 1) {
+        rollHistoryStore[widgetId]['default'] = [];
       }
     }
     saveRollHistory(rollHistoryStore);
+
+    // หากเป็น spotify-sr ให้เคลียร์ spotifyQueue ด้วย
+    if (widgetId === 'spotify-sr') {
+      for (const id of allIds) {
+        spotify.clearSongQueue(id);
+      }
+      if (!user) spotify.clearSongQueue();
+    }
 
     if (user) {
       io.to('user_' + user).emit('widget_roll_history_cleared', { widgetId });
@@ -3224,12 +3182,16 @@ async function processSpotifySongRequest({ userId, displayName, chatterName, que
     srSettings = widgetSettingsStore['spotify-sr']?.['default'] || {};
   }
 
-  // ตรวจสอบ query ถ้าผู้ใช้ใส่ prefix !sr หรือ !เพลง ติดมา ให้ตัดออก
+  // ตรวจสอบ query ถ้าผู้ใช้ใส่ prefix ติดมา ให้ตัดออก
   let cleanQuery = (query || '').trim();
-  if (cleanQuery.toLowerCase().startsWith('!sr ')) {
-    cleanQuery = cleanQuery.slice(4).trim();
-  } else if (cleanQuery.toLowerCase().startsWith('!เพลง ')) {
-    cleanQuery = cleanQuery.slice(6).trim();
+  const activePrefix = (srSettings.commandPrefix || '!sr').trim();
+  const activePrefixAlt = activePrefix.startsWith('!') ? activePrefix.slice(1) : ('!' + activePrefix);
+  const prefixesToStrip = [activePrefix, activePrefixAlt].filter(Boolean).sort((a, b) => b.length - a.length);
+  for (const p of prefixesToStrip) {
+    if (cleanQuery.toLowerCase().startsWith(p.toLowerCase() + ' ')) {
+      cleanQuery = cleanQuery.slice(p.length).trim();
+      break;
+    }
   }
 
   if (!cleanQuery) {
@@ -3397,18 +3359,19 @@ function extractSongRequestQuery(text, customPrefix) {
   const trimmed = text.trim();
   if (!trimmed) return null;
 
-  // รวบรวม prefix คำสั่งที่เป็นไปได้
-  const prefixSet = new Set(['!sr']);
-  if (customPrefix) {
-    const cp = customPrefix.trim();
-    if (cp) {
-      prefixSet.add(cp);
-      if (cp.startsWith('!')) {
-        prefixSet.add(cp.slice(1));
-      } else {
-        prefixSet.add('!' + cp);
-      }
+  // รวบรวม prefix คำสั่งที่เป็นไปได้ (ถ้าตั้ง customPrefix ไว้ จะใช้เฉพาะ customPrefix เท่านั้น ไม่เปิด !sr พร้อมกัน)
+  const prefixSet = new Set();
+  const cp = (customPrefix || '').trim();
+  if (cp) {
+    prefixSet.add(cp);
+    if (cp.startsWith('!')) {
+      prefixSet.add(cp.slice(1));
+    } else {
+      prefixSet.add('!' + cp);
     }
+  } else {
+    prefixSet.add('!sr');
+    prefixSet.add('sr');
   }
 
   // เรียงลำดับจากยาวไปสั้น เพื่อให้ match prefix ที่ยาวที่สุดก่อน
@@ -4803,11 +4766,12 @@ function getSpotifyRedirectUri(req) {
 app.get('/api/spotify/auth-url', checkUserAuth, (req, res) => {
   try {
     const userId = req.user?.userId || req.query.userId || '';
+    const returnTo = req.query.returnTo || '/settings?widget=spotify-sr';
     if (!spotify.isSpotifyConfigured()) {
       return res.status(503).json({ error: 'Spotify Client ID/Secret ยังไม่ได้ตั้งค่าใน .env' });
     }
     const redirectUri = getSpotifyRedirectUri(req);
-    const url = spotify.getSpotifyAuthUrl(userId, redirectUri);
+    const url = spotify.getSpotifyAuthUrl(userId, redirectUri, returnTo);
     res.json({ url });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -4817,32 +4781,38 @@ app.get('/api/spotify/auth-url', checkUserAuth, (req, res) => {
 // GET /auth/spotify/callback — รับ Code กลับมาจาก Spotify OAuth
 app.get('/auth/spotify/callback', async (req, res) => {
   const { code, state, error } = req.query;
+  let userId = '';
+  let returnTo = '/settings?widget=spotify-sr';
+  try {
+    const stateObj = JSON.parse(Buffer.from(state || '', 'base64').toString('utf8'));
+    userId = stateObj.userId || '';
+    if (stateObj.returnTo && typeof stateObj.returnTo === 'string') {
+      returnTo = stateObj.returnTo;
+    }
+  } catch (_) {}
+
+  const frontendUrl = getFrontendUrl(req);
+  const targetPath = returnTo.startsWith('/') ? returnTo : `/${returnTo}`;
+  const sep = targetPath.includes('?') ? '&' : '?';
+
   if (error) {
-    return res.send(`<script>window.close();</script><p>Spotify authorization cancelled: ${error}</p>`);
+    return res.redirect(`${frontendUrl}${targetPath}${sep}spotify_error=${encodeURIComponent(error)}`);
   }
   if (!code) {
     return res.status(400).send('Missing code from Spotify');
   }
   try {
-    // Decode state to get userId
-    let userId = '';
-    try {
-      const stateObj = JSON.parse(Buffer.from(state || '', 'base64').toString('utf8'));
-      userId = stateObj.userId || '';
-    } catch (_) {}
-
     const redirectUri = getSpotifyRedirectUri(req);
     const tokenData = await spotify.exchangeSpotifyCode(code, redirectUri);
     const targetKey = userId || tokenData.spotifyUserId || 'default';
 
-    // ✅ Merge with existing tokens — preserve all other users' tokens
+    // Merge with existing tokens — preserve all other users' tokens
     const existingAll = spotify.getAllSpotifyTokens();
     const allTokens = { ...existingAll, [targetKey]: tokenData };
     spotify.saveSpotifyTokens(allTokens);
 
-    console.log(`[Spotify] ✅ Connected Spotify account for user "${targetKey}": ${tokenData.spotifyDisplayName} (${tokenData.product})`);
-    const frontendUrl = getFrontendUrl(req);
-    res.redirect(`${frontendUrl}/dashboard?spotify_connected=1`);
+    console.log(`[Spotify] Connected Spotify account for user "${targetKey}": ${tokenData.spotifyDisplayName} (${tokenData.product})`);
+    res.redirect(`${frontendUrl}${targetPath}${sep}spotify_connected=1`);
   } catch (err) {
     console.error('[Spotify] OAuth callback error:', err);
     res.status(500).send(`Spotify connection failed: ${err.message}`);

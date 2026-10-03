@@ -103,7 +103,7 @@ export function getAllSpotifyTokens() {
 /**
  * Generate Spotify OAuth Authorize URL
  */
-export function getSpotifyAuthUrl(userId = '', customRedirect = '') {
+export function getSpotifyAuthUrl(userId = '', customRedirect = '', returnTo = '/settings?widget=spotify-sr') {
   const clientId = process.env.SPOTIFY_CLIENT_ID || '';
   const redirectUri = customRedirect || process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:3000/auth/spotify/callback';
 
@@ -114,7 +114,7 @@ export function getSpotifyAuthUrl(userId = '', customRedirect = '') {
     'user-read-recently-played'
   ].join(' ');
 
-  const state = Buffer.from(JSON.stringify({ userId, ts: Date.now() })).toString('base64');
+  const state = Buffer.from(JSON.stringify({ userId, returnTo, ts: Date.now() })).toString('base64');
 
   const params = new URLSearchParams({
     response_type: 'code',
