@@ -2190,6 +2190,42 @@ app.get('/api/widgets/:id/history', (req, res) => {
       }
     }
 
+    // สำหรับ spotify-sr: หากประวัติยังว่างอยู่ ให้ดึงจากคิวเพลงที่มีอยู่ใน spotifyQueue มาแปลงเป็นประวัติ
+    if (widgetId === 'spotify-sr' && list.length === 0) {
+      const allIds = user ? getAssociatedUserIdentifiers(user) : new Set();
+      if (user) allIds.add(user);
+      let matchedQueue = [];
+      if (allIds.size > 0) {
+        for (const uid of allIds) {
+          const q = spotify.getSongQueueList(uid);
+          if (q && q.length > 0) {
+            matchedQueue = q;
+            break;
+          }
+        }
+      }
+      if (matchedQueue.length === 0) {
+        matchedQueue = spotify.getSongQueueList();
+      }
+      if (matchedQueue && matchedQueue.length > 0) {
+        const items = matchedQueue.map(q => ({
+          id: q.id,
+          widgetId: 'spotify-sr',
+          username: q.requester || 'User',
+          requester: q.requester || 'User',
+          avatar: `/api/twitch/avatar/${encodeURIComponent(q.requester || '')}`,
+          track: q.track,
+          source: q.source || 'chat',
+          result: q.track ? `${q.track.name} - ${q.track.artists || q.track.artist || ''}` : 'ขอเพลง',
+          timestamp: q.requestedAt || Date.now()
+        }));
+        if (!rollHistoryStore[widgetId]) rollHistoryStore[widgetId] = {};
+        rollHistoryStore[widgetId][user || 'default'] = items;
+        saveRollHistory(rollHistoryStore);
+        list = items;
+      }
+    }
+
     res.json(list);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -2303,6 +2339,49 @@ app.delete('/api/widgets/:id/history', (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// Helper บันทึกประวัติการขอเพลงลง roll_history['spotify-sr']
+function recordSpotifyHistoryItem(userId, requester, track, source = 'chat') {
+  try {
+    const historyItem = {
+      id: `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      widgetId: 'spotify-sr',
+      username: requester || 'User',
+      requester: requester || 'User',
+      avatar: `/api/twitch/avatar/${encodeURIComponent(requester || '')}`,
+      track: {
+        id: track?.id,
+        name: track?.name,
+        artists: track?.artists || track?.artist || '',
+        albumName: track?.albumName || '',
+        albumArt: track?.albumArt || '',
+        durationMs: track?.durationMs || 0,
+        externalUrl: track?.externalUrl || '',
+        uri: track?.uri || ''
+      },
+      source: source,
+      result: track ? `${track.name} - ${track.artists || track.artist || ''}` : 'ขอเพลง',
+      timestamp: Date.now()
+    };
+
+    const userKey = userId || 'default';
+    if (!rollHistoryStore['spotify-sr']) rollHistoryStore['spotify-sr'] = {};
+    if (!rollHistoryStore['spotify-sr'][userKey]) rollHistoryStore['spotify-sr'][userKey] = [];
+    rollHistoryStore['spotify-sr'][userKey] = [historyItem, ...rollHistoryStore['spotify-sr'][userKey]].slice(0, 100);
+    saveRollHistory(rollHistoryStore);
+
+    if (userId) {
+      io.to('user_' + userId).emit('widget_roll_history_item', { widgetId: 'spotify-sr', item: historyItem });
+    }
+    io.emit('widget_roll_history_item', { widgetId: 'spotify-sr', item: historyItem });
+
+    console.log(`[Spotify History] Recorded song request for user "${userKey}": ${requester} requested "${track?.name}" (${source})`);
+    return historyItem;
+  } catch (err) {
+    console.error('[Spotify History] Error recording history:', err.message);
+    return null;
+  }
+}
 
 // File-based Widget Key-Value Store (จำลอง kvstore เช่น ข้อมูลนับแต้มเช็คอินของ Loyalty Card)
 const WIDGET_STORE_FILE = path.join(__dirname, 'data', 'widget_store.json');
@@ -3244,6 +3323,7 @@ async function processSpotifySongRequest({ userId, displayName, chatterName, que
       spotify.recordUserCooldown(userId, chatterName);
     }
     const queueItem = spotify.addToSongQueue(userId, displayName, track, source);
+    recordSpotifyHistoryItem(userId, displayName, track, source);
 
     // ส่ง Real-time update ไปยัง Dashboard และ Widget Overlay
     const updatedQueue = spotify.getSongQueueList(userId);
@@ -4842,6 +4922,7 @@ app.post('/api/spotify/request', checkUserAuth, async (req, res) => {
 
     await spotify.addTrackToSpotifyQueue(track.uri, accessToken);
     const queueItem = spotify.addToSongQueue(userId, requester || req.user?.username || 'Dashboard', track, 'dashboard');
+    recordSpotifyHistoryItem(userId, requester || req.user?.username || 'Dashboard', track, 'dashboard');
 
     const updatedQueue = spotify.getSongQueueList(userId);
     io.to('user_' + userId).emit('spotify_queue_updated', {
@@ -5169,7 +5250,10 @@ async function hydrateFromMongo() {
     // 🎵 Hydrate Spotify Tokens & Queue from MongoDB
     const mongoSpotifyTokens = await syncStore('spotify_tokens', {});
     const mongoSpotifyQueue = await syncStore('spotify_queue', {});
-    const queueList = Object.values(mongoSpotifyQueue || {}).sort((a, b) => (a.requestedAt || 0) - (b.requestedAt || 0));
+    const localQueue = spotify.getSongQueueList();
+    const queueList = (mongoSpotifyQueue && Object.keys(mongoSpotifyQueue).length > 0)
+      ? Object.values(mongoSpotifyQueue).sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0))
+      : localQueue;
     spotify.setHydratedSpotifyData(mongoSpotifyTokens, queueList);
 
     // 🔒 Hydrate Widget Status (Global Lock & User Toggle) from MongoDB

@@ -180,7 +180,7 @@ export default function Landing() {
               title="ดูรายละเอียดการอัปเดตระบบล่าสุด"
             >
               <Sparkles size={13} style={{ color: '#f59e0b' }} />
-              <span>มีอะไรใหม่ใน v1.2</span>
+              <span>มีอะไรใหม่ใน v1.3</span>
               <span className="hero-update-badge-hot">NEW</span>
             </button>
           </div>

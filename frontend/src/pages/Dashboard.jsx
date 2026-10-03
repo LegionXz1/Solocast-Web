@@ -1547,7 +1547,7 @@ function Dashboard() {
                   color: '#60a5fa',
                   border: '1px solid rgba(59, 130, 246, 0.3)'
                 }}>
-                  v1.2.0
+                  v1.3.0
                 </span>
               </div>
               <h1 className="my-overlays-title">แผงควบคุม Overlays</h1>
@@ -4738,6 +4738,52 @@ function Dashboard() {
                                               </div>
                                             );
                                           })}
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+
+                                  const isSpotify = selectedWidget === 'spotify-sr' || Boolean(item.track);
+
+                                  if (isSpotify && (item.track || item.result)) {
+                                    return (
+                                      <div key={item.id} className="roll-history-card" style={{ borderLeft: '3px solid #1db954' }}>
+                                        <div className="roll-card-left">
+                                          <img
+                                            src={item.track?.albumArt || item.avatar || 'https://via.placeholder.com/44?text=Music'}
+                                            alt={item.track?.name || 'Track'}
+                                            className="roll-killer-thumb"
+                                            style={{ objectFit: 'cover', borderRadius: '4px' }}
+                                            onError={(e) => { e.target.src = 'https://via.placeholder.com/44?text=Music'; }}
+                                          />
+                                          <div>
+                                            <div className="roll-info-name">
+                                              {item.track?.name || item.result}
+                                            </div>
+                                            <div className="roll-info-meta">
+                                              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                                {item.track?.artists || item.track?.artist || 'ศิลปิน'}
+                                              </span>
+                                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', marginLeft: '6px' }}>
+                                                <User size={13} style={{ color: 'var(--text-secondary)' }} />
+                                                ผู้ขอ: <strong className="roll-info-user">@{item.username || item.requester || 'User'}</strong>
+                                              </span>
+                                              <span style={{
+                                                fontSize: '0.68rem',
+                                                fontWeight: 700,
+                                                padding: '1px 6px',
+                                                borderRadius: '3px',
+                                                background: 'rgba(29, 185, 84, 0.12)',
+                                                color: '#1db954',
+                                                marginLeft: '4px'
+                                              }}>
+                                                {item.source === 'channel_points' ? 'แต้มช่อง' : item.source === 'dashboard' ? 'แผงควบคุม' : '!sr'}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className="roll-time">
+                                          <Clock size={13} style={{ color: 'var(--text-secondary)' }} /> {formatTime(item.timestamp)}
                                         </div>
                                       </div>
                                     );

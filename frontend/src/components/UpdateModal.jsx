@@ -9,7 +9,8 @@ import {
   ArrowRight,
   BellRing,
   Layers,
-  MonitorPlay
+  MonitorPlay,
+  Music
 } from 'lucide-react';
 import { API_BASE } from '../config';
 
@@ -17,39 +18,51 @@ const STORAGE_KEY = 'fastchick_dismissed_update_id';
 
 // Default announcement fallback in case API is offline
 const DEFAULT_ANNOUNCEMENT = {
-  id: 'v1.2.0-dbd-hd-broadcast',
-  version: '1.2.0',
-  date: '12 กันยายน 2026',
-  badge: '🔥 NEW MAJOR UPDATE',
-  title: 'อัปเดตใหม่! DBD Perks Ultra HD & Broadcast Scale',
-  subtitle: 'ยกระดับภาพเปิร์คคมชัดระดับ 512px Super-Resolution, ขยายขนาดใหญ่สะใจ และระบบแยก Channel Points อิสระ',
+  id: 'v1.3.0-settings-spotify-dock',
+  version: '1.3.0',
+  date: '2 ตุลาคม 2026',
+  badge: 'NEW MAJOR UPDATE',
+  title: 'อัปเดตใหม่ v1.3! หน้าจัดการ Widget โฉมใหม่ & Spotify Song Request',
+  subtitle: 'ยกระดับประสบการณ์ใช้งานด้วยหน้าตั้งค่าแยกหมวดหมู่ 8 แท็บ, Widget ขอเพลง Spotify และ OBS Custom Dock',
   sections: [
     {
-      title: 'Dead by Daylight Perks Overlay',
-      badge: 'Gaming Overlay',
-      color: '#A855F7',
-      icon: 'Dices',
+      title: 'หน้าจัดการและปรับแต่ง Widget โฉมใหม่ (Studio Settings)',
+      badge: 'Studio UI',
+      color: '#6366F1',
+      icon: 'Layers',
       items: [
-        'AI Super-Resolution 512x512: อัปสเกลรูปเปิร์คทั้งหมด 321 รายการ คมชัดระดับ Ultra HD ไม่แตก ไม่เบลอบนจอ 1080p และ 4K',
-        'Broadcast Scale (ขยายใหญ่ขึ้น ~200%): ปรับขนาดเริ่มต้นเป็น 280px พร้อมกรอบเพชร Tier-3 สีม่วงนีออนเรืองแสงสะดุดตา',
-        'แยก Channel Points อิสระ: ตั้งชื่อรางวัลแต้มช่องสำหรับ Survivor และ Killer แยกกันได้โดยตรง ไม่ต้องคอยสลับในเว็บ',
-        'ปรับสเกลได้อิสระ: สไลเดอร์ปรับขนาดไอคอนได้ตั้งแต่ 120px ถึง 450px พร้อมตัวอักษรขยายตามสัดส่วนอัตโนมัติ'
+        'จัดระเบียบ 8 หมวดหมู่: แยกแท็บตั้งค่าด่วน (Quick), สกินและธีม (Design), Twitch & แชท, ตัวควบคุม (Content), เสียง, OBS, ประวัติ และการตั้งค่าทั้งหมดอย่างชัดเจน',
+        'แท็บตั้งค่าด่วน (Quick Start): รวมการเชื่อมต่อบัญชี, คำสั่งแชท และลิงก์ OBS ไว้ในที่เดียว พร้อมข้อความแนะนำไปที่แท็บการตั้งค่าทั้งหมด',
+        'ระบบค้นหาการตั้งค่า (Live Search): ค้นหาชื่อตัวเลือกหรือฟิลด์ที่ต้องการปรับแต่งได้ทันที',
+        'ปุ่มประวัติกิจกรรม (History): ตรวจสอบรายการสุ่มและประวัติแลกแต้มได้จากหัวการ์ดวิดเจ็ตทันที'
       ]
     },
     {
-      title: 'ระบบและการแสดงผล (System & Studio)',
+      title: 'Spotify Song Request Widget',
+      badge: 'Music Overlay',
+      color: '#1DB954',
+      icon: 'Music',
+      items: [
+        'เชื่อมต่อ Spotify ในคลิกเดียว: ผูกบัญชีและแสดงสถานะเพลง Now Playing แบบเรียลไทม์',
+        'ขอเพลงผ่าน Twitch Chat: ผู้ชมพิมพ์ !sr ตามด้วยชื่อเพลงหรือลิงก์ Spotify ได้ทันที',
+        'หลากหลายสไตล์ดีไซน์: ธีม Waveform Compact, Vinyl Record, Cyberpunk, Glassmorphism และ Clean Minimalist',
+        'จัดการคิวเพลงแบบ Realtime: ดูคิวเพลง ลบเพลง หรือข้ามเพลงได้โดยตรงจากหน้าควบคุม'
+      ]
+    },
+    {
+      title: 'OBS Custom Dock & ประสิทธิภาพระบบ',
       badge: 'Core System',
       color: '#0EA5E9',
-      icon: 'Sparkles',
+      icon: 'MonitorPlay',
       items: [
-        'Live Preview Studio เต็มจอ: ขยายดูพรีวิวสดแบบเต็มจอ 16:9 ก่อนนำไปใช้งานจริงบน OBS Studio',
-        'Zero-Latency WebSockets: ซิงค์คำสั่งแลกแต้มและการสุ่มขึ้นจอ OBS ทันทีแบบเรียลไทม์ ไร้ดีเลย์',
-        'ระบบประวัติการสุ่ม (Roll History): บันทึกประวัติการสุ่มของผู้ใช้แต่ละคนอัตโนมัติ'
+        'OBS Browser Dock (/dock): แผงควบคุมสตรีมเมอร์ขนาดย่อสำหรับใส่ใน Custom Browser Dock ของ OBS Studio ตรวจจับวิดเจ็ตที่เปิดอยู่อัตโนมัติ',
+        'Live Preview Sync: พรีวิวการปรับแต่งขนาด สี และธีมสดทันทีแบบไม่ต้องรีเฟรชหน้าจอ',
+        'ปรับปรุง Custom Counter: ปรับแต่งคำสั่ง Twitch Chat อิสระ และปรับปรุงฟอนต์ตัวเลขให้สวยงามคมชัด'
       ]
     }
   ],
   cta: {
-    text: 'เข้าสู่แผงควบคุมสตรีมเมอร์',
+    text: 'เข้าสู่หน้าจัดการ Overlays',
     link: '/dashboard'
   }
 };
@@ -192,7 +205,14 @@ export default function UpdateModal({ isOpen: manualIsOpen, onClose: manualOnClo
         <div className="update-modal-body custom-scrollbar">
           {data.sections &&
             data.sections.map((sec, idx) => {
-              const isDbd = sec.icon === 'Dices' || sec.badge?.includes('Gaming');
+              const renderSectionIcon = () => {
+                if (sec.icon === 'Music') return <Music size={18} />;
+                if (sec.icon === 'Layers') return <Layers size={18} />;
+                if (sec.icon === 'MonitorPlay') return <MonitorPlay size={18} />;
+                if (sec.icon === 'Dices' || sec.badge?.includes('Gaming')) return <Dices size={18} />;
+                return <Sparkles size={18} />;
+              };
+
               return (
                 <div key={idx} className="update-feature-card">
                   <div className="update-feature-header">
@@ -204,7 +224,7 @@ export default function UpdateModal({ isOpen: manualIsOpen, onClose: manualOnClo
                         color: sec.color || '#6366F1'
                       }}
                     >
-                      {isDbd ? <Dices size={18} /> : <Sparkles size={18} />}
+                      {renderSectionIcon()}
                     </div>
                     <div>
                       <h4 className="update-feature-title">{sec.title}</h4>

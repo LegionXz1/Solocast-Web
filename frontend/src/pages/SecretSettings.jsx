@@ -1081,7 +1081,12 @@ export default function SecretSettings() {
       const agentsMatch = Array.isArray(item.agents) && item.agents.some(a =>
         (a.name || '').toLowerCase().includes(q) || (a.role || '').toLowerCase().includes(q)
       );
-      return u.includes(q) || r.includes(q) || res.includes(q) || killer.includes(q) || agent.includes(q) || role.includes(q) || perksMatch || agentsMatch;
+      const trackMatch = item.track && (
+        (item.track.name || '').toLowerCase().includes(q) ||
+        (item.track.artists || item.track.artist || '').toLowerCase().includes(q) ||
+        (item.track.albumName || '').toLowerCase().includes(q)
+      );
+      return u.includes(q) || r.includes(q) || res.includes(q) || killer.includes(q) || agent.includes(q) || role.includes(q) || perksMatch || agentsMatch || trackMatch;
     });
   }, [rollHistory, historySearch]);
 
@@ -2818,18 +2823,30 @@ export default function SecretSettings() {
                             คิวเพลงที่รอเล่น ({spotifyQueue.length})
                           </h4>
                         </div>
-                        {spotifyQueue.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                           <button
                             type="button"
-                            onClick={handleClearQueue}
+                            onClick={() => setActiveCategory('history')}
                             className="btn-island"
-                            style={{ fontSize: '0.75rem', color: '#FF453A', borderColor: 'rgba(255, 69, 58, 0.25)' }}
-                            title="ล้างคิวเพลงทั้งหมด"
+                            style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}
+                            title="ดูประวัติเพลงที่ขอเข้ามาทั้งหมด"
                           >
-                            <Trash2 size={12} />
-                            <span>ล้างคิวทั้งหมด</span>
+                            <History size={12} />
+                            <span>ประวัติขอเพลง ({rollHistory.length})</span>
                           </button>
-                        )}
+                          {spotifyQueue.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={handleClearQueue}
+                              className="btn-island"
+                              style={{ fontSize: '0.75rem', color: '#FF453A', borderColor: 'rgba(255, 69, 58, 0.25)', padding: '0.35rem 0.65rem' }}
+                              title="ล้างคิวเพลงทั้งหมด"
+                            >
+                              <Trash2 size={12} />
+                              <span>ล้างคิว</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {spotifyQueue.length === 0 ? (
@@ -3510,6 +3527,7 @@ export default function SecretSettings() {
                         const isDbd = selectedWidget === 'dbd-perks' || Array.isArray(item.perks);
                         const isKiller = selectedWidget === 'random-killer' || Boolean(item.killer || item.killerImg);
                         const isLoyalty = selectedWidget === 'loyalty-card' || item.count !== undefined;
+                        const isSpotify = selectedWidget === 'spotify-sr' || Boolean(item.track);
                         const isTeam = item.mode === 'team' || (Array.isArray(item.agents) && item.agents.length > 0);
 
                         return (
@@ -3538,7 +3556,7 @@ export default function SecretSettings() {
                                 <div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                                     <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                      @{item.username || 'Streamer'}
+                                      @{item.username || item.requester || 'Streamer'}
                                     </span>
                                     {isDbd && item.role && (
                                       <span style={{
@@ -3551,6 +3569,19 @@ export default function SecretSettings() {
                                         border: item.role === 'killer' ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid rgba(59, 130, 246, 0.25)'
                                       }}>
                                         {item.role === 'killer' ? 'ฝั่งฆาตกร (Killer)' : 'ฝั่งผู้รอดชีวิต (Survivor)'}
+                                      </span>
+                                    )}
+                                    {isSpotify && (
+                                      <span style={{
+                                        fontSize: '0.68rem',
+                                        fontWeight: 700,
+                                        padding: '1px 6px',
+                                        borderRadius: '3px',
+                                        background: 'rgba(29, 185, 84, 0.15)',
+                                        color: '#1db954',
+                                        border: '1px solid rgba(29, 185, 84, 0.3)'
+                                      }}>
+                                        {item.source === 'channel_points' ? 'ขอเพลงผ่านแต้มช่อง' : item.source === 'dashboard' ? 'ขอผ่านแผงควบคุม' : 'ขอเพลงผ่านแชท !sr'}
                                       </span>
                                     )}
                                   </div>
@@ -3646,8 +3677,61 @@ export default function SecretSettings() {
                               </div>
                             )}
 
+                            {/* Spotify Song Request Result */}
+                            {isSpotify && (item.track || item.result) && (
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem',
+                                marginTop: '0.25rem',
+                                background: 'var(--surface-1)',
+                                padding: '0.55rem 0.75rem',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-subtle)'
+                              }}>
+                                <img
+                                  src={item.track?.albumArt || 'https://via.placeholder.com/44?text=Music'}
+                                  alt={item.track?.name || 'Track'}
+                                  style={{ width: '44px', height: '44px', borderRadius: '4px', objectFit: 'cover', flexShrink: 0 }}
+                                  onError={(e) => { e.target.src = 'https://via.placeholder.com/44?text=Music'; }}
+                                />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {item.track?.name || item.result}
+                                  </div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                                    {item.track?.artists || item.track?.artist || 'ศิลปิน'}
+                                  </div>
+                                </div>
+                                {item.track?.externalUrl && (
+                                  <a
+                                    href={item.track.externalUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      padding: '4px 8px',
+                                      borderRadius: '4px',
+                                      background: 'rgba(29, 185, 84, 0.12)',
+                                      color: '#1db954',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700,
+                                      textDecoration: 'none',
+                                      flexShrink: 0
+                                    }}
+                                    title="เปิดฟังบน Spotify"
+                                  >
+                                    <span>Spotify</span>
+                                    <ExternalLink size={12} />
+                                  </a>
+                                )}
+                              </div>
+                            )}
+
                             {/* Generic Result */}
-                            {!isValorant && !isDbd && !isKiller && !isLoyalty && (
+                            {!isValorant && !isDbd && !isKiller && !isLoyalty && !isSpotify && (
                               <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', marginTop: '0.25rem' }}>
                                 {item.result || item.action || JSON.stringify(item.data || '')}
                               </div>
@@ -3853,7 +3937,7 @@ export default function SecretSettings() {
                     </span>
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--accent-color)', fontWeight: 600, marginTop: '2px' }}>
-                    {rollHistory[0]?.killer || rollHistory[0]?.agent || (Array.isArray(rollHistory[0]?.perks) ? `${rollHistory[0].perks.length} เปิร์ค DBD` : rollHistory[0]?.result || 'กิจกรรมล่าสุด')}
+                    {rollHistory[0]?.killer || rollHistory[0]?.agent || (rollHistory[0]?.track ? `${rollHistory[0].track.name} - ${rollHistory[0].track.artists || rollHistory[0].track.artist}` : null) || (Array.isArray(rollHistory[0]?.perks) ? `${rollHistory[0].perks.length} เปิร์ค DBD` : rollHistory[0]?.result || 'กิจกรรมล่าสุด')}
                   </div>
                 </div>
               ) : (
