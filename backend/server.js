@@ -2510,10 +2510,10 @@ app.get('/api/widgets/dbd-perks/perks', (req, res) => {
   }
 });
 
-// ซิงค์อัปเดตฐานข้อมูลเปิร์ค DBD สดๆ จาก deadbydaylight.wiki.gg (รองรับทั้ง /api/widgets/... และ /api/admin/...)
+// ซิงค์อัปเดตฐานข้อมูลเปิร์ค DBD สดๆ จาก deadbydaylight.wiki.gg (เฉพาะ Admin เท่านั้น)
 const handleDbdSync = async (req, res) => {
   try {
-    console.log('[DBD Perks API] 🔄 Live syncing perks from Wiki...');
+    console.log('[DBD Perks API] Live syncing perks from Wiki...');
     const data = await syncDbdPerks();
     io.emit('dbd_perks_updated', data);
     res.json({ success: true, data });
@@ -2522,7 +2522,7 @@ const handleDbdSync = async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 };
-app.post('/api/widgets/dbd-perks/sync', handleDbdSync);
+app.post('/api/widgets/dbd-perks/sync', checkAdminAuth, handleDbdSync);
 app.post('/api/admin/dbd-perks/sync', checkAdminAuth, handleDbdSync);
 
 // Admin: เพิ่มเปิร์คใหม่แบบกำหนดเอง (Add Perk)

@@ -778,15 +778,24 @@ export default function SecretSettings() {
 
   // Sync DBD Perks
   const handleSyncDbdPerks = async () => {
+    if (!status.isAdmin) {
+      alert('เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถซิงค์เปิร์คได้');
+      return;
+    }
     setIsSyncingPerks(true);
     setSyncPerksSuccess('');
     try {
-      const res = await fetch(`${API_BASE}/api/widgets/dbd-perks/sync`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/widgets/dbd-perks/sync`, {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       const data = await res.json();
       if (data.success && data.data) {
         setDbdPerksList(data.data);
         setSyncPerksSuccess(`อัปเดตเปิร์คเรียบร้อย! (ทั้งหมด ${data.data.total} เปิร์ค)`);
         setTimeout(() => setSyncPerksSuccess(''), 4000);
+      } else {
+        alert('ไม่สามารถอัปเดตเปิร์คได้: ' + (data.error || 'ไม่มีสิทธิ์เข้าถึง'));
       }
     } catch (err) {
       console.error('Error syncing DBD perks:', err);
@@ -3042,17 +3051,19 @@ export default function SecretSettings() {
                         >
                           Killer ({dbdPerksList.killer?.length || 0})
                         </button>
-                        <button
-                          type="button"
-                          onClick={handleSyncDbdPerks}
-                          disabled={isSyncingPerks}
-                          className="btn-island"
-                          style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem' }}
-                          title="ดึงข้อมูลเปิร์คล่าสุดจาก Dead by Daylight Wiki"
-                        >
-                          {isSyncingPerks ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}
-                          <span>ซิงค์เปิร์ค</span>
-                        </button>
+                        {status.isAdmin && (
+                          <button
+                            type="button"
+                            onClick={handleSyncDbdPerks}
+                            disabled={isSyncingPerks}
+                            className="btn-island"
+                            style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem' }}
+                            title="ดึงข้อมูลเปิร์คล่าสุดจาก Dead by Daylight Wiki (เฉพาะแอดมิน)"
+                          >
+                            {isSyncingPerks ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}
+                            <span>ซิงค์เปิร์ค</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 

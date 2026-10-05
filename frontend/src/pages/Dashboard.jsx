@@ -1069,17 +1069,24 @@ function Dashboard() {
   };
 
   const handleSyncDbdPerks = async () => {
+    if (!status.isAdmin) {
+      alert('เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถซิงค์เปิร์คได้');
+      return;
+    }
     setIsSyncingPerks(true);
     setSyncPerksSuccess('');
     try {
-      const res = await fetch(`${API_BASE}/api/widgets/dbd-perks/sync`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/widgets/dbd-perks/sync`, {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       const data = await res.json();
       if (data.success && data.data) {
         setDbdPerksList(data.data);
         setSyncPerksSuccess(`อัปเดตเปิร์คเรียบร้อย! (ทั้งหมด ${data.data.total} เปิร์ค)`);
         setTimeout(() => setSyncPerksSuccess(''), 4000);
       } else {
-        alert('ไม่สามารถอัปเดตเปิร์คได้: ' + (data.error || 'Unknown error'));
+        alert('ไม่สามารถอัปเดตเปิร์คได้: ' + (data.error || 'ไม่มีสิทธิ์เข้าถึง'));
       }
     } catch (err) {
       console.error('Error syncing DBD perks:', err);
