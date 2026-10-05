@@ -1,9 +1,46 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
+import {
+  Music,
+  Hash,
+  Skull,
+  Dices,
+  Ticket,
+  Crosshair,
+  Megaphone,
+  Play,
+  Pause,
+  SkipForward,
+  Trash2,
+  RefreshCw,
+  Radio,
+  Sliders,
+  AlertTriangle,
+  Loader2,
+  RotateCcw,
+  Inbox,
+  Clock,
+  Award,
+  Users,
+  Check,
+  Search,
+  MessageSquare
+} from 'lucide-react';
 import { API_BASE } from '../config';
 import { useAuth } from '../context/AuthContext';
 import './Dock.css';
+
+const TAB_ICONS = {
+  'spotify-sr': Music,
+  'custom-counter': Hash,
+  'dbd-scoreboard': Skull,
+  'dbd-perks': Dices,
+  'random-killer': Skull,
+  'loyalty-card': Ticket,
+  'valorant-agent': Crosshair,
+  'twitch-shoutout': Megaphone
+};
 
 export default function Dock() {
   const [searchParams] = useSearchParams();
@@ -23,6 +60,12 @@ export default function Dock() {
   const [spotifyData, setSpotifyData] = useState({ isPlaying: false, track: null, queue: [], connected: false });
   const [counterData, setCounterData] = useState({ title: 'สถิติ', count: 0, unit: 'ครั้ง', stepAmount: 1 });
   const [scoreboardData, setScoreboardData] = useState({ killerKills: 0, killerDraws: 0, killerEscapes: 0, title: 'DBD Scoreboard', stat1Title: 'WINS', stat2Title: 'LOSES', stat3Title: 'DRAWS' });
+  const [dbdPerksHistory, setDbdPerksHistory] = useState([]);
+  const [loyaltyHistory, setLoyaltyHistory] = useState([]);
+  const [randomKillerHistory, setRandomKillerHistory] = useState([]);
+  const [streamChatters, setStreamChatters] = useState([]);
+  const [chatterSearch, setChatterSearch] = useState('');
+  const [customSoUser, setCustomSoUser] = useState('');
 
   // Action feedback states
   const [actionLoading, setActionLoading] = useState(false);
@@ -48,13 +91,29 @@ export default function Dock() {
         if (data.data.spotify) setSpotifyData(data.data.spotify);
         if (data.data.counter) setCounterData(data.data.counter);
         if (data.data.scoreboard) setScoreboardData(data.data.scoreboard);
+        const dedupeHistory = (items) => {
+          if (!Array.isArray(items)) return [];
+          const seen = new Set();
+          return items.filter(it => {
+            const k = it.id || `${it.username}_${it.killer || it.result}_${it.timestamp}`;
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
+          });
+        };
+        if (data.data.dbdPerksHistory) setDbdPerksHistory(dedupeHistory(data.data.dbdPerksHistory));
+        if (data.data.loyaltyHistory) setLoyaltyHistory(dedupeHistory(data.data.loyaltyHistory));
+        if (data.data.randomKillerHistory) setRandomKillerHistory(dedupeHistory(data.data.randomKillerHistory));
+        if (data.data.streamChatters) setStreamChatters(data.data.streamChatters);
       }
-      // Set initial tab if not already selected
+      // Set initial tab if not already selected or if currentTab is no longer active
       if (data.activeTabs && data.activeTabs.length > 0) {
         setCurrentTab(prev => {
           if (prev && data.activeTabs.some(t => t.id === prev)) return prev;
           return data.activeTabs[0].id;
         });
+      } else {
+        setCurrentTab('');
       }
     } catch (err) {
       console.error('Error fetching dock overview:', err);
@@ -68,6 +127,16 @@ export default function Dock() {
     fetchOverview();
   }, [fetchOverview]);
 
+  // Helper to verify if an incoming real-time socket payload belongs to this Dock's streamer
+  const isTargetUserEvent = useCallback((eventUserId) => {
+    if (!eventUserId) return true;
+    const cleanEvent = String(eventUserId).trim().toLowerCase().replace('@', '');
+    const cleanTarget = String(targetUser).trim().toLowerCase().replace('@', '');
+    const cleanUserId = userData?.userId ? String(userData.userId).trim().toLowerCase().replace('@', '') : '';
+    const cleanUsername = userData?.username ? String(userData.username).trim().toLowerCase().replace('@', '') : '';
+    return cleanEvent === cleanTarget || (cleanUserId && cleanEvent === cleanUserId) || (cleanUsername && cleanEvent === cleanUsername);
+  }, [targetUser, userData]);
+
   // 2. Setup Socket.io Real-time connection
   useEffect(() => {
     if (!targetUser) return;
@@ -77,66 +146,156 @@ export default function Dock() {
       withCredentials: true
     });
     socketRef.current = socket;
+    const cleanUser = String(targetUser).trim().toLowerCase().replace('@', '');
+
+    const joinRooms = () => {
+      const ids = new Set([cleanUser]);
+      if (userData?.userId) ids.add(String(userData.userId).trim().toLowerCase());
+      if (userData?.username) ids.add(String(userData.username).trim().toLowerCase());
+      ids.forEach(id => {
+        socket.emit('join_user', { userId: id });
+        socket.emit('join_channel', id);
+        socket.emit('join_user_room', id);
+      });
+    };
 
     socket.on('connect', () => {
       setConnected(true);
-      const cleanUser = String(targetUser).trim().toLowerCase().replace('@', '');
-      socket.emit('join_user_room', cleanUser);
-      if (userData?.userId) {
-        socket.emit('join_user_room', String(userData.userId));
-      }
+      joinRooms();
     });
+
+    joinRooms();
 
     socket.on('disconnect', () => {
       setConnected(false);
     });
 
-    // Real-time Spotify Events
-    socket.on('spotify_now_playing', (data) => {
-      if (data) {
-        setSpotifyData(prev => ({
-          ...prev,
-          isPlaying: Boolean(data.isPlaying),
-          track: data.track || prev.track,
-          progressMs: data.progressMs || 0,
-          durationMs: data.durationMs || prev.durationMs || 0
-        }));
+    // Real-time Widget Status Changes
+    socket.on('user_widget_status_changed', (data) => {
+      if (!data?.userId || isTargetUserEvent(data.userId)) {
+        fetchOverview();
       }
     });
 
+    socket.on('widget_status_updated', (data) => {
+      if (!data?.userId || isTargetUserEvent(data.userId)) {
+        fetchOverview();
+      }
+    });
+
+    // Real-time Spotify Events (Strictly filtered by owner user)
+    socket.on('spotify_now_playing', (data) => {
+      if (!data) return;
+      if (data.userId && !isTargetUserEvent(data.userId)) return;
+      setSpotifyData(prev => ({
+        ...prev,
+        isPlaying: Boolean(data.isPlaying),
+        track: data.track !== undefined ? data.track : prev.track,
+        progressMs: data.progressMs || 0,
+        durationMs: data.durationMs || prev.durationMs || 0
+      }));
+    });
+
     socket.on('spotify_queue_updated', (data) => {
-      if (data && Array.isArray(data.queue)) {
+      if (!data) return;
+      if (data.userId && !isTargetUserEvent(data.userId)) return;
+      if (Array.isArray(data.queue)) {
         setSpotifyData(prev => ({ ...prev, queue: data.queue }));
       }
     });
 
     // Real-time Counter Events
     socket.on('counter_updated', (data) => {
-      if (data && data.count !== undefined) {
-        setCounterData(prev => ({
-          ...prev,
-          count: Number(data.count),
-          title: data.title || prev.title
-        }));
-      }
+      if (!data || data.count === undefined) return;
+      if (data.userId && !isTargetUserEvent(data.userId)) return;
+      setCounterData(prev => ({
+        ...prev,
+        count: Number(data.count),
+        title: data.title || prev.title
+      }));
     });
 
     // Real-time DBD Scoreboard Events
     socket.on('dbd_scoreboard_updated', (data) => {
-      if (data && data.scoreData) {
-        setScoreboardData(prev => ({
-          ...prev,
-          killerKills: Number(data.scoreData.killerKills) || 0,
-          killerDraws: Number(data.scoreData.killerDraws) || 0,
-          killerEscapes: Number(data.scoreData.killerEscapes) || 0
-        }));
+      if (!data || !data.scoreData) return;
+      if (data.userId && !isTargetUserEvent(data.userId)) return;
+      setScoreboardData(prev => ({
+        ...prev,
+        killerKills: Number(data.scoreData.killerKills) || 0,
+        killerDraws: Number(data.scoreData.killerDraws) || 0,
+        killerEscapes: Number(data.scoreData.killerEscapes) || 0
+      }));
+    });
+
+    // Real-time DBD Perks & Loyalty Card Roll History Events
+    socket.on('widget_roll_history_item', (data) => {
+      if (!data || !data.item) return;
+      if (data.userId && !isTargetUserEvent(data.userId)) return;
+
+      const isDuplicate = (list, item) => {
+        if (!item || !Array.isArray(list)) return false;
+        return list.some(h => {
+          if (h.id && item.id && h.id === item.id) return true;
+          const sameUser = (h.username || '').toLowerCase() === (item.username || '').toLowerCase();
+          const sameResult = (h.killer || h.result || '') === (item.killer || item.result || '');
+          const timeDiff = Math.abs(Number(h.timestamp || 0) - Number(item.timestamp || 0));
+          return sameUser && sameResult && timeDiff < 3000;
+        });
+      };
+
+      if (data.widgetId === 'dbd-perks') {
+        setDbdPerksHistory(prev => {
+          if (isDuplicate(prev, data.item)) return prev;
+          return [data.item, ...prev].slice(0, 50);
+        });
       }
+      if (data.widgetId === 'loyalty-card') {
+        setLoyaltyHistory(prev => {
+          if (isDuplicate(prev, data.item)) return prev;
+          return [data.item, ...prev].slice(0, 50);
+        });
+      }
+      if (data.widgetId === 'random-killer') {
+        setRandomKillerHistory(prev => {
+          if (isDuplicate(prev, data.item)) return prev;
+          return [data.item, ...prev].slice(0, 50);
+        });
+      }
+    });
+
+    socket.on('widget_roll_history_cleared', (data) => {
+      if (!data) return;
+      if (data.userId && !isTargetUserEvent(data.userId)) return;
+      if (data.widgetId === 'dbd-perks') {
+        setDbdPerksHistory([]);
+      }
+      if (data.widgetId === 'loyalty-card') {
+        setLoyaltyHistory([]);
+      }
+      if (data.widgetId === 'random-killer') {
+        setRandomKillerHistory([]);
+      }
+    });
+
+    // Real-time Stream Chatters for Shoutout Dock
+    socket.on('dock_stream_chatter_updated', (data) => {
+      if (!data) return;
+      if (data.userId && !isTargetUserEvent(data.userId)) return;
+      if (Array.isArray(data.chatters)) {
+        setStreamChatters(data.chatters);
+      }
+    });
+
+    socket.on('dock_stream_chatter_cleared', (data) => {
+      if (!data) return;
+      if (data.userId && !isTargetUserEvent(data.userId)) return;
+      setStreamChatters([]);
     });
 
     return () => {
       socket.disconnect();
     };
-  }, [targetUser, userData?.userId]);
+  }, [targetUser, userData?.userId, userData?.username, isTargetUserEvent, fetchOverview]);
 
   // --- Spotify Actions ---
   const handleTogglePlayback = async () => {
@@ -146,7 +305,7 @@ export default function Dock() {
       await fetch(`${API_BASE}/api/spotify/playback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: targetUser, action: 'toggle' })
+        body: JSON.stringify({ user: targetUser, userId: userData?.userId || targetUser, action: 'toggle' })
       });
       setSpotifyData(prev => ({ ...prev, isPlaying: !prev.isPlaying }));
     } catch (e) {
@@ -163,7 +322,7 @@ export default function Dock() {
       await fetch(`${API_BASE}/api/spotify/skip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: targetUser })
+        body: JSON.stringify({ user: targetUser, userId: userData?.userId || targetUser })
       });
       setTimeout(fetchOverview, 1000);
     } catch (e) {
@@ -175,7 +334,7 @@ export default function Dock() {
 
   const handleDeleteQueueItem = async (itemId) => {
     try {
-      await fetch(`${API_BASE}/api/spotify/queue/${itemId}?user=${encodeURIComponent(targetUser)}`, {
+      await fetch(`${API_BASE}/api/spotify/queue/${itemId}?user=${encodeURIComponent(targetUser)}&userId=${encodeURIComponent(userData?.userId || targetUser)}`, {
         method: 'DELETE'
       });
       setSpotifyData(prev => ({
@@ -190,7 +349,7 @@ export default function Dock() {
   const handleClearQueue = async () => {
     if (!window.confirm('คุณต้องการล้างคิวเพลงทั้งหมดใช่หรือไม่?')) return;
     try {
-      await fetch(`${API_BASE}/api/spotify/queue?user=${encodeURIComponent(targetUser)}`, {
+      await fetch(`${API_BASE}/api/spotify/queue?user=${encodeURIComponent(targetUser)}&userId=${encodeURIComponent(userData?.userId || targetUser)}`, {
         method: 'DELETE'
       });
       setSpotifyData(prev => ({ ...prev, queue: [] }));
@@ -242,7 +401,176 @@ export default function Dock() {
     }
   };
 
-  // Helper time formatter
+  // --- DBD Perks Actions ---
+
+  const handleClearDbdPerksHistory = async () => {
+    if (!window.confirm('คุณต้องการล้างประวัติการสุ่มเปิร์คทั้งหมดใช่หรือไม่?')) return;
+    try {
+      await fetch(`${API_BASE}/api/widgets/dbd-perks/history?user=${encodeURIComponent(targetUser)}`, {
+        method: 'DELETE'
+      });
+      setDbdPerksHistory([]);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // สรุปยอดเช็คอินของผู้ใช้แต่ละคน (Loyalty Card Leaderboard)
+  const loyaltyUserSummary = useMemo(() => {
+    const map = new Map();
+    for (const item of loyaltyHistory) {
+      const u = (item.username || '').toLowerCase();
+      if (!u) continue;
+      const countVal = item.count !== undefined ? Number(item.count) : 1;
+      if (!map.has(u)) {
+        map.set(u, {
+          username: item.username,
+          count: countVal,
+          avatar: item.avatar || `/api/twitch/avatar/${encodeURIComponent(item.username)}`,
+          lastTime: item.timestamp
+        });
+      } else {
+        const existing = map.get(u);
+        if (countVal > existing.count) {
+          existing.count = countVal;
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [loyaltyHistory]);
+
+  // --- Loyalty Card Actions ---
+  const handleSimulateLoyaltyCard = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/widgets/loyalty-card/simulate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: targetUser, username: userData?.displayName || targetUser })
+      });
+      if (res.ok) {
+        const result = await res.json();
+        if (result.item) {
+          setLoyaltyHistory(prev => {
+            const exists = prev.some(it => it.id === result.item.id);
+            if (exists) return prev;
+            return [result.item, ...prev].slice(0, 50);
+          });
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleClearLoyaltyHistory = async () => {
+    if (!window.confirm('คุณต้องการล้างประวัติการแลกแต้ม Loyalty Card ทั้งหมดใช่หรือไม่?')) return;
+    try {
+      await fetch(`${API_BASE}/api/widgets/loyalty-card/history?user=${encodeURIComponent(targetUser)}`, {
+        method: 'DELETE'
+      });
+      setLoyaltyHistory([]);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // --- DBD Random Killer Actions ---
+
+  const handleClearRandomKillerHistory = async () => {
+    if (!window.confirm('คุณต้องการล้างประวัติการสุ่มคิลเลอร์ทั้งหมดใช่หรือไม่?')) return;
+    try {
+      await fetch(`${API_BASE}/api/widgets/random-killer/history?user=${encodeURIComponent(targetUser)}`, {
+        method: 'DELETE'
+      });
+      setRandomKillerHistory([]);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // --- Twitch Shoutout Actions ---
+  const handleTriggerShoutout = async (targetUsername) => {
+    if (!targetUsername || actionLoading) return;
+    setActionLoading(true);
+    try {
+      setStreamChatters(prev => prev.map(c => {
+        if (c.username.toLowerCase() === targetUsername.toLowerCase()) {
+          return { ...c, isShoutedOut: true, shoutedOutTime: Date.now() };
+        }
+        return c;
+      }));
+
+      await fetch(`${API_BASE}/api/dock/shoutout/trigger`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user: targetUser,
+          targetUsername: targetUsername
+        })
+      });
+    } catch (e) {
+      console.error('Error triggering shoutout:', e);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleClearStreamChatters = async () => {
+    if (!window.confirm('ล้างรายชื่อผู้ชมของสตรีมปัจจุบันทั้งหมดหรือไม่?')) return;
+    if (actionLoading) return;
+    setActionLoading(true);
+    try {
+      setStreamChatters([]);
+      await fetch(`${API_BASE}/api/dock/shoutout/clear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: targetUser })
+      });
+    } catch (e) {
+      console.error('Error clearing stream chatters:', e);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSimulateChatter = async () => {
+    const name = window.prompt('พิมพ์ชื่อ Twitch ของคนดูที่ต้องการจำลอง:');
+    if (!name || !name.trim()) return;
+    const cleanName = name.trim().replace(/^@/, '');
+    try {
+      await fetch(`${API_BASE}/api/dock/shoutout/simulate-chatter`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user: targetUser,
+          username: cleanName,
+          message: 'สวัสดีครับ มาดูสตรีมแล้ว!'
+        })
+      });
+    } catch (e) {
+      console.error('Error simulating chatter:', e);
+    }
+  };
+
+  const handleQuickCustomShoutout = async (e) => {
+    if (e) e.preventDefault();
+    if (!customSoUser || !customSoUser.trim()) return;
+    const target = customSoUser.trim().replace(/^@/, '');
+    await handleTriggerShoutout(target);
+    setCustomSoUser('');
+  };
+
+  const filteredChatters = useMemo(() => {
+    if (!chatterSearch.trim()) return streamChatters;
+    const q = chatterSearch.trim().toLowerCase();
+    return streamChatters.filter(c =>
+      (c.username && c.username.toLowerCase().includes(q)) ||
+      (c.displayName && c.displayName.toLowerCase().includes(q)) ||
+      (c.lastMessage && c.lastMessage.toLowerCase().includes(q))
+    );
+  }, [streamChatters, chatterSearch]);
+
+  // Helper time formatters
   const formatTime = (ms) => {
     if (!ms || isNaN(ms)) return '00:00';
     const totalSeconds = Math.floor(ms / 1000);
@@ -251,12 +579,23 @@ export default function Dock() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const formatRelativeTime = (ts) => {
+    if (!ts) return '';
+    const diff = Math.floor((Date.now() - Number(ts)) / 1000);
+    if (diff < 60) return 'เมื่อสักครู่';
+    if (diff < 3600) return `${Math.floor(diff / 60)} นาทีก่อน`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} ชม.ก่อน`;
+    return new Date(ts).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+  };
+
   // 3. Render Empty / Missing user state
   if (!targetUser) {
     return (
       <div className="dock-container">
         <div className="dock-state-center">
-          <div className="dock-state-icon">📡</div>
+          <div className="dock-state-icon">
+            <Radio size={32} />
+          </div>
           <div className="dock-state-title">ไม่พบชื่อผู้ใช้สำหรับ OBS Dock</div>
           <div className="dock-state-desc">
             กรุณาใส่ Parameter <code>?user=ชื่อTwitch</code> ที่ URL ของ Custom Dock ใน OBS
@@ -274,7 +613,9 @@ export default function Dock() {
     return (
       <div className="dock-container">
         <div className="dock-state-center">
-          <div className="dock-state-icon" style={{ animation: 'spin 1s linear infinite' }}>⏳</div>
+          <div className="dock-state-icon">
+            <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
+          </div>
           <div className="dock-state-title">กำลังโหลด OBS Dock...</div>
         </div>
       </div>
@@ -285,7 +626,9 @@ export default function Dock() {
     return (
       <div className="dock-container">
         <div className="dock-state-center">
-          <div className="dock-state-icon">⚠️</div>
+          <div className="dock-state-icon">
+            <AlertTriangle size={32} />
+          </div>
           <div className="dock-state-title">เกิดข้อผิดพลาด</div>
           <div className="dock-state-desc">{error}</div>
           <button onClick={fetchOverview} className="dock-btn dock-btn-primary">ลองใหม่อีกครั้ง</button>
@@ -299,14 +642,23 @@ export default function Dock() {
       {/* 1. Header Bar */}
       <div className="dock-header">
         <div className="dock-brand">
-          <span className="dock-logo-text">SOLOCAST</span>
+          <img
+            src="/electric-chicken.webp"
+            alt="FASTCHICK"
+            style={{
+              width: '18px',
+              height: '18px',
+              objectFit: 'contain'
+            }}
+          />
+          <span className="dock-logo-text">FASTCHICK</span>
           <span className="dock-badge">DOCK</span>
         </div>
         <div className="dock-user-info">
           <span className={`dock-status-dot ${connected ? '' : 'offline'}`} title={connected ? 'Connected to stream' : 'Reconnecting...'} />
           <span className="dock-username">@{userData?.displayName || targetUser}</span>
           <button onClick={fetchOverview} className="dock-refresh-btn" title="Refresh data">
-            🔄
+            <RefreshCw size={13} />
           </button>
         </div>
       </div>
@@ -317,22 +669,28 @@ export default function Dock() {
           {activeTabs.map(tab => {
             const isSpotify = tab.id === 'spotify-sr';
             const queueCount = isSpotify && spotifyData?.queue ? spotifyData.queue.length : 0;
+            const isShoutout = tab.id === 'twitch-shoutout';
+            const pendingSoCount = isShoutout ? streamChatters.filter(c => !c.isShoutedOut).length : 0;
+            const badgeCount = queueCount || pendingSoCount;
+            const TabIcon = TAB_ICONS[tab.id] || Sliders;
             return (
               <button
                 key={tab.id}
                 className={`dock-tab-btn ${currentTab === tab.id ? 'active' : ''}`}
                 onClick={() => setCurrentTab(tab.id)}
               >
-                <span>{tab.icon}</span>
+                <TabIcon size={14} style={{ flexShrink: 0 }} />
                 <span>{tab.name}</span>
-                {queueCount > 0 && <span className="dock-tab-badge">{queueCount}</span>}
+                {badgeCount > 0 && <span className="dock-tab-badge">{badgeCount}</span>}
               </button>
             );
           })}
         </div>
       ) : (
         <div className="dock-card" style={{ textAlign: 'center', padding: '1.5rem' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📭</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem', opacity: 0.6 }}>
+            <Inbox size={32} />
+          </div>
           <div style={{ fontWeight: 700, marginBottom: '0.35rem' }}>ยังไม่มี Widget ที่เปิดใช้งาน</div>
           <div style={{ fontSize: '0.8rem', color: 'var(--dock-text-muted)', marginBottom: '1rem' }}>
             เมื่อคุณเปิดใช้งานหรือตั้งค่า Widget (เช่น Spotify, Counter, DBD) ใน Dashboard ระบบจะแสดงแท็บควบคุมตรงนี้ให้อัตโนมัติ
@@ -351,8 +709,12 @@ export default function Dock() {
             <div className="dock-card">
               <div className="dock-card-title">
                 <span>กำลังเล่น (Now Playing)</span>
-                <span style={{ color: spotifyData.isPlaying ? 'var(--dock-spotify)' : 'var(--dock-text-muted)' }}>
-                  {spotifyData.isPlaying ? '▶ กำลังเล่น' : '⏸ หยุดชั่วคราว'}
+                <span style={{ color: spotifyData.isPlaying ? 'var(--dock-spotify)' : 'var(--dock-text-muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  {spotifyData.isPlaying ? (
+                    <><Play size={12} fill="currentColor" /> กำลังเล่น</>
+                  ) : (
+                    <><Pause size={12} fill="currentColor" /> หยุดชั่วคราว</>
+                  )}
                 </span>
               </div>
 
@@ -391,15 +753,21 @@ export default function Dock() {
                   className={`dock-btn ${spotifyData.isPlaying ? 'dock-btn-secondary' : 'dock-btn-spotify'}`}
                   onClick={handleTogglePlayback}
                   disabled={actionLoading}
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 >
-                  {spotifyData.isPlaying ? '⏸ หยุดเพลง' : '▶ เล่นเพลง'}
+                  {spotifyData.isPlaying ? (
+                    <><Pause size={14} /> หยุดเพลง</>
+                  ) : (
+                    <><Play size={14} /> เล่นเพลง</>
+                  )}
                 </button>
                 <button
                   className="dock-btn dock-btn-secondary"
                   onClick={handleSkipTrack}
                   disabled={actionLoading}
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 >
-                  ⏭ ข้ามเพลง (Skip)
+                  <SkipForward size={14} /> ข้ามเพลง (Skip)
                 </button>
               </div>
             </div>
@@ -435,7 +803,7 @@ export default function Dock() {
                         onClick={() => handleDeleteQueueItem(item.id)}
                         title="ลบเพลงนี้ออกจากคิว"
                       >
-                        🗑
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   ))}
@@ -559,45 +927,486 @@ export default function Dock() {
 
             <button
               className="dock-btn dock-btn-danger"
-              style={{ width: '100%', fontSize: '0.78rem', padding: '0.45rem' }}
+              style={{ width: '100%', fontSize: '0.78rem', padding: '0.45rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               onClick={() => {
                 if (window.confirm('รีเซ็ตสถิติทั้งหมดในตาราง DBD หรือไม่?')) {
                   handleScoreboardUpdate('reset');
                 }
               }}
             >
-              🔄 รีเซ็ตสถิติทั้งหมด (0-0-0)
+              <RotateCcw size={14} /> รีเซ็ตสถิติทั้งหมด (0-0-0)
             </button>
           </div>
         )}
 
+        {/* --- TAB: DBD Perks with Roll History --- */}
+        {currentTab === 'dbd-perks' && (
+          <div className="dock-card">
+            <div className="dock-card-title">
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Dices size={14} style={{ color: 'var(--dock-accent, #6366f1)' }} />
+                ประวัติการสุ่มเปิร์ค ({dbdPerksHistory.length})
+              </span>
+              {dbdPerksHistory.length > 0 && (
+                  <button
+                    onClick={handleClearDbdPerksHistory}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    ล้างประวัติ
+                  </button>
+                )}
+              </div>
+
+              {dbdPerksHistory.length > 0 ? (
+                <div className="dock-history-list">
+                  {dbdPerksHistory.map((item, idx) => (
+                    <div key={item.id || idx} className="dock-history-item">
+                      <div className="dock-history-header">
+                        <div className="dock-history-user">
+                          {item.avatar && (
+                            <img
+                              src={item.avatar}
+                              alt={item.username || 'User'}
+                              className="dock-history-avatar"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          )}
+                          <span className="dock-history-username">@{item.username || 'ผู้ชม'}</span>
+                          <span className={`dock-role-badge ${item.role === 'killer' ? 'killer' : 'survivor'}`}>
+                            {item.role === 'killer' ? 'Killer' : 'Survivor'}
+                          </span>
+                          {item.rewardTitle && (
+                            <span className="dock-reward-tag">{item.rewardTitle}</span>
+                          )}
+                        </div>
+                        <span className="dock-history-time">
+                          {formatRelativeTime(item.timestamp)}
+                        </span>
+                      </div>
+
+                      {/* 4 Perks Grid */}
+                      {Array.isArray(item.perks) && item.perks.length > 0 ? (
+                        <div className="dock-perks-grid">
+                          {item.perks.map((p, pIdx) => {
+                            const iconUrl = p.icon ? (p.icon.startsWith('http') ? p.icon : `${API_BASE}${p.icon}`) : '';
+                            return (
+                              <div key={p.id || pIdx} className="dock-perk-badge" title={`${p.name}${p.character ? ` (${p.character})` : ''}`}>
+                                {iconUrl ? (
+                                  <img
+                                    src={iconUrl}
+                                    alt={p.name}
+                                    className="dock-perk-icon"
+                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                  />
+                                ) : (
+                                  <div className="dock-perk-icon-fallback" />
+                                )}
+                                <div className="dock-perk-name">{p.name}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="dock-history-raw-result">
+                          {item.result || item.killer || 'สุ่มสำเร็จ'}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="dock-empty-hint">
+                  ยังไม่มีประวัติการสุ่มเปิร์ค
+                  <br /><span style={{ fontSize: '0.72rem', color: '#64748b' }}>เมื่อผู้ชมพิมพ์สุ่มเปิร์ค รายการจะแสดงตรงนี้แบบ Real-time</span>
+                </div>
+              )}
+            </div>
+        )}
+
+        {/* --- TAB: Loyalty Card with Redemption History & Summary --- */}
+        {currentTab === 'loyalty-card' && (
+          <>
+            <div className="dock-card">
+              <div className="dock-card-title">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Ticket size={14} style={{ color: '#FF9F0A' }} />
+                  Loyalty Stamp Card
+                </span>
+                <span className="dock-badge" style={{ background: 'rgba(255, 159, 10, 0.15)', color: '#FF9F0A', borderColor: 'rgba(255, 159, 10, 0.3)' }}>
+                  STAMP
+                </span>
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--dock-text-muted)', marginBottom: '0.75rem' }}>
+                บันทึกการสะสมแสตมป์และการเช็คอินของผู้ชมจาก Twitch Channel Points แบบเรียลไทม์
+              </div>
+              <div className="dock-controls-grid" style={{ gridTemplateColumns: '1fr' }}>
+                <button
+                  className="dock-btn dock-btn-primary"
+                  onClick={handleSimulateLoyaltyCard}
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <Ticket size={14} /> จำลองการแลกแต้มเช็คอิน
+                </button>
+              </div>
+            </div>
+
+            {/* Top Viewers / Leaderboard Summary */}
+            {loyaltyUserSummary.length > 0 && (
+              <div className="dock-card">
+                <div className="dock-card-title">
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Users size={13} style={{ color: '#FF9F0A' }} />
+                    ยอดเช็คอินสะสม ({loyaltyUserSummary.length} คน)
+                  </span>
+                </div>
+                <div className="dock-loyalty-leaderboard">
+                  {loyaltyUserSummary.slice(0, 6).map((u, idx) => (
+                    <div key={u.username || idx} className="dock-loyalty-user-row">
+                      <div className="dock-loyalty-user-left">
+                        <img
+                          src={u.avatar || `/api/twitch/avatar/${encodeURIComponent(u.username)}`}
+                          alt={u.username}
+                          className="dock-history-avatar"
+                          onError={(e) => {
+                            e.target.src = 'https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7ba-40d2-965a-52834b6f79e8-profile_image-300x300.png';
+                          }}
+                        />
+                        <span className="dock-history-username">@{u.username}</span>
+                      </div>
+                      <span className="dock-loyalty-count-badge">
+                        <Award size={11} /> {u.count} แต้ม
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Redemption History Card */}
+            <div className="dock-card">
+              <div className="dock-card-title">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Clock size={13} style={{ color: 'var(--dock-accent, #6366f1)' }} />
+                  ประวัติการแลกแต้ม ({loyaltyHistory.length})
+                </span>
+                {loyaltyHistory.length > 0 && (
+                  <button
+                    onClick={handleClearLoyaltyHistory}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    ล้างประวัติ
+                  </button>
+                )}
+              </div>
+
+              {loyaltyHistory.length > 0 ? (
+                <div className="dock-history-list">
+                  {loyaltyHistory.map((item, idx) => (
+                    <div key={item.id || idx} className="dock-history-item">
+                      <div className="dock-history-header">
+                        <div className="dock-history-user">
+                          <img
+                            src={item.avatar || `/api/twitch/avatar/${encodeURIComponent(item.username || '')}`}
+                            alt={item.username || 'User'}
+                            className="dock-history-avatar"
+                            onError={(e) => {
+                              e.target.src = 'https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7ba-40d2-965a-52834b6f79e8-profile_image-300x300.png';
+                            }}
+                          />
+                          <span className="dock-history-username">@{item.username || 'ผู้ชม'}</span>
+                          <span className="dock-role-badge survivor" style={{ background: 'rgba(255, 159, 10, 0.15)', color: '#FF9F0A', borderColor: 'rgba(255, 159, 10, 0.3)' }}>
+                            แต้มที่ {item.count !== undefined ? item.count : 1}
+                          </span>
+                          {item.rewardTitle && (
+                            <span className="dock-reward-tag">{item.rewardTitle}</span>
+                          )}
+                        </div>
+                        <span className="dock-history-time">
+                          {formatRelativeTime(item.timestamp)}
+                        </span>
+                      </div>
+                      <div className="dock-loyalty-history-result">
+                        {item.result || `เช็คอินครั้งที่ ${item.count || 1}`}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="dock-empty-hint">
+                  ยังไม่มีประวัติการแลกแต้ม
+                  <br /><span style={{ fontSize: '0.72rem', color: '#64748b' }}>เมื่อผู้ชมแลกแต้มสะสมบน Twitch รายการจะแสดงตรงนี้แบบ Real-time</span>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* --- TAB: DBD Random Killer with Roll History --- */}
+        {currentTab === 'random-killer' && (
+          <div className="dock-card">
+            <div className="dock-card-title">
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Skull size={14} style={{ color: '#ef4444' }} />
+                ประวัติการสุ่ม Killer Roulette ({randomKillerHistory.length})
+              </span>
+              {randomKillerHistory.length > 0 && (
+                  <button
+                    onClick={handleClearRandomKillerHistory}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    ล้างประวัติ
+                  </button>
+                )}
+              </div>
+
+              {randomKillerHistory.length > 0 ? (
+                <div className="dock-history-list">
+                  {randomKillerHistory.map((item, idx) => (
+                    <div key={item.id || idx} className="dock-history-item">
+                      <div className="dock-history-header">
+                        <div className="dock-history-user">
+                          <img
+                            src={item.avatar || `/api/twitch/avatar/${encodeURIComponent(item.username || '')}`}
+                            alt={item.username || 'User'}
+                            className="dock-history-avatar"
+                            onError={(e) => {
+                              e.target.src = 'https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7ba-40d2-965a-52834b6f79e8-profile_image-300x300.png';
+                            }}
+                          />
+                          <span className="dock-history-username">@{item.username || 'ผู้ชม'}</span>
+                          <span className="dock-role-badge killer">
+                            Killer
+                          </span>
+                          {item.rewardTitle && (
+                            <span className="dock-reward-tag">{item.rewardTitle}</span>
+                          )}
+                        </div>
+                        <span className="dock-history-time">
+                          {formatRelativeTime(item.timestamp)}
+                        </span>
+                      </div>
+
+                      {/* Killer Display Card */}
+                      <div className="dock-killer-card">
+                        {item.killerImg ? (
+                          <img
+                            src={item.killerImg}
+                            alt={item.killer || item.result || 'Killer'}
+                            className="dock-killer-thumb"
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                        ) : (
+                          <div className="dock-killer-fallback">
+                            <Skull size={18} />
+                          </div>
+                        )}
+                        <div className="dock-killer-info">
+                          <div className="dock-killer-name">
+                            {item.killer || item.result || 'ไม่ทราบผลลัพธ์'}
+                          </div>
+                          <div className="dock-killer-role">Dead by Daylight Killer</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="dock-empty-hint">
+                  ยังไม่มีประวัติการสุ่มคิลเลอร์
+                  <br /><span style={{ fontSize: '0.72rem', color: '#64748b' }}>เมื่อผู้ชมแลกสุ่มคิลเลอร์บน Twitch รายการจะแสดงตรงนี้แบบ Real-time</span>
+                </div>
+              )}
+            </div>
+        )}
+
+        {/* --- TAB: Twitch Shoutout Stream Chatters --- */}
+        {currentTab === 'twitch-shoutout' && (
+          <>
+            <div className="dock-card">
+              <div className="dock-card-title">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Megaphone size={14} style={{ color: '#a855f7' }} />
+                  Twitch Shoutout
+                </span>
+                <span className="dock-badge" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', borderColor: 'rgba(168, 85, 247, 0.3)' }}>
+                  STREAM CHATTERS
+                </span>
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--dock-text-muted)', marginBottom: '0.75rem' }}>
+                แสดงรายชื่อผู้ชมที่พิมพ์ในแชทสตรีมปัจจุบันแบบ Real-time เพื่อให้กดปุ่ม SO แนะนำช่องได้ทันที
+              </div>
+
+
+              {/* Quick Actions Bar */}
+              <div className="dock-so-quick-actions">
+                <button
+                  type="button"
+                  className="dock-btn dock-btn-danger"
+                  onClick={handleClearStreamChatters}
+                  style={{ fontSize: '0.75rem', padding: '0.35rem 0.6rem' }}
+                  title="ล้างรายชื่อคนดูทั้งหมดเพื่อเริ่มสตรีมรอบใหม่"
+                >
+                  <RotateCcw size={13} /> ล้างรายชื่อ (เริ่มสตรีมใหม่)
+                </button>
+              </div>
+
+              {/* Quick Custom Shoutout Form */}
+              <form onSubmit={handleQuickCustomShoutout} className="dock-so-custom-form">
+                <input
+                  type="text"
+                  value={customSoUser}
+                  onChange={(e) => setCustomSoUser(e.target.value)}
+                  placeholder="พิมพ์ชื่อ Twitch ช่องที่ต้องการ SO..."
+                  className="dock-so-custom-input"
+                />
+                <button
+                  type="submit"
+                  disabled={!customSoUser.trim() || actionLoading}
+                  className="dock-btn dock-btn-primary"
+                  style={{ whiteSpace: 'nowrap', padding: '0.4rem 0.75rem', fontSize: '0.78rem' }}
+                >
+                  <Megaphone size={13} /> ยิง SO
+                </button>
+              </form>
+            </div>
+
+            {/* Stream Chatters List Card */}
+            <div className="dock-card">
+              <div className="dock-card-title">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Users size={13} style={{ color: 'var(--dock-accent, #6366f1)' }} />
+                  ผู้ชมที่พิมพ์ในสตรีมนี้ ({filteredChatters.length})
+                </span>
+                {streamChatters.length > 0 && (
+                  <button
+                    onClick={handleClearStreamChatters}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    ล้าง
+                  </button>
+                )}
+              </div>
+
+              {/* Search filter if more than 3 chatters */}
+              {streamChatters.length > 3 && (
+                <div className="dock-so-search-wrap">
+                  <Search size={13} className="dock-so-search-icon" />
+                  <input
+                    type="text"
+                    value={chatterSearch}
+                    onChange={(e) => setChatterSearch(e.target.value)}
+                    placeholder="ค้นหาชื่อผู้ชม..."
+                    className="dock-so-search-input"
+                  />
+                  {chatterSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setChatterSearch('')}
+                      className="dock-so-search-clear"
+                    >
+                      ล้าง
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {filteredChatters.length > 0 ? (
+                <div className="dock-so-list">
+                  {filteredChatters.map((item, idx) => (
+                    <div key={item.username || idx} className={`dock-so-item ${item.isShoutedOut ? 'shouted' : ''}`}>
+                      <div className="dock-so-item-main">
+                        <img
+                          src={item.avatar || `/api/twitch/avatar/${encodeURIComponent(item.username)}`}
+                          alt={item.username}
+                          className="dock-so-avatar"
+                          onError={(e) => {
+                            e.target.src = 'https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7ba-40d2-965a-52834b6f79e8-profile_image-300x300.png';
+                          }}
+                        />
+                        <div className="dock-so-info">
+                          <div className="dock-so-name-row">
+                            <span className="dock-so-username">@{item.displayName || item.username}</span>
+                            {item.displayName?.toLowerCase() !== item.username?.toLowerCase() && (
+                              <span className="dock-so-login">({item.username})</span>
+                            )}
+                            <span className="dock-so-time">{formatRelativeTime(item.lastSeen)}</span>
+                          </div>
+                          {item.lastMessage && (
+                            <div className="dock-so-msg" title={item.lastMessage}>
+                              &ldquo;{item.lastMessage}&rdquo;
+                            </div>
+                          )}
+                          <div className="dock-so-tags-row">
+                            {item.isShoutedOut ? (
+                              <span className="dock-so-tag done">
+                                <Check size={11} /> SO แล้ว {item.shoutedOutTime ? `(${formatRelativeTime(item.shoutedOutTime)})` : ''}
+                              </span>
+                            ) : (
+                              <span className="dock-so-tag pending">
+                                รอ SO
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="dock-so-item-action">
+                        {item.isShoutedOut ? (
+                          <button
+                            type="button"
+                            className="dock-btn dock-btn-secondary dock-so-action-btn done"
+                            onClick={() => handleTriggerShoutout(item.username)}
+                            disabled={actionLoading}
+                            title="คลิกเพื่อส่ง Shoutout อีกครั้ง"
+                          >
+                            <RotateCcw size={12} /> SO ซ้ำ
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="dock-btn dock-btn-primary dock-so-action-btn"
+                            onClick={() => handleTriggerShoutout(item.username)}
+                            disabled={actionLoading}
+                            title="คลิกเพื่อส่ง Shoutout แนะนำช่องของคนนี้"
+                          >
+                            <Megaphone size={13} /> SO
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="dock-empty-hint">
+                  {chatterSearch ? (
+                    'ไม่พบชื่อผู้ชมที่ตรงกับการค้นหา'
+                  ) : (
+                    <>
+                      ยังไม่มีคนดูพิมพ์ในแชทสตรีมปัจจุบัน
+                      <br /><span style={{ fontSize: '0.72rem', color: '#64748b' }}>เมื่อผู้ชมพิมพ์ข้อความในแชท Twitch รายชื่อจะเด้งขึ้นตรงนี้ทันทีเพื่อให้กด SO ได้สะดวกรวดเร็ว</span>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
         {/* --- TAB: Generic/Roulette/Other widgets --- */}
-        {(currentTab === 'dbd-perks' || currentTab === 'random-killer' || currentTab === 'loyalty-card') && (
+        {currentTab && currentTab !== 'spotify-sr' && currentTab !== 'custom-counter' && currentTab !== 'dbd-scoreboard' && currentTab !== 'dbd-perks' && currentTab !== 'loyalty-card' && currentTab !== 'random-killer' && currentTab !== 'twitch-shoutout' && (
           <div className="dock-card" style={{ textAlign: 'center', padding: '1.5rem 0.5rem' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
-              {currentTab === 'dbd-perks' ? '🎲' : currentTab === 'random-killer' ? '🪓' : '🎫'}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem', color: 'var(--dock-accent, #6366f1)' }}>
+              {(() => {
+                const IconComponent = TAB_ICONS[currentTab] || Sliders;
+                return <IconComponent size={36} />;
+              })()}
             </div>
             <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '0.35rem' }}>
               {activeTabs.find(t => t.id === currentTab)?.name}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--dock-text-muted)', marginBottom: '1rem' }}>
-              Widget นี้ทำงานผ่านการพิมพ์แชทหรือแต้มช่องของผู้ชมโดยอัตโนมัติบนจอ OBS
+              Widget นี้ทำงานผ่านการพิมพ์แชทหรือคำสั่งของผู้ชมโดยอัตโนมัติบนจอ OBS
             </div>
-            {currentTab === 'dbd-perks' && (
-              <button
-                className="dock-btn dock-btn-primary"
-                style={{ margin: '0 auto' }}
-                onClick={() => {
-                  fetch(`${API_BASE}/api/widgets/dbd-perks/simulate`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ role: 'survivor', user: targetUser })
-                  });
-                }}
-              >
-                🎲 สุ่มเปิร์ค Survivor ทันที
-              </button>
-            )}
           </div>
         )}
       </div>

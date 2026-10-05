@@ -198,6 +198,19 @@ function getAssociatedUserIdentifiers(input) {
   return set;
 }
 
+// ส่งอีเวนต์ผ่าน Socket.io ไปยังผู้ใช้คนนั้นโดยเฉพาะ (ทั้งห้อง user_ และ channel_) โดยใช้ chain .to() เพื่อไม่ให้ Socket ได้รับซ้ำ
+function emitToUser(userId, event, payload) {
+  if (!userId) return;
+  const clean = String(userId).trim().toLowerCase().replace(/^@/, '');
+  const allIds = getAssociatedUserIdentifiers(clean);
+  allIds.add(clean);
+  let broadcaster = io;
+  for (const id of allIds) {
+    broadcaster = broadcaster.to('user_' + id).to('channel_' + id);
+  }
+  broadcaster.emit(event, payload);
+}
+
 const ADMIN_USERS_FILE = path.join(__dirname, 'data', 'admin_users.json');
 const REVOKED_ADMINS_FILE = path.join(__dirname, 'data', 'revoked_admins.json');
 
@@ -1134,14 +1147,12 @@ app.post('/api/widgets/custom-counter/update', (req, res) => {
     const allIds = getAssociatedUserIdentifiers(cleanUser);
     allIds.add(cleanUser);
 
-    for (const id of allIds) {
-      io.to('user_' + id).emit('counter_updated', payload);
-      io.to('user_' + id).emit('onEventReceived', {
-        type: 'counter_update',
-        userId: userKey,
-        data: payload
-      });
-    }
+    emitToUser(userKey, 'counter_updated', payload);
+    emitToUser(userKey, 'onEventReceived', {
+      type: 'counter_update',
+      userId: userKey,
+      data: payload
+    });
 
     console.log(`[Custom Counter] 🔢 User ${userKey} counter updated: ${currentCount} -> ${newCount} (${computedDelta >= 0 ? '+' : ''}${computedDelta}) by ${updatedBy || 'Dashboard'}`);
     res.json({ success: true, count: newCount, delta: computedDelta, title, user: userKey });
@@ -1278,14 +1289,12 @@ app.post('/api/widgets/dbd-scoreboard/update', (req, res) => {
       updatedBy: updatedBy || 'Dashboard'
     };
 
-    for (const id of allIds) {
-      io.to('user_' + id).emit('dbd_scoreboard_updated', payload);
-      io.to('user_' + id).emit('onEventReceived', {
-        type: 'dbd_scoreboard_update',
-        userId: userKey,
-        data: payload
-      });
-    }
+    emitToUser(userKey, 'dbd_scoreboard_updated', payload);
+    emitToUser(userKey, 'onEventReceived', {
+      type: 'dbd_scoreboard_update',
+      userId: userKey,
+      data: payload
+    });
 
     console.log(`[DBD Scoreboard] 🏆 User ${userKey} scoreboard updated by ${updatedBy || 'Dashboard'}: Kills=${currentScores.killerKills}, Draws=${currentScores.killerDraws}, Escapes=${currentScores.killerEscapes}`);
     res.json({ success: true, scoreData: currentScores, user: userKey });
@@ -2116,6 +2125,141 @@ function saveRollHistory(data) {
 
 const rollHistoryStore = loadRollHistory();
 
+// File-based Stream Chatters Store (บันทึกรายชื่อคนดูที่พิมพ์ในสตรีมปัจจุบันสำหรับ Dock Shoutout แยกตาม User)
+const STREAM_CHATTERS_FILE = path.join(__dirname, 'data', 'stream_chatters.json');
+
+function loadStreamChatters() {
+  try {
+    if (fs.existsSync(STREAM_CHATTERS_FILE)) {
+      return JSON.parse(fs.readFileSync(STREAM_CHATTERS_FILE, 'utf8'));
+    }
+  } catch (e) { }
+  return {};
+}
+
+function saveStreamChatters(data) {
+  try {
+    const dir = path.dirname(STREAM_CHATTERS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(STREAM_CHATTERS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) { }
+}
+
+const streamChattersStore = loadStreamChatters();
+
+function trackStreamChatter(userId, chatterInfo) {
+  try {
+    if (!userId || !chatterInfo?.username) return;
+    const cleanUid = String(userId).trim().toLowerCase().replace(/^@/, '');
+    const allIds = getAssociatedUserIdentifiers(cleanUid);
+    allIds.add(cleanUid);
+
+    let targetUid = cleanUid;
+    for (const id of allIds) {
+      if (streamChattersStore[id]) {
+        targetUid = id;
+        break;
+      }
+    }
+    if (!streamChattersStore[targetUid]) {
+      streamChattersStore[targetUid] = [];
+    }
+
+    const list = streamChattersStore[targetUid];
+    const usernameLower = chatterInfo.username.toLowerCase();
+    const existingIndex = list.findIndex(c => c.username.toLowerCase() === usernameLower);
+
+    if (existingIndex >= 0) {
+      list[existingIndex].lastMessage = chatterInfo.lastMessage || list[existingIndex].lastMessage;
+      list[existingIndex].lastSeen = Date.now();
+      if (chatterInfo.displayName) list[existingIndex].displayName = chatterInfo.displayName;
+      if (chatterInfo.avatar && !list[existingIndex].avatar) list[existingIndex].avatar = chatterInfo.avatar;
+    } else {
+      list.unshift({
+        username: chatterInfo.username,
+        displayName: chatterInfo.displayName || chatterInfo.username,
+        avatar: chatterInfo.avatar || `/api/twitch/avatar/${encodeURIComponent(chatterInfo.username)}`,
+        lastMessage: chatterInfo.lastMessage || '',
+        lastSeen: Date.now(),
+        isShoutedOut: false,
+        shoutedOutTime: null
+      });
+      if (list.length > 200) {
+        list.pop();
+      }
+    }
+
+    for (const id of allIds) {
+      streamChattersStore[id] = list;
+    }
+    saveStreamChatters(streamChattersStore);
+
+    emitToUser(cleanUid, 'dock_stream_chatter_updated', {
+      userId: cleanUid,
+      chatters: list
+    });
+  } catch (err) {
+    console.warn('[Stream Chatters] Error tracking chatter:', err?.message || err);
+  }
+}
+
+function markChatterAsShoutedOut(userId, targetUsername) {
+  try {
+    if (!userId || !targetUsername) return;
+    const cleanUid = String(userId).trim().toLowerCase().replace(/^@/, '');
+    const allIds = getAssociatedUserIdentifiers(cleanUid);
+    allIds.add(cleanUid);
+
+    let targetUid = cleanUid;
+    for (const id of allIds) {
+      if (streamChattersStore[id]) {
+        targetUid = id;
+        break;
+      }
+    }
+    const list = streamChattersStore[targetUid];
+    if (!list || list.length === 0) return;
+
+    const lower = String(targetUsername).trim().toLowerCase().replace(/^@/, '');
+    const item = list.find(c => c.username.toLowerCase() === lower);
+    if (item) {
+      item.isShoutedOut = true;
+      item.shoutedOutTime = Date.now();
+
+      for (const id of allIds) {
+        streamChattersStore[id] = list;
+      }
+      saveStreamChatters(streamChattersStore);
+
+      emitToUser(cleanUid, 'dock_stream_chatter_updated', {
+        userId: cleanUid,
+        chatters: list
+      });
+    }
+  } catch (err) {
+    console.warn('[Stream Chatters] Error marking shoutout:', err?.message || err);
+  }
+}
+
+function clearStreamChatters(userId) {
+  try {
+    if (!userId) return;
+    const cleanUid = String(userId).trim().toLowerCase().replace(/^@/, '');
+    const allIds = getAssociatedUserIdentifiers(cleanUid);
+    allIds.add(cleanUid);
+
+    for (const id of allIds) {
+      streamChattersStore[id] = [];
+    }
+    saveStreamChatters(streamChattersStore);
+
+    emitToUser(cleanUid, 'dock_stream_chatter_cleared', { userId: cleanUid });
+    emitToUser(cleanUid, 'dock_stream_chatter_updated', { userId: cleanUid, chatters: [] });
+  } catch (err) {
+    console.warn('[Stream Chatters] Error clearing chatters:', err?.message || err);
+  }
+}
+
 // 1. ดึงประวัติการสุ่ม (Roll History)
 app.get('/api/widgets/:id/history', (req, res) => {
   try {
@@ -2220,6 +2364,20 @@ app.post('/api/widgets/:id/history', (req, res) => {
     if (!rollHistoryStore[widgetId][userKey]) {
       rollHistoryStore[widgetId][userKey] = [];
     }
+    // ตรวจสอบข้อมูลซ้ำซ้อนภายใน 3 วินาที (ป้องกันการยิงเบิ้ลจากหลายหน้าต่าง)
+    const existing = rollHistoryStore[widgetId][userKey] || [];
+    const isDup = existing.slice(0, 5).some(prevItem => {
+      if (item.id && prevItem.id === item.id) return true;
+      const timeDiff = Math.abs(Date.now() - Number(prevItem.timestamp || 0));
+      const sameUser = (prevItem.username || '').toLowerCase() === (item.username || '').toLowerCase();
+      const sameResult = (prevItem.killer || prevItem.result || '') === (item.killer || item.result || '');
+      return sameUser && sameResult && timeDiff < 3000;
+    });
+
+    if (isDup) {
+      console.log(`[Roll History] Deduplicated roll on "${widgetId}" for user "${userKey}"`);
+      return res.json({ success: true, duplicate: true, item: existing[0] });
+    }
 
     const newItem = {
       id: 'roll_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
@@ -2231,11 +2389,9 @@ app.post('/api/widgets/:id/history', (req, res) => {
     rollHistoryStore[widgetId][userKey] = [newItem, ...rollHistoryStore[widgetId][userKey]].slice(0, 100);
     saveRollHistory(rollHistoryStore);
 
-    // ส่งสัญญาณ Real-time ไปยังหน้า Dashboard ของผู้ใช้คนนั้น
-    if (user) {
-      io.to('user_' + user).emit('widget_roll_history_item', { widgetId, item: newItem });
-    } else {
-      io.emit('widget_roll_history_item', { widgetId, item: newItem });
+    // ส่งสัญญาณ Real-time ไปยังหน้า Dashboard และ Dock ของผู้ใช้คนนั้น
+    if (userKey) {
+      emitToUser(userKey, 'widget_roll_history_item', { widgetId, item: newItem });
     }
 
     console.log(`[Roll History] Recorded roll on "${widgetId}" for user "${userKey}": ${newItem.username} rolled ${newItem.killer || newItem.result}`);
@@ -2288,9 +2444,7 @@ app.delete('/api/widgets/:id/history', (req, res) => {
     }
 
     if (user) {
-      io.to('user_' + user).emit('widget_roll_history_cleared', { widgetId });
-    } else {
-      io.emit('widget_roll_history_cleared', { widgetId });
+      emitToUser(user, 'widget_roll_history_cleared', { widgetId });
     }
     res.json({ success: true, message: 'History cleared' });
   } catch (e) {
@@ -2329,9 +2483,8 @@ function recordSpotifyHistoryItem(userId, requester, track, source = 'chat') {
     saveRollHistory(rollHistoryStore);
 
     if (userId) {
-      io.to('user_' + userId).emit('widget_roll_history_item', { widgetId: 'spotify-sr', item: historyItem });
+      emitToUser(userId, 'widget_roll_history_item', { widgetId: 'spotify-sr', item: historyItem });
     }
-    io.emit('widget_roll_history_item', { widgetId: 'spotify-sr', item: historyItem });
 
     console.log(`[Spotify History] Recorded song request for user "${userKey}": ${requester} requested "${track?.name}" (${source})`);
     return historyItem;
@@ -2432,26 +2585,136 @@ app.delete('/api/widgets/:id/store', (req, res) => {
 // จำลองการยิง Shoutout สำหรับทดสอบ Widget
 app.post('/api/widgets/twitch-shoutout/simulate', (req, res) => {
   try {
-    const { user, channel } = req.body;
+    const { user, channel, isRaid, viewers } = req.body;
     const targetChannel = (channel || 'legionxiz').trim().toLowerCase().replace('@', '');
+    const isRaidBool = !!isRaid;
+
+    if (isRaidBool && user) {
+      const allIds = getAssociatedUserIdentifiers(user);
+      allIds.add(user);
+      let soSettings = null;
+      for (const id of allIds) {
+        if (widgetSettingsStore['twitch-shoutout']?.[id]) {
+          soSettings = widgetSettingsStore['twitch-shoutout'][id];
+          break;
+        }
+      }
+      if (!soSettings) soSettings = widgetSettingsStore['twitch-shoutout']?.['default'] || {};
+      const isAutoRaid = soSettings.autoRaidShoutout !== false && soSettings.autoRaidShoutout !== 'false' && soSettings.autoRaidShoutout !== 0 && soSettings.autoRaidShoutout !== '0';
+      if (!isAutoRaid) {
+        return res.json({ success: false, message: 'Auto Shoutout on Raid is disabled in settings' });
+      }
+    }
+
     const ev = {
       type: 'shoutout',
       userId: user || '',
       channel: targetChannel,
       targetChannel: targetChannel,
+      isRaid: isRaidBool,
       data: {
         channel: targetChannel,
         username: targetChannel,
-        displayName: targetChannel
+        displayName: targetChannel,
+        viewerCount: viewers || 25,
+        isRaid: isRaidBool
       }
     };
     if (user) {
-      io.to('user_' + user).emit('onEventReceived', ev);
+      emitToUser(user, 'onEventReceived', ev);
     } else {
       io.emit('onEventReceived', ev);
     }
-    console.log(`[Shoutout API] 📢 Emitted test shoutout for: ${targetChannel}`);
-    res.json({ success: true, channel: targetChannel });
+    console.log(`[Shoutout API] Emitted test shoutout for: ${targetChannel}${isRaidBool ? ' (Raid)' : ''}`);
+    markChatterAsShoutedOut(user, targetChannel);
+    res.json({ success: true, channel: targetChannel, isRaid: isRaidBool });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// API สำหรับยิง Shoutout จาก OBS Dock
+app.post('/api/dock/shoutout/trigger', async (req, res) => {
+  try {
+    const { user, targetUsername } = req.body;
+    if (!user || !targetUsername) {
+      return res.status(400).json({ error: 'Missing user or targetUsername' });
+    }
+
+    const cleanUser = String(user).trim().toLowerCase().replace(/^@/, '');
+    const cleanTarget = String(targetUsername).trim().toLowerCase().replace(/^@/, '');
+
+    markChatterAsShoutedOut(cleanUser, cleanTarget);
+
+    const ev = {
+      type: 'shoutout',
+      userId: cleanUser,
+      channel: cleanTarget,
+      targetChannel: cleanTarget,
+      isRaid: false,
+      data: {
+        channel: cleanTarget,
+        username: cleanTarget,
+        displayName: cleanTarget
+      }
+    };
+    emitToUser(cleanUser, 'onEventReceived', ev);
+
+    try {
+      let uid = cleanUser;
+      if (!/^\d+$/.test(uid)) {
+        for (const sess of Object.values(sessions)) {
+          if (sess && (sess.username?.toLowerCase() === cleanUser || sess.displayName?.toLowerCase() === cleanUser)) {
+            uid = String(sess.userId);
+            break;
+          }
+        }
+      }
+      if (uid && apiClient && ensureUserInAuthProvider(uid)) {
+        await apiClient.asUser(uid, async (ctx) => {
+          await ctx.chat.sendChatMessage(uid, `!so ${cleanTarget}`);
+          try {
+            const targetUserObj = await apiClient.users.getUserByName(cleanTarget);
+            if (targetUserObj) {
+              await ctx.chat.shoutoutUser(uid, targetUserObj.id);
+            }
+          } catch (_) {}
+        });
+      }
+    } catch (_) {}
+
+    res.json({ success: true, targetUsername: cleanTarget });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// API สำหรับล้างรายชื่อคนดูของสตรีมปัจจุบัน (Reset Session)
+app.post('/api/dock/shoutout/clear', (req, res) => {
+  try {
+    const { user } = req.body;
+    if (!user) return res.status(400).json({ error: 'Missing user' });
+    clearStreamChatters(user);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// API สำหรับจำลองคนดูพิมพ์ในแชท (สำหรับทดสอบ Dock)
+app.post('/api/dock/shoutout/simulate-chatter', (req, res) => {
+  try {
+    const { user, username, message } = req.body;
+    if (!user || !username) return res.status(400).json({ error: 'Missing user or username' });
+    const cleanUser = String(user).trim().toLowerCase().replace(/^@/, '');
+    const cleanUsername = String(username).trim().toLowerCase().replace(/^@/, '');
+    trackStreamChatter(cleanUser, {
+      username: cleanUsername,
+      displayName: cleanUsername,
+      lastMessage: message || 'สวัสดีครับ มาดูสตรีมแล้ว!',
+      avatar: `/api/twitch/avatar/${encodeURIComponent(cleanUsername)}`
+    });
+    res.json({ success: true, username: cleanUsername });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -2466,6 +2729,62 @@ app.get('/api/widgets/random-killer/killers', (req, res) => {
       return res.json(data);
     }
     res.json([]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// จำลองการสุ่ม Killer สำหรับทดสอบ Widget / แลกสุ่ม Killer จาก Dock
+app.post('/api/widgets/random-killer/simulate', (req, res) => {
+  try {
+    const { user, username } = req.body || {};
+    const targetUser = user || 'default';
+    const cleanUser = String(targetUser).trim().toLowerCase().replace('@', '');
+    const testUsername = username || 'Streamer';
+
+    let killers = [];
+    const killersFile = path.join(__dirname, 'data', 'dbd_killers.json');
+    if (fs.existsSync(killersFile)) {
+      killers = JSON.parse(fs.readFileSync(killersFile, 'utf8'));
+    }
+
+    const userSettings = widgetSettingsStore['random-killer']?.[cleanUser] || widgetSettingsStore['random-killer']?.[targetUser] || {};
+    const excluded = Array.isArray(userSettings.excludedKillers) ? userSettings.excludedKillers : [];
+    const eligible = killers.filter(k => !excluded.includes(k.id) && !excluded.includes(k.name));
+    const pool = eligible.length > 0 ? eligible : killers;
+    const picked = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : { name: 'The Trapper', img: '' };
+
+    const newItem = {
+      id: 'roll_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      timestamp: Date.now(),
+      username: testUsername,
+      killer: picked.name,
+      killerImg: picked.img,
+      avatar: `/api/twitch/avatar/${encodeURIComponent(testUsername)}`,
+      rewardTitle: 'แลกสุ่ม Killer',
+      result: picked.name,
+      source: 'channel_points'
+    };
+
+    if (!rollHistoryStore['random-killer']) rollHistoryStore['random-killer'] = {};
+    if (!rollHistoryStore['random-killer'][cleanUser]) rollHistoryStore['random-killer'][cleanUser] = [];
+    rollHistoryStore['random-killer'][cleanUser] = [newItem, ...rollHistoryStore['random-killer'][cleanUser]].slice(0, 100);
+    saveRollHistory(rollHistoryStore);
+
+    if (cleanUser) {
+      emitToUser(cleanUser, 'widget_roll_history_item', { widgetId: 'random-killer', item: newItem });
+      emitToUser(cleanUser, 'onEventReceived', {
+        type: 'random_killer_roll',
+        username: newItem.username,
+        killer: picked.name,
+        killerImg: picked.img,
+        avatar: newItem.avatar,
+        timestamp: newItem.timestamp
+      });
+    }
+
+    console.log(`[Random Killer API] Recorded roll for ${testUsername}: ${picked.name} for user ${cleanUser}`);
+    res.json({ success: true, item: newItem });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -2623,31 +2942,124 @@ app.delete('/api/admin/dbd-perks/:role/:id', checkAdminAuth, (req, res) => {
   }
 });
 
-// จำลองการสุ่มเปิร์ค DBD สำหรับทดสอบ Widget
+// จำลองการสุ่มเปิร์ค DBD สำหรับทดสอบ Widget / แลกสุ่มเปิร์คจาก Dock
 app.post('/api/widgets/dbd-perks/simulate', (req, res) => {
   try {
     const { user, role, username } = req.body || {};
-    const ev = {
-      type: 'dbd_perk_roll',
-      role: role || 'survivor',
-      username: username || 'Streamer',
-      avatar: `/api/twitch/avatar/${encodeURIComponent(username || 'Streamer')}`,
-      timestamp: Date.now()
-    };
-    if (user) {
-      io.to('user_' + user).emit('onEventReceived', ev);
-    } else {
-      io.emit('onEventReceived', ev);
+    const cleanRole = role === 'killer' ? 'killer' : 'survivor';
+    const targetUser = user || 'default';
+    const cleanUser = String(targetUser).trim().toLowerCase().replace('@', '');
+
+    // Pick 4 random perks directly from dbd_perks.json
+    let selectedPerks = [];
+    const perksFile = path.join(__dirname, 'data', 'dbd_perks.json');
+    if (fs.existsSync(perksFile)) {
+      const perksData = JSON.parse(fs.readFileSync(perksFile, 'utf8'));
+      const pool = perksData[cleanRole] || [];
+      const userSettings = widgetSettingsStore['dbd-perks']?.[cleanUser] || widgetSettingsStore['dbd-perks']?.[targetUser] || {};
+      const excluded = Array.isArray(userSettings.excludedPerks) ? userSettings.excludedPerks : [];
+      const eligible = pool.filter(p => !excluded.includes(p.id) && !excluded.includes(p.name));
+      const sourceList = eligible.length >= 4 ? eligible : pool;
+      const shuffled = [...sourceList].sort(() => 0.5 - Math.random());
+      selectedPerks = shuffled.slice(0, 4);
     }
-    console.log(`[DBD Perks API] 🎲 Emitted test roll for: ${ev.username} (${ev.role})`);
-    res.json({ success: true, event: ev });
+
+    const newItem = {
+      id: 'roll_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      timestamp: Date.now(),
+      username: username || 'Streamer',
+      role: cleanRole,
+      perks: selectedPerks,
+      result: selectedPerks.map(p => p.name).join(' | '),
+      avatar: `/api/twitch/avatar/${encodeURIComponent(username || 'Streamer')}`,
+      source: 'channel_points',
+      rewardTitle: cleanRole === 'killer' ? 'แลกสุ่มเปิร์ค Killer' : 'แลกสุ่มเปิร์ค Survivor'
+    };
+
+    if (!rollHistoryStore['dbd-perks']) rollHistoryStore['dbd-perks'] = {};
+    if (!rollHistoryStore['dbd-perks'][cleanUser]) rollHistoryStore['dbd-perks'][cleanUser] = [];
+    rollHistoryStore['dbd-perks'][cleanUser] = [newItem, ...rollHistoryStore['dbd-perks'][cleanUser]].slice(0, 100);
+    saveRollHistory(rollHistoryStore);
+
+    if (cleanUser) {
+      emitToUser(cleanUser, 'widget_roll_history_item', { widgetId: 'dbd-perks', item: newItem });
+      emitToUser(cleanUser, 'onEventReceived', {
+        type: 'dbd_perk_roll',
+        role: cleanRole,
+        username: newItem.username,
+        avatar: newItem.avatar,
+        timestamp: newItem.timestamp,
+        perks: selectedPerks
+      });
+    }
+
+    console.log(`[DBD Perks API] Emitted roll for: ${newItem.username} (${cleanRole})`);
+    res.json({ success: true, item: newItem });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// จำลองการเช็คอินสะสมแต้ม Loyalty Card สำหรับทดสอบ Widget / แลกแต้มจาก Dock
+app.post('/api/widgets/loyalty-card/simulate', (req, res) => {
+  try {
+    const { user, username } = req.body || {};
+    const targetUser = user || 'default';
+    const cleanUser = String(targetUser).trim().toLowerCase().replace('@', '');
+    const testUsername = username || 'Viewer_' + Math.floor(100 + Math.random() * 900);
+    const userSafeKey = testUsername.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const storeKey = `ci_1_${userSafeKey}`;
+
+    if (!widgetStore['loyalty-card']) widgetStore['loyalty-card'] = {};
+    if (!widgetStore['loyalty-card'][cleanUser]) widgetStore['loyalty-card'][cleanUser] = {};
+
+    const prevCount = parseInt(widgetStore['loyalty-card'][cleanUser][storeKey]) || 0;
+    const newCount = prevCount + 1;
+    widgetStore['loyalty-card'][cleanUser][storeKey] = String(newCount);
+    saveWidgetStore(widgetStore);
+
+    const newItem = {
+      id: 'roll_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      timestamp: Date.now(),
+      username: testUsername,
+      count: newCount,
+      avatar: `/api/twitch/avatar/${encodeURIComponent(testUsername)}`,
+      rewardTitle: 'แลกแต้มสะสม',
+      result: `เช็คอินครั้งที่ ${newCount}`,
+      source: 'channel_points'
+    };
+
+    if (!rollHistoryStore['loyalty-card']) rollHistoryStore['loyalty-card'] = {};
+    if (!rollHistoryStore['loyalty-card'][cleanUser]) rollHistoryStore['loyalty-card'][cleanUser] = [];
+    rollHistoryStore['loyalty-card'][cleanUser] = [newItem, ...rollHistoryStore['loyalty-card'][cleanUser]].slice(0, 100);
+    saveRollHistory(rollHistoryStore);
+
+    if (cleanUser) {
+      emitToUser(cleanUser, 'widget_roll_history_item', { widgetId: 'loyalty-card', item: newItem });
+      emitToUser(cleanUser, 'onEventReceived', {
+        type: 'redemption',
+        isTest: true,
+        data: {
+          name: testUsername,
+          displayName: testUsername,
+          rewardTitle: 'แลกแต้มสะสม',
+          avatar: newItem.avatar,
+          profileImage: newItem.avatar,
+          count: newCount,
+          isTest: true
+        }
+      });
+    }
+
+    console.log(`[Loyalty Card API] Recorded simulated checkin for ${testUsername} (count: ${newCount}) for user ${cleanUser}`);
+    res.json({ success: true, item: newItem });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
 // ============================================================
-// 🎯 Valorant Agent Randomizer Widget Endpoints
+// Valorant Agent Randomizer Widget Endpoints
 // ============================================================
 const VALORANT_AGENTS_FILE = path.join(__dirname, 'data', 'valorant_agents.json');
 function loadValorantAgents() {
@@ -3287,34 +3699,19 @@ async function processSpotifySongRequest({ userId, displayName, chatterName, que
     const queueItem = spotify.addToSongQueue(userId, displayName, track, source);
     recordSpotifyHistoryItem(userId, displayName, track, source);
 
-    // ส่ง Real-time update ไปยัง Dashboard และ Widget Overlay
+    // ส่ง Real-time update ไปยัง Dashboard และ Widget Overlay เฉพาะของผู้ใช้นี้
     const updatedQueue = spotify.getSongQueueList(userId);
-    io.to('user_' + userId).emit('spotify_queue_updated', {
+    emitToUser(userId, 'spotify_queue_updated', {
       userId,
       queue: updatedQueue
     });
-    io.emit('spotify_queue_updated', {
-      userId,
-      queue: updatedQueue
-    });
-    io.to('user_' + userId).emit('spotify_new_request', {
+    emitToUser(userId, 'spotify_new_request', {
       userId,
       track,
       requester: displayName,
       source
     });
-    io.emit('spotify_new_request', {
-      userId,
-      track,
-      requester: displayName,
-      source
-    });
-    io.to('user_' + userId).emit('onEventReceived', {
-      type: 'spotify_new_request',
-      userId,
-      data: { track, requester: displayName, source }
-    });
-    io.emit('onEventReceived', {
+    emitToUser(userId, 'onEventReceived', {
       type: 'spotify_new_request',
       userId,
       data: { track, requester: displayName, source }
@@ -3404,7 +3801,19 @@ async function processChatMessage(userId, e) {
   try {
     const text = (e.messageText || '').trim();
     const broadcasterName = e.broadcasterName || e.broadcasterUserName || '';
-    console.log(`[Twitch Chat] 💬 <${e.chatterName}> in channel ${userId} (${broadcasterName || 'broadcaster'}): "${text}"`);
+    console.log(`[Twitch Chat] <${e.chatterName}> in channel ${userId} (${broadcasterName || 'broadcaster'}): "${text}"`);
+
+    // บันทึกรายชื่อคนดูที่พิมพ์ในสตรีมปัจจุบันสำหรับ Dock Shoutout (ยกเว้นตัวสตรีมเมอร์เอง)
+    const chatterUser = (e.chatterName || e.chatterUserName || '').trim();
+    const chatterDisplay = (e.chatterDisplayName || chatterUser).trim();
+    if (chatterUser && chatterUser.toLowerCase() !== broadcasterName.toLowerCase()) {
+      trackStreamChatter(userId, {
+        username: chatterUser,
+        displayName: chatterDisplay,
+        lastMessage: text,
+        avatar: `/api/twitch/avatar/${encodeURIComponent(chatterUser)}`
+      });
+    }
 
     const parts = text.split(/\s+/);
     const cmd = parts[0].toLowerCase();
@@ -3564,13 +3973,13 @@ async function processChatMessage(userId, e) {
       if (isSoCmd) {
         // ตรวจสอบสถานะว่า Shoutout Widget เปิดใช้งานอยู่หรือไม่
         if (!isWidgetActiveForUser(userId, 'twitch-shoutout')) {
-          console.log(`[Twitch Chat Command] ⚠️ Shoutout widget is DISABLED for user ${userId}, ignoring !so command`);
+          console.log(`[Twitch Chat Command] Shoutout widget is DISABLED for user ${userId}, ignoring !so command`);
           return;
         }
 
         // ตรวจสอบคำสั่ง !so <channel> หรือ !shoutout <channel>
         const targetChannel = parts[1].replace('@', '').toLowerCase();
-        console.log(`[Twitch Chat Command] 📢 Detected ${parts[0]} for "${targetChannel}" from ${e.chatterName}`);
+        console.log(`[Twitch Chat Command] Detected ${parts[0]} for "${targetChannel}" from ${e.chatterName}`);
         const soEv = {
           type: 'shoutout',
           userId,
@@ -3583,7 +3992,8 @@ async function processChatMessage(userId, e) {
             requestedBy: e.chatterDisplayName || e.chatterName
           }
         };
-        io.to('user_' + userId).emit('onEventReceived', soEv);
+        emitToUser(userId, 'onEventReceived', soEv);
+        markChatterAsShoutedOut(userId, targetChannel);
       } else if (srMatch) {
         // คำสั่งขอเพลงจาก Spotify (รองรับทั้ง !sr, !เพลง, เพลง ตามที่สตรีมเมอร์ตั้งค่าไว้)
         await processSpotifySongRequest({
@@ -3890,24 +4300,14 @@ async function processChatMessage(userId, e) {
           updatedBy: displayName
         };
 
-        for (const id of allIds) {
-          io.to('user_' + id).emit('dbd_scoreboard_updated', payload);
-          io.to('channel_' + id).emit('dbd_scoreboard_updated', payload);
-          io.to('user_' + id).emit('onEventReceived', {
-            type: 'dbd_scoreboard_update',
-            userId,
-            username: cleanUser,
-            associatedUserIds: Array.from(allIds),
-            data: payload
-          });
-          io.to('channel_' + id).emit('onEventReceived', {
-            type: 'dbd_scoreboard_update',
-            userId,
-            username: cleanUser,
-            associatedUserIds: Array.from(allIds),
-            data: payload
-          });
-        }
+        emitToUser(userId, 'dbd_scoreboard_updated', payload);
+        emitToUser(userId, 'onEventReceived', {
+          type: 'dbd_scoreboard_update',
+          userId,
+          username: cleanUser,
+          associatedUserIds: Array.from(allIds),
+          data: payload
+        });
 
         console.log(`[DBD Scoreboard] 🏆 Chat command "${text}" from ${displayName} updated ${userId}'s score: Kills=${currentScores.killerKills}, Draws=${currentScores.killerDraws}, Escapes=${currentScores.killerEscapes}`);
 
@@ -3957,9 +4357,7 @@ async function processChatMessage(userId, e) {
         allIds.add(cleanUser);
         chatEv.username = cleanUser;
         chatEv.associatedUserIds = Array.from(allIds);
-        for (const id of allIds) {
-          io.to('user_' + id).emit('onEventReceived', chatEv);
-        }
+        emitToUser(cleanUser, 'onEventReceived', chatEv);
       }
   } catch (chatErr) {
     console.error(`[Twitch Chat] ❌ Error in message handler for channel ${userId}:`, chatErr);
@@ -4035,7 +4433,7 @@ function startEventSub(userId) {
           avatar = await getTwitchUserAvatar(e.userName);
         }
 
-        console.log(`[EventSub] 🎁 Redemption received for user ${userId} by ${e.userName}: "${e.rewardTitle}" (avatar: ${avatar ? 'found' : 'none'})`);
+        console.log(`[EventSub] Redemption received for user ${userId} by ${e.userName}: "${e.rewardTitle}" (avatar: ${avatar ? 'found' : 'none'})`);
     const cleanUid = String(userId).trim().toLowerCase().replace(/^@/, '');
     const allIds = getAssociatedUserIdentifiers(cleanUid);
     allIds.add(cleanUid);
@@ -4060,10 +4458,7 @@ function startEventSub(userId) {
         associatedUserIds: associatedUserIdsList
       }
     };
-    for (const id of allIds) {
-      io.to('user_' + id).emit('onEventReceived', ev);
-      io.to('channel_' + id).emit('onEventReceived', ev);
-    }
+    emitToUser(userId, 'onEventReceived', ev);
 
     // ตรวจสอบการแลกแต้มสำหรับ Custom Counter (ถ้าเปิดใช้งาน)
     try {
@@ -4101,25 +4496,15 @@ function startEventSub(userId) {
             updatedBy: e.userDisplayName || e.userName
           };
 
-          for (const id of allIds) {
-            io.to('user_' + id).emit('counter_updated', payload);
-            io.to('channel_' + id).emit('counter_updated', payload);
-            io.to('user_' + id).emit('onEventReceived', {
-              type: 'counter_update',
-              listener: 'counter_updated',
-              userId,
-              associatedUserIds: associatedUserIdsList,
-              data: payload
-            });
-            io.to('channel_' + id).emit('onEventReceived', {
-              type: 'counter_update',
-              listener: 'counter_updated',
-              userId,
-              associatedUserIds: associatedUserIdsList,
-              data: payload
-            });
-          }
-          console.log(`[Custom Counter] 🎁 Channel Points redemption incremented counter for user ${userId} to ${newCount}`);
+          emitToUser(userId, 'counter_updated', payload);
+          emitToUser(userId, 'onEventReceived', {
+            type: 'counter_update',
+            listener: 'counter_updated',
+            userId,
+            associatedUserIds: associatedUserIdsList,
+            data: payload
+          });
+          console.log(`[Custom Counter] Channel Points redemption incremented counter for user ${userId} to ${newCount}`);
         }
       }
     } catch (cErr) {
@@ -4150,7 +4535,7 @@ function startEventSub(userId) {
         const isRewardMatch = targetRewardName !== '' && incomingReward === targetRewardName;
 
         if (isRewardMatch) {
-          console.log(`[Spotify SR] 🎁 Spotify Channel Points redemption detected for ${userId} by ${e.userName}: "${e.rewardTitle}" (input: "${e.input}")`);
+          console.log(`[Spotify SR] Spotify Channel Points redemption detected for ${userId} by ${e.userName}: "${e.rewardTitle}" (input: "${e.input}")`);
           await processSpotifySongRequest({
             userId,
             displayName: e.userDisplayName || e.userName,
@@ -4208,10 +4593,10 @@ function startEventSub(userId) {
   try {
     const sShoutout = el.onChannelShoutoutCreate(userId, userId, (e) => {
       if (!isWidgetActiveForUser(userId, 'twitch-shoutout')) {
-        console.log(`[EventSub] ⚠️ Shoutout widget is DISABLED for user ${userId}, skipping shoutout event`);
+        console.log(`[EventSub] Shoutout widget is DISABLED for user ${userId}, skipping shoutout event`);
         return;
       }
-      console.log(`[EventSub] 📢 Shoutout created on channel ${userId} for: ${e.shoutedOutBroadcasterName}`);
+      console.log(`[EventSub] Shoutout created on channel ${userId} for: ${e.shoutedOutBroadcasterName}`);
       const ev = {
         type: 'shoutout',
         userId,
@@ -4224,13 +4609,63 @@ function startEventSub(userId) {
           viewerCount: e.viewerCount
         }
       };
-      io.to('user_' + userId).emit('onEventReceived', ev);
+      emitToUser(userId, 'onEventReceived', ev);
+      markChatterAsShoutedOut(userId, e.shoutedOutBroadcasterName);
     });
     if (sShoutout) subs.push(sShoutout);
   } catch (err) {
     console.warn(`[EventSub] Shoutout listener setup warning for ${userId}:`, err?.message || err);
   }
 
+  // ดักฟังเหตุการณ์การถูก Raid มายังช่อง (Inbound Raid)
+  try {
+    const sRaid = el.onChannelRaidTo(userId, (e) => {
+      if (!isWidgetActiveForUser(userId, 'twitch-shoutout')) {
+        console.log(`[EventSub] Shoutout widget is DISABLED for user ${userId}, skipping raid shoutout`);
+        return;
+      }
+
+      // ตรวจสอบการตั้งค่าว่าต้องการให้ Auto Shoutout เมื่อมีคนเรดหรือไม่
+      const allIds = getAssociatedUserIdentifiers(userId);
+      allIds.add(userId);
+      let soSettings = null;
+      for (const id of allIds) {
+        if (widgetSettingsStore['twitch-shoutout']?.[id]) {
+          soSettings = widgetSettingsStore['twitch-shoutout'][id];
+          break;
+        }
+      }
+      if (!soSettings) soSettings = widgetSettingsStore['twitch-shoutout']?.['default'] || {};
+
+      const isAutoRaid = soSettings.autoRaidShoutout !== false && soSettings.autoRaidShoutout !== 'false' && soSettings.autoRaidShoutout !== 0 && soSettings.autoRaidShoutout !== '0';
+      if (!isAutoRaid) {
+        console.log(`[EventSub] Raid received on channel ${userId} from: ${e.raidingBroadcasterName} (${e.viewers} viewers), but Auto Shoutout on Raid is DISABLED`);
+        return;
+      }
+
+      console.log(`[EventSub] Raid received on channel ${userId} from: ${e.raidingBroadcasterName} (${e.viewers} viewers), triggering Auto Shoutout`);
+      const ev = {
+        type: 'shoutout',
+        userId,
+        channel: e.raidingBroadcasterName,
+        targetChannel: e.raidingBroadcasterName,
+        isRaid: true,
+        data: {
+          channel: e.raidingBroadcasterName,
+          username: e.raidingBroadcasterName,
+          displayName: e.raidingBroadcasterDisplayName,
+          viewerCount: e.viewers,
+          isRaid: true
+        }
+      };
+
+      emitToUser(userId, 'onEventReceived', ev);
+      markChatterAsShoutedOut(userId, e.raidingBroadcasterName);
+    });
+    if (sRaid) subs.push(sRaid);
+  } catch (err) {
+    console.warn(`[EventSub] Raid listener setup warning for ${userId}:`, err?.message || err);
+  }
 
   // ดักฟังข้อความแชทจาก EventSub
   try {
@@ -4238,15 +4673,27 @@ function startEventSub(userId) {
       await processChatMessage(userId, e);
     });
     if (sChat) subs.push(sChat);
-    console.log(`✅ [EventSub] Subscribed to chat messages for user ID: ${userId}`);
+    console.log(`[EventSub] Subscribed to chat messages for user ID: ${userId}`);
   } catch (err) {
     console.warn(`[EventSub] Chat message listener setup warning for ${userId}:`, err?.message || err);
+  }
+
+  // ดักฟังเหตุการณ์เมื่อเริ่มสตรีมใหม่ (Stream Online) เพื่อรีเซ็ตรายชื่อคนดูสำหรับ Dock Shoutout
+  try {
+    const sOnline = el.onStreamOnline(userId, (e) => {
+      console.log(`[EventSub] Stream started online for channel ${userId} (type: ${e.streamType}), resetting stream chatters`);
+      clearStreamChatters(userId);
+    });
+    if (sOnline) subs.push(sOnline);
+    console.log(`[EventSub] Subscribed to stream online for user ID: ${userId}`);
+  } catch (err) {
+    console.warn(`[EventSub] Stream online listener setup warning for ${userId}:`, err?.message || err);
   }
 
   userEventSubSubscriptions.set(uidStr, subs);
 }
 
-// 🧪 API สำหรับทดสอบคำสั่งแชท (จำลองการพิมพ์ใน Twitch Chat)
+// API สำหรับทดสอบคำสั่งแชท (จำลองการพิมพ์ใน Twitch Chat)
 app.post('/api/test/chat', async (req, res) => {
   try {
     const { userId = '148596257', text = '!score', username = 'legionxiz', isMod = true, isBroadcaster = true } = req.body || {};
@@ -4307,6 +4754,18 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('join_user_room', (user) => {
+    const clean = String(user || '').trim().toLowerCase().replace('@', '');
+    if (clean) {
+      const allIds = getAssociatedUserIdentifiers(clean);
+      allIds.add(clean);
+      for (const id of allIds) {
+        socket.join('user_' + id);
+        socket.join('channel_' + id);
+      }
+    }
+  });
+
   socket.on('dbd_scoreboard_sync', (payload) => {
     if (!payload) return;
     const userKey = payload.userId || 'default';
@@ -4321,9 +4780,7 @@ io.on('connection', (socket) => {
       saveWidgetStore(widgetStore);
     }
 
-    for (const id of allIds) {
-      io.to('user_' + id).emit('dbd_scoreboard_updated', payload);
-    }
+    emitToUser(cleanUser, 'dbd_scoreboard_updated', payload);
   });
 
   socket.on('test_event', async (payload) => {
@@ -4337,10 +4794,7 @@ io.on('connection', (socket) => {
         payload.data.associatedUserIds = associatedList;
       }
 
-      for (const id of allIds) {
-        io.to('user_' + id).emit('onEventReceived', payload);
-        io.to('channel_' + id).emit('onEventReceived', payload);
-      }
+      emitToUser(payload.userId, 'onEventReceived', payload);
     } else {
       io.emit('onEventReceived', payload);
     }
@@ -4417,24 +4871,14 @@ io.on('connection', (socket) => {
             updatedBy: payload.data.userDisplayName || payload.data.name || 'TestViewer'
           };
 
-          for (const id of allIds) {
-            io.to('user_' + id).emit('counter_updated', counterPayload);
-            io.to('channel_' + id).emit('counter_updated', counterPayload);
-            io.to('user_' + id).emit('onEventReceived', {
-              type: 'counter_update',
-              listener: 'counter_updated',
-              userId: payload.userId,
-              associatedUserIds: associatedList,
-              data: counterPayload
-            });
-            io.to('channel_' + id).emit('onEventReceived', {
-              type: 'counter_update',
-              listener: 'counter_updated',
-              userId: payload.userId,
-              associatedUserIds: associatedList,
-              data: counterPayload
-            });
-          }
+          emitToUser(payload.userId, 'counter_updated', counterPayload);
+          emitToUser(payload.userId, 'onEventReceived', {
+            type: 'counter_update',
+            listener: 'counter_updated',
+            userId: payload.userId,
+            associatedUserIds: associatedList,
+            data: counterPayload
+          });
         }
       }
     } catch (_) {}
@@ -4442,31 +4886,107 @@ io.on('connection', (socket) => {
 
   socket.on('spotify_now_playing', (payload) => {
     if (payload?.userId) {
-      io.to('user_' + payload.userId).emit('spotify_now_playing', payload);
+      emitToUser(payload.userId, 'spotify_now_playing', payload);
     }
-    io.emit('spotify_now_playing', payload);
   });
 
   socket.on('simulate_shoutout', (payload) => {
-    const { userId, channel } = payload || {};
+    const { userId, channel, isRaid, viewers } = payload || {};
     const targetChannel = (channel || 'legionxiz').trim().toLowerCase().replace('@', '');
+    const isRaidBool = !!isRaid;
+
+    if (isRaidBool && userId) {
+      const allIds = getAssociatedUserIdentifiers(userId);
+      allIds.add(userId);
+      let soSettings = null;
+      for (const id of allIds) {
+        if (widgetSettingsStore['twitch-shoutout']?.[id]) {
+          soSettings = widgetSettingsStore['twitch-shoutout'][id];
+          break;
+        }
+      }
+      if (!soSettings) soSettings = widgetSettingsStore['twitch-shoutout']?.['default'] || {};
+      const isAutoRaid = soSettings.autoRaidShoutout !== false && soSettings.autoRaidShoutout !== 'false' && soSettings.autoRaidShoutout !== 0 && soSettings.autoRaidShoutout !== '0';
+      if (!isAutoRaid) {
+        console.log(`[Shoutout Socket] Simulated raid shoutout for: ${targetChannel}, but Auto Shoutout on Raid is DISABLED`);
+        return;
+      }
+    }
+
     const ev = {
       type: 'shoutout',
       userId: userId || '',
       channel: targetChannel,
       targetChannel: targetChannel,
+      isRaid: isRaidBool,
       data: {
         channel: targetChannel,
         username: targetChannel,
-        displayName: targetChannel
+        displayName: targetChannel,
+        viewerCount: viewers || 25,
+        isRaid: isRaidBool
       }
     };
     if (userId) {
-      io.to('user_' + userId).emit('onEventReceived', ev);
+      emitToUser(userId, 'onEventReceived', ev);
     } else {
       io.emit('onEventReceived', ev);
     }
-    console.log(`[Shoutout Socket] 📢 Simulated shoutout for: ${targetChannel}`);
+    console.log(`[Shoutout Socket] Simulated shoutout for: ${targetChannel}${isRaidBool ? ' (Raid)' : ''}`);
+    markChatterAsShoutedOut(userId, targetChannel);
+  });
+
+  socket.on('dock_shoutout_trigger', async (payload) => {
+    const { userId, targetUsername } = payload || {};
+    if (!userId || !targetUsername) return;
+    const cleanUser = String(userId).trim().toLowerCase().replace(/^@/, '');
+    const cleanTarget = String(targetUsername).trim().toLowerCase().replace(/^@/, '');
+
+    markChatterAsShoutedOut(cleanUser, cleanTarget);
+
+    const ev = {
+      type: 'shoutout',
+      userId: cleanUser,
+      channel: cleanTarget,
+      targetChannel: cleanTarget,
+      isRaid: false,
+      data: {
+        channel: cleanTarget,
+        username: cleanTarget,
+        displayName: cleanTarget
+      }
+    };
+    emitToUser(cleanUser, 'onEventReceived', ev);
+
+    try {
+      let uid = cleanUser;
+      if (!/^\d+$/.test(uid)) {
+        for (const sess of Object.values(sessions)) {
+          if (sess && (sess.username?.toLowerCase() === cleanUser || sess.displayName?.toLowerCase() === cleanUser)) {
+            uid = String(sess.userId);
+            break;
+          }
+        }
+      }
+      if (uid && apiClient && ensureUserInAuthProvider(uid)) {
+        await apiClient.asUser(uid, async (ctx) => {
+          await ctx.chat.sendChatMessage(uid, `!so ${cleanTarget}`);
+          try {
+            const targetUserObj = await apiClient.users.getUserByName(cleanTarget);
+            if (targetUserObj) {
+              await ctx.chat.shoutoutUser(uid, targetUserObj.id);
+            }
+          } catch (_) {}
+        });
+      }
+    } catch (_) {}
+  });
+
+  socket.on('dock_shoutout_clear', (payload) => {
+    const { userId } = payload || {};
+    if (userId) {
+      clearStreamChatters(userId);
+    }
   });
 
   socket.on('simulate_dbd_perk', (payload) => {
@@ -4479,11 +4999,11 @@ io.on('connection', (socket) => {
       timestamp: Date.now()
     };
     if (userId) {
-      io.to('user_' + userId).emit('onEventReceived', ev);
+      emitToUser(userId, 'onEventReceived', ev);
     } else {
       io.emit('onEventReceived', ev);
     }
-    console.log(`[DBD Perks Socket] 🎲 Simulated perk roll for: ${ev.username} (${ev.role})`);
+    console.log(`[DBD Perks Socket] Simulated perk roll for: ${ev.username} (${ev.role})`);
   });
 
   socket.on('send_twitch_chat', async (payload) => {
@@ -4895,15 +5415,11 @@ app.post('/api/spotify/request', checkUserAuth, async (req, res) => {
     recordSpotifyHistoryItem(userId, requester || req.user?.username || 'Dashboard', track, 'dashboard');
 
     const updatedQueue = spotify.getSongQueueList(userId);
-    io.to('user_' + userId).emit('spotify_queue_updated', {
+    emitToUser(userId, 'spotify_queue_updated', {
       userId,
       queue: updatedQueue
     });
-    io.emit('spotify_queue_updated', {
-      userId,
-      queue: updatedQueue
-    });
-    io.emit('spotify_new_request', {
+    emitToUser(userId, 'spotify_new_request', {
       userId,
       track,
       requester: requester || req.user?.username || 'Dashboard'
@@ -4912,7 +5428,7 @@ app.post('/api/spotify/request', checkUserAuth, async (req, res) => {
     res.json({ success: true, track, queueItem });
   } catch (err) {
     let msg = err.message;
-    if (msg === 'NO_ACTIVE_DEVICE') msg = 'กรุณาเปิด Spotify และเล่นเพลงก่อนนะ 🎧';
+    if (msg === 'NO_ACTIVE_DEVICE') msg = 'กรุณาเปิด Spotify และเล่นเพลงก่อนนะ';
     if (msg === 'PREMIUM_REQUIRED') msg = 'ต้องการ Spotify Premium ถึงจะใช้งานได้';
     res.status(500).json({ error: msg });
   }
@@ -4928,7 +5444,7 @@ app.delete('/api/spotify/queue/:id', (req, res) => {
     const { id } = req.params;
     const removed = spotify.removeQueueItem(id, userId);
     if (!removed) return res.status(404).json({ error: 'ไม่พบรายการนี้ใน Queue หรือไม่มีสิทธิ์ลบ' });
-    io.to('user_' + userId).emit('spotify_queue_updated', {
+    emitToUser(userId, 'spotify_queue_updated', {
       userId,
       queue: spotify.getSongQueueList(userId)
     });
@@ -4946,7 +5462,7 @@ app.delete('/api/spotify/queue', (req, res) => {
     if (!userId) return res.status(401).json({ error: 'กรุณาระบุผู้ใช้ (user)' });
 
     spotify.clearSongQueue(userId || undefined);
-    io.to('user_' + userId).emit('spotify_queue_updated', { userId, queue: [] });
+    emitToUser(userId, 'spotify_queue_updated', { userId, queue: [] });
     res.json({ success: true, message: 'Queue cleared' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -5038,75 +5554,82 @@ app.get('/api/dock/overview', async (req, res) => {
     const activeTabs = [];
 
     // 1. Spotify SR
-    const hasSpotifySettings = Boolean(widgetSettingsStore['spotify-sr']?.[matchedUserId]);
-    const isSpotifyActive = isWidgetActiveForUser(matchedUserId, 'spotify-sr', matchedUsername);
-    const hasSpotifyToken = Boolean(spotify.getSpotifyUserToken(matchedUserId));
-    if ((isSpotifyActive || hasSpotifySettings || hasSpotifyToken) && isUserAllowedForWidget(matchedUserId, matchedUsername, 'spotify-sr')) {
+    if (isWidgetActiveForUser(matchedUserId, 'spotify-sr', matchedUsername)) {
       activeTabs.push({
         id: 'spotify-sr',
         name: 'Spotify SR',
-        icon: '🎵',
+        icon: 'Music',
         tag: 'เพลง'
       });
     }
 
     // 2. Custom Counter
-    const hasCounterSettings = Boolean(widgetSettingsStore['custom-counter']?.[matchedUserId]) || Boolean(widgetSettingsStore['custom-counter']?.[cleanUser]);
-    const isCounterActive = isWidgetActiveForUser(matchedUserId, 'custom-counter', matchedUsername);
-    if ((isCounterActive || hasCounterSettings) && isUserAllowedForWidget(matchedUserId, matchedUsername, 'custom-counter')) {
+    if (isWidgetActiveForUser(matchedUserId, 'custom-counter', matchedUsername)) {
       activeTabs.push({
         id: 'custom-counter',
         name: 'Counter',
-        icon: '🔢',
+        icon: 'Hash',
         tag: 'สถิติ'
       });
     }
 
     // 3. DBD Scoreboard
-    const hasScoreboardSettings = Boolean(widgetSettingsStore['dbd-scoreboard']?.[matchedUserId]) || Boolean(widgetStore['dbd-scoreboard']?.[cleanUser]);
-    const isScoreboardActive = isWidgetActiveForUser(matchedUserId, 'dbd-scoreboard', matchedUsername);
-    if ((isScoreboardActive || hasScoreboardSettings) && isUserAllowedForWidget(matchedUserId, matchedUsername, 'dbd-scoreboard')) {
+    if (isWidgetActiveForUser(matchedUserId, 'dbd-scoreboard', matchedUsername)) {
       activeTabs.push({
         id: 'dbd-scoreboard',
         name: 'DBD Scoreboard',
-        icon: '💀',
+        icon: 'Skull',
         tag: 'เกม DBD'
       });
     }
 
     // 4. DBD Perks
-    const hasPerkSettings = Boolean(widgetSettingsStore['dbd-perks']?.[matchedUserId]);
-    const isPerkActive = isWidgetActiveForUser(matchedUserId, 'dbd-perks', matchedUsername);
-    if ((isPerkActive || hasPerkSettings) && isUserAllowedForWidget(matchedUserId, matchedUsername, 'dbd-perks')) {
+    if (isWidgetActiveForUser(matchedUserId, 'dbd-perks', matchedUsername)) {
       activeTabs.push({
         id: 'dbd-perks',
         name: 'DBD Perks',
-        icon: '🎲',
+        icon: 'Dices',
         tag: 'สุ่มเปิร์ค'
       });
     }
 
     // 5. Random Killer
-    const hasKillerSettings = Boolean(widgetSettingsStore['random-killer']?.[matchedUserId]);
-    const isKillerActive = isWidgetActiveForUser(matchedUserId, 'random-killer', matchedUsername);
-    if ((isKillerActive || hasKillerSettings) && isUserAllowedForWidget(matchedUserId, matchedUsername, 'random-killer')) {
+    if (isWidgetActiveForUser(matchedUserId, 'random-killer', matchedUsername)) {
       activeTabs.push({
         id: 'random-killer',
         name: 'Killer Roulette',
-        icon: '🪓',
+        icon: 'Skull',
         tag: 'สุ่มคิลเลอร์'
       });
     }
 
     // 6. Loyalty Card
-    const hasLoyaltySettings = Boolean(widgetSettingsStore['loyalty-card']?.[matchedUserId]);
-    const isLoyaltyActive = isWidgetActiveForUser(matchedUserId, 'loyalty-card', matchedUsername);
-    if ((isLoyaltyActive || hasLoyaltySettings) && isUserAllowedForWidget(matchedUserId, matchedUsername, 'loyalty-card')) {
+    if (isWidgetActiveForUser(matchedUserId, 'loyalty-card', matchedUsername)) {
       activeTabs.push({
         id: 'loyalty-card',
         name: 'Loyalty Card',
-        icon: '🎫',
+        icon: 'Ticket',
         tag: 'เช็คอิน'
+      });
+    }
+
+    // 7. Valorant Agent
+    if (isWidgetActiveForUser(matchedUserId, 'valorant-agent', matchedUsername)) {
+      activeTabs.push({
+        id: 'valorant-agent',
+        name: 'Valorant Agent',
+        icon: 'Crosshair',
+        tag: 'วาโลแรนต์'
+      });
+    }
+
+    // 8. Twitch Shoutout
+    if (isWidgetActiveForUser(matchedUserId, 'twitch-shoutout', matchedUsername)) {
+      activeTabs.push({
+        id: 'twitch-shoutout',
+        name: 'Twitch Shoutout',
+        icon: 'Megaphone',
+        tag: 'แนะนำช่อง'
       });
     }
 
@@ -5114,10 +5637,13 @@ app.get('/api/dock/overview', async (req, res) => {
     let spotifyData = { connected: false, isPlaying: false, track: null, queue: [] };
     if (activeTabs.some(t => t.id === 'spotify-sr')) {
       try {
-        const accessToken = await spotify.getValidAccessToken(matchedUserId);
+        let accessToken = await spotify.getValidAccessToken(matchedUserId);
+        if (!accessToken && cleanUser !== matchedUserId) {
+          accessToken = await spotify.getValidAccessToken(cleanUser);
+        }
         if (accessToken) {
           const current = await spotify.getCurrentlyPlaying(accessToken);
-          const queue = spotify.getSongQueueList(matchedUserId);
+          const queue = spotify.getSongQueueList(matchedUserId) || spotify.getSongQueueList(cleanUser);
           spotifyData = { ...current, queue, connected: true };
         }
       } catch (_) {}
@@ -5153,6 +5679,58 @@ app.get('/api/dock/overview', async (req, res) => {
       };
     }
 
+    let dbdPerksHistory = [];
+    if (activeTabs.some(t => t.id === 'dbd-perks')) {
+      const allIds = getAssociatedUserIdentifiers(matchedUserId);
+      allIds.add(matchedUserId);
+      allIds.add(cleanUser);
+      for (const id of allIds) {
+        if (rollHistoryStore['dbd-perks']?.[id] && rollHistoryStore['dbd-perks'][id].length > 0) {
+          dbdPerksHistory = rollHistoryStore['dbd-perks'][id].slice(0, 50);
+          break;
+        }
+      }
+    }
+
+    let loyaltyHistory = [];
+    if (activeTabs.some(t => t.id === 'loyalty-card')) {
+      const allIds = getAssociatedUserIdentifiers(matchedUserId);
+      allIds.add(matchedUserId);
+      allIds.add(cleanUser);
+      for (const id of allIds) {
+        if (rollHistoryStore['loyalty-card']?.[id] && rollHistoryStore['loyalty-card'][id].length > 0) {
+          loyaltyHistory = rollHistoryStore['loyalty-card'][id].slice(0, 50);
+          break;
+        }
+      }
+    }
+
+    let randomKillerHistory = [];
+    if (activeTabs.some(t => t.id === 'random-killer')) {
+      const allIds = getAssociatedUserIdentifiers(matchedUserId);
+      allIds.add(matchedUserId);
+      allIds.add(cleanUser);
+      for (const id of allIds) {
+        if (rollHistoryStore['random-killer']?.[id] && rollHistoryStore['random-killer'][id].length > 0) {
+          randomKillerHistory = rollHistoryStore['random-killer'][id].slice(0, 50);
+          break;
+        }
+      }
+    }
+
+    let streamChatters = [];
+    if (activeTabs.some(t => t.id === 'twitch-shoutout')) {
+      const allIds = getAssociatedUserIdentifiers(matchedUserId);
+      allIds.add(matchedUserId);
+      allIds.add(cleanUser);
+      for (const id of allIds) {
+        if (streamChattersStore[id] && streamChattersStore[id].length > 0) {
+          streamChatters = streamChattersStore[id];
+          break;
+        }
+      }
+    }
+
     res.json({
       user: {
         userId: matchedUserId,
@@ -5164,7 +5742,11 @@ app.get('/api/dock/overview', async (req, res) => {
       data: {
         spotify: spotifyData,
         counter: counterData,
-        scoreboard: scoreboardData
+        scoreboard: scoreboardData,
+        dbdPerksHistory: dbdPerksHistory,
+        loyaltyHistory: loyaltyHistory,
+        randomKillerHistory: randomKillerHistory,
+        streamChatters: streamChatters
       }
     });
   } catch (err) {
@@ -5284,7 +5866,7 @@ server.listen(PORT, async () => {
     } catch (_) {}
   }, 15000);
 
-  // 🎵 Spotify Now Playing — Poll & Broadcast every 15 seconds (รองรับ Multi-user)
+  // Spotify Now Playing - Poll and Broadcast every 15 seconds (Multi-user)
   if (spotify.isSpotifyConfigured()) {
     setInterval(async () => {
       try {
@@ -5292,10 +5874,18 @@ server.listen(PORT, async () => {
         for (const [userId, userToken] of Object.entries(allTokens)) {
           if (!userToken || !userToken.refreshToken) continue;
 
-          // 🚀 Smart Polling: Only poll Spotify if an overlay/client is active for this user
-          const userRoom = io.sockets.adapter.rooms.get('user_' + userId);
-          const channelRoom = io.sockets.adapter.rooms.get('channel_' + userId);
-          const hasActiveOverlay = (userRoom && userRoom.size > 0) || (channelRoom && channelRoom.size > 0);
+          // Smart Polling: Only poll Spotify if an overlay/client is active for this user
+          const allIds = getAssociatedUserIdentifiers(userId);
+          allIds.add(String(userId).toLowerCase());
+          let hasActiveOverlay = false;
+          for (const id of allIds) {
+            const userRoom = io.sockets.adapter.rooms.get('user_' + id);
+            const channelRoom = io.sockets.adapter.rooms.get('channel_' + id);
+            if ((userRoom && userRoom.size > 0) || (channelRoom && channelRoom.size > 0)) {
+              hasActiveOverlay = true;
+              break;
+            }
+          }
           if (!hasActiveOverlay) continue;
           try {
             const accessToken = await spotify.getValidAccessToken(userId);
@@ -5303,8 +5893,7 @@ server.listen(PORT, async () => {
             const current = await spotify.getCurrentlyPlaying(accessToken);
             if (current) {
               const payload = { ...current, userId, timestamp: Date.now() };
-              io.to('user_' + userId).emit('spotify_now_playing', payload);
-              io.emit('spotify_now_playing', payload);
+              emitToUser(userId, 'spotify_now_playing', payload);
             }
           } catch (_) {
             // Ignore individual user polling errors
@@ -5314,7 +5903,7 @@ server.listen(PORT, async () => {
         // Silently ignore polling loop errors
       }
     }, 15000);
-    console.log('🎵 [Spotify] Now Playing multi-user polling started (15s interval)');
+    console.log('[Spotify] Now Playing multi-user polling started (15s interval)');
   }
 });
 

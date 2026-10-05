@@ -60,6 +60,7 @@ import {
   Clock,
   LogOut,
   Zap,
+  Radio,
   Link as LinkIcon
 } from 'lucide-react';
 
@@ -967,12 +968,14 @@ export default function SecretSettings() {
   };
 
   // Preview Triggers
-  const handleTriggerPreview = (overrideRole) => {
+  const handleTriggerPreview = (overrideRole, isRaid = false) => {
     if (selectedWidget === 'twitch-shoutout') {
       const ch = (status.username || 'legionxiz').trim().toLowerCase().replace('@', '');
       socket.emit('simulate_shoutout', {
         userId: status.userId,
-        channel: ch
+        channel: ch,
+        isRaid: !!isRaid,
+        viewers: 25
       });
     } else if (selectedWidget === 'dbd-perks') {
       const curRole = typeof overrideRole === 'string' ? overrideRole : dbdRole;
@@ -2002,14 +2005,25 @@ export default function SecretSettings() {
                       </button>
                     )}
                     {selectedWidget === 'twitch-shoutout' && (
-                      <button
-                        type="button"
-                        className="btn-island accent"
-                        onClick={() => handleTriggerPreview()}
-                      >
-                        <Megaphone size={15} />
-                        <span>ทดสอบ Shoutout แนะนำช่อง</span>
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="btn-island accent"
+                          onClick={() => handleTriggerPreview(null, false)}
+                        >
+                          <Megaphone size={15} />
+                          <span>ทดสอบ Shoutout แนะนำช่อง</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-island"
+                          style={{ borderColor: 'rgba(168, 85, 247, 0.4)', color: '#c084fc' }}
+                          onClick={() => handleTriggerPreview(null, true)}
+                        >
+                          <Radio size={15} />
+                          <span>จำลองมีคนเรดมา (Test Raid)</span>
+                        </button>
+                      </>
                     )}
                     {selectedWidget === 'spotify-sr' && (
                       <button

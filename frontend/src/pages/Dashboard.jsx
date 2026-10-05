@@ -53,7 +53,8 @@ import {
   Plus,
   Minus,
   Hash,
-  Trophy
+  Trophy,
+  Radio
 } from 'lucide-react';
 
 const socket = io(WS_BASE);
@@ -957,17 +958,20 @@ function Dashboard() {
     setPreviewKey(prev => prev + 1);
   };
 
-  const handleTriggerPreview = (overrideRole) => {
+  const handleTriggerPreview = (overrideRole, isRaid = false) => {
     if (selectedWidget === 'twitch-shoutout') {
       const ch = (shoutoutChannel || status.username || 'legionxiz').trim().toLowerCase().replace('@', '');
       socket.emit('simulate_shoutout', {
         userId: status.userId,
-        channel: ch
+        channel: ch,
+        isRaid: !!isRaid,
+        viewers: 25
       });
       setEvents((prev) => [{
         userId: status.userId,
         type: 'shoutout',
-        data: { username: ch, channel: ch }
+        isRaid: !!isRaid,
+        data: { username: ch, channel: ch, isRaid: !!isRaid, viewerCount: 25 }
       }, ...prev].slice(0, 5));
     } else if (selectedWidget === 'dbd-perks') {
       const curRole = typeof overrideRole === 'string' ? overrideRole : (dbdBlacklistRole || 'survivor');
@@ -2353,12 +2357,23 @@ function Dashboard() {
                                   />
                                   <button
                                     type="button"
-                                    onClick={handleTriggerPreview}
+                                    onClick={() => handleTriggerPreview(null, false)}
                                     className="btn-preview-action accent"
                                     title="ทดสอบยิง Shoutout ช่องนี้ทันที"
                                   >
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                       <Megaphone size={14} /> ยิง Shoutout
+                                    </span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTriggerPreview(null, true)}
+                                    className="btn-preview-action"
+                                    title="ทดสอบจำลองมีคนเรดมา (Test Raid)"
+                                    style={{ borderColor: 'rgba(168, 85, 247, 0.4)', color: '#c084fc' }}
+                                  >
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                      <Radio size={14} /> จำลอง Raid
                                     </span>
                                   </button>
                                 </div>

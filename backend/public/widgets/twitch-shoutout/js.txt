@@ -5,6 +5,7 @@ const API_BASE = 'https://legionx.alwaysdata.net';
 
 // Default configuration settings
 let config = {
+  autoRaidShoutout: true,
   headerText: 'GO CHECK OUT',
   subHeaderText: 'Support this awesome creator on Twitch!',
   displayDuration: 15,
@@ -73,7 +74,14 @@ window.addEventListener('onEventReceived', (e) => {
     const ev = obj.event || obj;
     targetChannel = ev.targetChannel || ev.channel || ev.data?.channel || ev.data?.username || ev.username || '';
   }
-  // 2. Twitch Chat Command (!so or !shoutout)
+  // 2. Raid event from Twitch EventSub
+  else if (obj.listener === 'raid-latest' || obj.event?.type === 'raid' || obj.type === 'raid') {
+    if (config.autoRaidShoutout !== false) {
+      const ev = obj.event || obj;
+      targetChannel = ev.raidingBroadcasterName || ev.channel || ev.data?.channel || ev.data?.username || ev.username || '';
+    }
+  }
+  // 3. Twitch Chat Command (!so or !shoutout)
   else if (obj.listener === 'message' || obj.event?.type === 'message') {
     const text = (obj.event?.text || obj.event?.data?.text || obj.data?.text || '').trim();
     const parts = text.split(/\s+/);
@@ -96,17 +104,17 @@ function queueShoutout(channel) {
   const now = Date.now();
   const lastTrigger = recentShoutouts.get(cleanName) || 0;
   if (now - lastTrigger < DEDUPE_WINDOW_MS) {
-    console.log(`[Shoutout] ⏭️ Ignored duplicate shoutout for "${cleanName}" (${Math.round((DEDUPE_WINDOW_MS - (now - lastTrigger)) / 1000)}s cooldown remaining)`);
+    console.log(`[Shoutout] Ignored duplicate shoutout for "${cleanName}" (${Math.round((DEDUPE_WINDOW_MS - (now - lastTrigger)) / 1000)}s cooldown remaining)`);
     return;
   }
 
   if (currentShowingChannel === cleanName || shoutoutQueue.includes(cleanName)) {
-    console.log(`[Shoutout] ⏭️ Ignored duplicate: "${cleanName}" is already showing or queued`);
+    console.log(`[Shoutout] Ignored duplicate: "${cleanName}" is already showing or queued`);
     return;
   }
 
   recentShoutouts.set(cleanName, now);
-  console.log('[Shoutout] 📥 Queued shoutout for channel:', cleanName);
+  console.log('[Shoutout] Queued shoutout for channel:', cleanName);
   shoutoutQueue.push(cleanName);
   processQueue();
 }
@@ -124,7 +132,7 @@ async function processQueue() {
 // Fetch data from legionx.alwaysdata.net and display widget
 async function displayShoutout(channelName) {
   const cleanName = channelName.trim().toLowerCase().replace('@', '');
-  console.log('[Shoutout] 🚀 Fetching data for:', cleanName);
+  console.log('[Shoutout] Fetching data for:', cleanName);
 
   let userInfo = null;
   let userStatus = null;

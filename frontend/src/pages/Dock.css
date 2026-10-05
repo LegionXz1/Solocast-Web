@@ -495,3 +495,502 @@ html {
   max-width: 320px;
   line-height: 1.4;
 }
+
+/* DBD Perks History in Dock */
+.dock-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.dock-history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 0.6rem 0.65rem;
+  transition: background 0.15s ease;
+}
+
+.dock-history-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dock-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.dock-history-user {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.dock-history-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.dock-history-username {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dock-role-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.dock-role-badge.survivor {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.dock-role-badge.killer {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.dock-history-time {
+  font-size: 0.7rem;
+  color: var(--dock-text-muted);
+  flex-shrink: 0;
+}
+
+.dock-perks-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.35rem;
+}
+
+.dock-perk-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem;
+  min-width: 0;
+}
+
+.dock-perk-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 4px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.dock-perk-icon-fallback {
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.dock-perk-name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.dock-history-raw-result {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+}
+
+.dock-reward-tag {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  white-space: nowrap;
+}
+
+.dock-loyalty-leaderboard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.dock-loyalty-user-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+}
+
+.dock-loyalty-user-left {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.dock-loyalty-count-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #FF9F0A;
+  background: rgba(255, 159, 10, 0.12);
+  border: 1px solid rgba(255, 159, 10, 0.25);
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.dock-loyalty-history-result {
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.dock-killer-card {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 6px;
+  padding: 0.45rem 0.6rem;
+}
+
+.dock-killer-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.dock-killer-fallback {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f87171;
+  flex-shrink: 0;
+}
+
+.dock-killer-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dock-killer-name {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #f87171;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dock-killer-role {
+  font-size: 0.68rem;
+  color: var(--dock-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* --- 8. Twitch Shoutout Dock Styles --- */
+.dock-so-chips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 0.65rem;
+}
+
+.dock-so-chip {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--dock-border);
+  border-radius: 6px;
+  padding: 0.35rem 0.45rem;
+  text-align: center;
+}
+
+.dock-so-chip.highlight {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.35);
+  color: #c084fc;
+}
+
+.dock-so-chip.done {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
+.dock-so-chip-label {
+  font-size: 0.64rem;
+  color: var(--dock-text-muted);
+  display: block;
+  margin-bottom: 0.1rem;
+}
+
+.dock-so-chip-val {
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.dock-so-quick-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.dock-so-quick-actions button {
+  flex: 1;
+}
+
+.dock-so-custom-form {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.4rem;
+}
+
+.dock-so-custom-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--dock-border);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  color: var(--dock-text);
+  font-size: 0.78rem;
+  outline: none;
+}
+
+.dock-so-custom-input:focus {
+  border-color: #a855f7;
+}
+
+.dock-so-search-wrap {
+  position: relative;
+  margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+}
+
+.dock-so-search-icon {
+  position: absolute;
+  left: 8px;
+  color: var(--dock-text-muted);
+  pointer-events: none;
+}
+
+.dock-so-search-input {
+  width: 100%;
+  padding: 0.35rem 1.8rem 0.35rem 1.7rem;
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--dock-border);
+  border-radius: 6px;
+  color: var(--dock-text);
+  outline: none;
+}
+
+.dock-so-search-input:focus {
+  border-color: var(--dock-accent, #6366f1);
+}
+
+.dock-so-search-clear {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--dock-text-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.dock-so-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.dock-so-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--dock-border);
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.dock-so-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.dock-so-item.shouted {
+  background: rgba(16, 185, 129, 0.04);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.dock-so-item-main {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.dock-so-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.dock-so-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.dock-so-name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.dock-so-username {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--dock-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dock-so-login {
+  font-size: 0.68rem;
+  color: var(--dock-text-muted);
+}
+
+.dock-so-time {
+  font-size: 0.68rem;
+  color: var(--dock-text-muted);
+  margin-left: auto;
+}
+
+.dock-so-msg {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 190px;
+  margin-top: 0.1rem;
+}
+
+.dock-so-tags-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.2rem;
+}
+
+.dock-so-tag {
+  font-size: 0.63rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.dock-so-tag.pending {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.dock-so-tag.done {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.dock-so-item-action {
+  flex-shrink: 0;
+}
+
+.dock-so-action-btn {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dock-so-action-btn.done {
+  opacity: 0.85;
+}
+

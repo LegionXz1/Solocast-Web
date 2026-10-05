@@ -349,6 +349,7 @@
     });
 
     // Handle Events (Redemption, Chat, Test)
+    const processedEvents = new Set();
     window.addEventListener('onEventReceived', (e) => {
       const obj = e.detail;
       if (!obj) return;
@@ -357,28 +358,46 @@
       let user = 'Streamer';
       let avatar = '';
       let forcedRole = null;
+      let preselectedPerks = null;
 
       // 1. Channel Points Redemption
       if (obj.listener === 'redemption-latest' || obj.event?.type === 'redemption' || obj.type === 'redemption') {
         const ev = obj.event || obj;
-        const cleanReward = (s) => String(s || '').replace(/\u00a0/g, ' ').trim().toLowerCase();
-        const rewardTitle = cleanReward(ev.data?.rewardTitle || ev.reward?.title || '');
+        const eventId = ev.id || ev._id || (ev.data?.id) || (ev.timestamp ? `${ev.data?.name || ev.name}_${ev.timestamp}` : null);
+        if (eventId && processedEvents.has(eventId)) return;
+        if (eventId) {
+          processedEvents.add(eventId);
+          if (processedEvents.size > 50) processedEvents.delete(processedEvents.values().next().value);
+        }
+
+        const cleanReward = (s) => String(s || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+        const rewardTitle = cleanReward(
+          ev.rewardTitle ||
+          ev.data?.rewardTitle ||
+          ev.title ||
+          ev.redemption ||
+          ev.reward?.title ||
+          ev.reward?.name ||
+          ev.data?.title ||
+          ev.data?.redemption ||
+          ''
+        );
         const survReward = cleanReward(config.rewardNameSurvivor);
         const killerReward = cleanReward(config.rewardNameKiller);
         const generalReward = cleanReward(config.rewardName);
-        const userInput = cleanReward(ev.data?.input || ev.input || '');
+        const userInput = cleanReward(ev.data?.input || ev.input || ev.message || ev.data?.message || '');
 
         // ตรวจจับชื่อรางวัลแบบ Exact Match (100%) เพื่อป้องกันการแย่งกันทำงานข้าม Widget
         const isSurvReward = survReward !== '' && rewardTitle === survReward;
         const isKillerReward = killerReward !== '' && rewardTitle === killerReward;
         const isGeneralReward = generalReward !== '' && rewardTitle === generalReward;
 
-        console.log(`[DBD Perks] 🎁 Redemption check: incoming="${rewardTitle}" | surv="${survReward}" (${isSurvReward}) | killer="${killerReward}" (${isKillerReward}) | general="${generalReward}" (${isGeneralReward})`);
+        console.log(`[DBD Perks] Redemption check: incoming="${rewardTitle}" | surv="${survReward}" (${isSurvReward}) | killer="${killerReward}" (${isKillerReward}) | general="${generalReward}" (${isGeneralReward})`);
 
         if (isSurvReward || isKillerReward || isGeneralReward) {
           shouldTrigger = true;
-          user = ev.data?.displayName || ev.data?.userName || ev.data?.name || 'Viewer';
-          avatar = ev.data?.avatar || ev.data?.profileImage || '';
+          user = ev.displayName || ev.username || ev.name || ev.data?.displayName || ev.data?.userName || ev.data?.name || 'Viewer';
+          avatar = ev.avatar || ev.profileImage || ev.data?.avatar || ev.data?.profileImage || '';
 
           if (isSurvReward) {
             forcedRole = 'survivor';
@@ -415,169 +434,190 @@
           }
         }
       }
-      // 3. Direct Test / Simulation
+      // 3. Direct Test / Simulation / Dock Trigger
       else if (obj.type === 'dbd_perk_roll' || obj.listener === 'dbd_perk_roll' || obj.event?.type === 'dbd_perk_roll') {
         shouldTrigger = true;
         const ev = obj.event || obj;
         user = ev.username || 'Streamer';
         avatar = ev.avatar || '';
         if (ev.role) forcedRole = ev.role;
+        if (ev.perks && Array.isArray(ev.perks) && ev.perks.length > 0) {
+          preselectedPerks = ev.perks;
+        }
       }
 
       if (shouldTrigger) {
-        triggerPerkRoll({ user, avatar, forcedRole });
+        triggerPerkRoll({ user, avatar, forcedRole, preselectedPerks });
       }
     });
 
-    async function triggerPerkRoll({ user, avatar, forcedRole }) {
+    async function triggerPerkRoll({ user, avatar, forcedRole, preselectedPerks }) {
       if (isShowing) {
         console.log('[DBD Perks] Roll in progress, ignored overlapping request');
         return;
       }
 
-      const activeRole = forcedRole || config.role || 'survivor';
-      const count = parseInt(config.perkCount || 4, 10) || 4;
+      try {
+        const activeRole = forcedRole || config.role || 'survivor';
+        const count = parseInt(config.perkCount || 4, 10) || 4;
 
-      // Ensure database is loaded
-      if (!allPerksData[activeRole] || allPerksData[activeRole].length === 0) {
-        await loadPerkDatabase();
-      }
-
-      const pool = allPerksData[activeRole] || [];
-      if (pool.length === 0) {
-        console.warn('[DBD Perks] Perks pool is empty!');
-        return;
-      }
-
-      // Filter out excluded perks
-      const excluded = Array.isArray(config.excludedPerks) ? config.excludedPerks : [];
-      const eligiblePerks = pool.filter(p => !excluded.includes(p.id) && !excluded.includes(p.name));
-      const sourceList = eligiblePerks.length >= count ? eligiblePerks : pool;
-
-      // Pick unique random perks
-      const shuffled = [...sourceList].sort(() => 0.5 - Math.random());
-      const selectedPerks = shuffled.slice(0, count);
-
-      console.log(`[DBD Perks] 🎲 Rolling ${count} perks for ${user} (${activeRole}):`, selectedPerks.map(p => p.name));
-
-      // ── Chat-Only Mode Check ──
-      const isVisualEnabled = config.enableVisualOverlay !== false && config.enableVisualOverlay !== 'false' && config.enableVisualOverlay !== 0 && config.enableVisualOverlay !== '0';
-      if (!isVisualEnabled) {
-        console.log('[DBD Perks] 💬 Chat-Only Mode active: Bypassing visual overlay on stream.');
-        await sendChat(user, activeRole, selectedPerks);
-        recordHistory(user, activeRole, selectedPerks, avatar);
-        return;
-      }
-
-      isShowing = true;
-
-      // Update UI Header
-      const userNameEl = document.getElementById('user-name');
-      if (userNameEl) userNameEl.textContent = user;
-
-      const userAvatarEl = document.getElementById('user-avatar');
-      if (userAvatarEl && avatar) {
-        userAvatarEl.src = avatar;
-      }
-
-      const roleTag = document.getElementById('role-tag');
-      if (roleTag) {
-        const isKiller = activeRole === 'killer';
-        roleTag.textContent = isKiller ? 'Killer' : 'Survivor';
-        roleTag.className = `dbd-role-tag ${isKiller ? 'killer' : 'survivor'}`;
-      }
-
-      // Render Empty Slots
-      const row = document.getElementById('perks-row');
-      row.innerHTML = '';
-
-      const slotElements = [];
-      const showName = config.showPerkName !== false && config.showPerkName !== 'false';
-      const showChar = config.showCharacterName !== false && config.showCharacterName !== 'false';
-      const showDiamond = config.showDiamondBg !== false && config.showDiamondBg !== 'false';
-
-      for (let i = 0; i < count; i++) {
-        const slot = document.createElement('div');
-        slot.className = 'perk-slot spinning';
-        slot.innerHTML = `
-          <div class="perk-icon-wrapper">
-            <div class="perk-diamond-bg ${showDiamond ? '' : 'hidden'}"></div>
-            <img class="perk-icon-img" src="${sourceList[i % sourceList.length].icon}" alt="Slot ${i + 1}" referrerpolicy="no-referrer" />
-          </div>
-          <div class="perk-name" style="${showName ? '' : 'display:none;'}">...</div>
-          <div class="perk-char" style="${showChar ? '' : 'display:none;'}">Spinning</div>
-        `;
-        row.appendChild(slot);
-        slotElements.push(slot);
-      }
-
-      const container = document.getElementById('dbd-container');
-      container.classList.add('active');
-
-      const durationSec = parseInt(config.displayDuration || 10, 10) || 10;
-
-      // Roulette spinning animation for each slot
-      const spinIntervals = [];
-      for (let i = 0; i < count; i++) {
-        const imgEl = slotElements[i].querySelector('.perk-icon-img');
-        const interval = setInterval(() => {
-          const randPerk = sourceList[Math.floor(Math.random() * sourceList.length)];
-          if (imgEl && randPerk) {
-            imgEl.src = randPerk.icon;
-            playTickSound();
-          }
-        }, 80 + i * 20);
-        spinIntervals.push(interval);
-      }
-
-      // Sequential lock-in
-      for (let i = 0; i < count; i++) {
-        await new Promise(r => setTimeout(r, 600 + i * 380));
-        clearInterval(spinIntervals[i]);
-
-        const targetPerk = selectedPerks[i];
-        const slot = slotElements[i];
-        if (slot && targetPerk) {
-          slot.classList.remove('spinning');
-          slot.classList.add('locked');
-
-          const img = slot.querySelector('.perk-icon-img');
-          const nameEl = slot.querySelector('.perk-name');
-          const charEl = slot.querySelector('.perk-char');
-
-          if (img) img.src = targetPerk.icon;
-          if (nameEl) {
-            nameEl.textContent = targetPerk.name;
-            nameEl.style.display = showName ? 'block' : 'none';
-          }
-          if (charEl) {
-            charEl.textContent = targetPerk.character || 'General';
-            charEl.style.display = showChar ? 'block' : 'none';
-          }
-
-          playLockSound();
+        // Ensure database is loaded
+        if (!allPerksData[activeRole] || allPerksData[activeRole].length === 0) {
+          await loadPerkDatabase();
         }
+
+        const pool = allPerksData[activeRole] || [];
+        if (pool.length === 0 && (!preselectedPerks || preselectedPerks.length === 0)) {
+          console.warn('[DBD Perks] Perks pool is empty!');
+          return;
+        }
+
+        // Pick perks or use preselected with proper sourceList scoping
+        const excluded = Array.isArray(config.excludedPerks) ? config.excludedPerks : [];
+        const eligiblePerks = pool.filter(p => !excluded.includes(p.id) && !excluded.includes(p.name));
+        const sourceList = eligiblePerks.length >= count ? eligiblePerks : (pool.length > 0 ? pool : (preselectedPerks || []));
+
+        let selectedPerks = [];
+        if (preselectedPerks && preselectedPerks.length > 0) {
+          selectedPerks = preselectedPerks;
+        } else {
+          const shuffled = [...sourceList].sort(() => 0.5 - Math.random());
+          selectedPerks = shuffled.slice(0, count);
+        }
+        const safeSource = (sourceList && sourceList.length > 0) ? sourceList : (selectedPerks || []);
+
+        console.log(`[DBD Perks] Rolling ${count} perks for ${user} (${activeRole}):`, selectedPerks.map(p => p.name));
+
+        // Chat-Only Mode Check
+        const isVisualEnabled = config.enableVisualOverlay !== false && config.enableVisualOverlay !== 'false' && config.enableVisualOverlay !== 0 && config.enableVisualOverlay !== '0';
+        if (!isVisualEnabled) {
+          console.log('[DBD Perks] Chat-Only Mode active: Bypassing visual overlay on stream.');
+          await sendChat(user, activeRole, selectedPerks);
+          if (!preselectedPerks) {
+            recordHistory(user, activeRole, selectedPerks, avatar);
+          }
+          return;
+        }
+
+        isShowing = true;
+
+        // Update UI Header
+        const userNameEl = document.getElementById('user-name');
+        if (userNameEl) userNameEl.textContent = user;
+
+        const userAvatarEl = document.getElementById('user-avatar');
+        if (userAvatarEl && avatar) {
+          userAvatarEl.src = avatar;
+        }
+
+        const roleTag = document.getElementById('role-tag');
+        if (roleTag) {
+          const isKiller = activeRole === 'killer';
+          roleTag.textContent = isKiller ? 'Killer' : 'Survivor';
+          roleTag.className = `dbd-role-tag ${isKiller ? 'killer' : 'survivor'}`;
+        }
+
+        // Render Empty Slots
+        const row = document.getElementById('perks-row');
+        row.innerHTML = '';
+
+        const slotElements = [];
+        const showName = config.showPerkName !== false && config.showPerkName !== 'false';
+        const showChar = config.showCharacterName !== false && config.showCharacterName !== 'false';
+        const showDiamond = config.showDiamondBg !== false && config.showDiamondBg !== 'false';
+
+        for (let i = 0; i < count; i++) {
+          const slot = document.createElement('div');
+          slot.className = 'perk-slot spinning';
+          const initialPerk = safeSource.length > 0 ? safeSource[i % safeSource.length] : (selectedPerks[i] || {});
+          const initialIcon = initialPerk && initialPerk.icon ? initialPerk.icon : '';
+          slot.innerHTML = `
+            <div class="perk-icon-wrapper">
+              <div class="perk-diamond-bg ${showDiamond ? '' : 'hidden'}"></div>
+              <img class="perk-icon-img" src="${initialIcon}" alt="Slot ${i + 1}" referrerpolicy="no-referrer" />
+            </div>
+            <div class="perk-name" style="${showName ? '' : 'display:none;'}">...</div>
+            <div class="perk-char" style="${showChar ? '' : 'display:none;'}">Spinning</div>
+          `;
+          row.appendChild(slot);
+          slotElements.push(slot);
+        }
+
+        const container = document.getElementById('dbd-container');
+        container.classList.add('active');
+
+        const durationSec = parseInt(config.displayDuration || 10, 10) || 10;
+
+        // Roulette spinning animation for each slot
+        const spinIntervals = [];
+        for (let i = 0; i < count; i++) {
+          const imgEl = slotElements[i].querySelector('.perk-icon-img');
+          const interval = setInterval(() => {
+            const randPerk = safeSource.length > 0 ? safeSource[Math.floor(Math.random() * safeSource.length)] : null;
+            if (imgEl && randPerk && randPerk.icon) {
+              imgEl.src = randPerk.icon;
+              playTickSound();
+            }
+          }, 80 + i * 20);
+          spinIntervals.push(interval);
+        }
+
+        // Sequential lock-in
+        for (let i = 0; i < count; i++) {
+          await new Promise(r => setTimeout(r, 600 + i * 380));
+          if (spinIntervals[i]) {
+            clearInterval(spinIntervals[i]);
+          }
+
+          const targetPerk = selectedPerks[i];
+          const slot = slotElements[i];
+          if (slot && targetPerk) {
+            slot.classList.remove('spinning');
+            slot.classList.add('locked');
+
+            const img = slot.querySelector('.perk-icon-img');
+            const nameEl = slot.querySelector('.perk-name');
+            const charEl = slot.querySelector('.perk-char');
+
+            if (img && targetPerk.icon) img.src = targetPerk.icon;
+            if (nameEl) {
+              nameEl.textContent = targetPerk.name || '';
+              nameEl.style.display = showName ? 'block' : 'none';
+            }
+            if (charEl) {
+              charEl.textContent = targetPerk.character || 'General';
+              charEl.style.display = showChar ? 'block' : 'none';
+            }
+
+            playLockSound();
+          }
+        }
+
+        // Send to Twitch Chat
+        await sendChat(user, activeRole, selectedPerks);
+
+        // Record Roll History in Backend
+        if (!preselectedPerks) {
+          recordHistory(user, activeRole, selectedPerks, avatar);
+        }
+
+        // Auto Hide after duration
+        clearTimeout(hideTimeout);
+        hideTimeout = setTimeout(() => {
+          container.classList.remove('active');
+          setTimeout(() => {
+            isShowing = false;
+          }, 500);
+        }, durationSec * 1000);
+      } catch (err) {
+        console.error('[DBD Perks] Error executing perk roll:', err);
+        isShowing = false;
       }
-
-      // Send to Twitch Chat
-      await sendChat(user, activeRole, selectedPerks);
-
-      // Record Roll History in Backend
-      recordHistory(user, activeRole, selectedPerks, avatar);
-
-      // Auto Hide after duration
-      clearTimeout(hideTimeout);
-      hideTimeout = setTimeout(() => {
-        container.classList.remove('active');
-        setTimeout(() => {
-          isShowing = false;
-        }, 500);
-      }, durationSec * 1000);
     }
 
     async function sendChat(user, activeRole, selectedPerks) {
       if (config.enableChat === false || config.enableChat === 'false' || config.enableChat === 0 || config.enableChat === '0') {
-        console.log('[DBD Perks] 🔇 Twitch Chat notification is disabled in settings.');
+        console.log('[DBD Perks] Twitch Chat notification is disabled in settings.');
         return;
       }
       const perkNames = selectedPerks.map(p => p.name).join(' | ');
@@ -587,7 +627,7 @@
         .replace(/{role}/g, roleName)
         .replace(/{perks}/g, perkNames);
 
-      console.log('[DBD Perks] 🤖 Sending Twitch Chat message:', msg);
+      console.log('[DBD Perks] Sending Twitch Chat message:', msg);
       if (window.sendTwitchChat) {
         await window.sendTwitchChat(msg);
       } else {

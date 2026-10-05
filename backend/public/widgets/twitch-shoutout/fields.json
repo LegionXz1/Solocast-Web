@@ -1,4 +1,10 @@
 {
+  "autoRaidShoutout": {
+    "type": "checkbox",
+    "label": "Auto Shoutout เมื่อถูก Raid (อัตโนมัติเมื่อมีคนเรดมา)",
+    "value": true,
+    "group": "General"
+  },
   "headerText": {
     "type": "text",
     "label": "ข้อความหัวเรื่อง (Header Title)",

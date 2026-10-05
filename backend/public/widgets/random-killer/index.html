@@ -511,7 +511,7 @@
               }
             }
           } catch (err) {
-            console.error('[RandomKiller] ❌ Database fetch error:', err);
+            console.error('[RandomKiller] Database fetch error:', err);
           }
         }
 
@@ -539,16 +539,33 @@
           killers = fetchedKillers;
           _masterKillersList = [...fetchedKillers];
           _filterActiveKillers();
-          console.log('[RandomKiller] ✅ Loaded Database with ' + killers.length + ' killers');
+          console.log('[RandomKiller] Loaded Database with ' + killers.length + ' killers');
         }
       }
     });
 
     // ── Twitch Channel Points Event Listener ────────────────────────────────────
+    const processedEvents = new Set();
     window.addEventListener('onEventReceived', (obj) => {
       try {
         const data = obj?.detail;
         if (!data) return;
+
+        // Support direct roll from Dock / Backend simulate
+        const isDirectRoll = (data.type === 'random_killer_roll' || data.event?.type === 'random_killer_roll');
+        if (isDirectRoll) {
+          const directId = data.id || (data.timestamp ? `direct_${data.timestamp}` : null);
+          if (directId && processedEvents.has(directId)) return;
+          if (directId) {
+            processedEvents.add(directId);
+            if (processedEvents.size > 50) processedEvents.delete(processedEvents.values().next().value);
+          }
+          const directUsername = data.username || data.event?.username || 'Streamer';
+          const directKillerName = data.killer || data.event?.killer || (killers[0] ? killers[0].name : 'The Trapper');
+          const directKillerImg = data.killerImg || data.event?.killerImg || (killers[0] ? killers[0].img : '');
+          showDossier(directUsername, directKillerName, directKillerImg, true);
+          return;
+        }
 
         let isRedemptionEvent = false;
         let eventObj = null;
@@ -565,6 +582,12 @@
         }
 
         if (isRedemptionEvent && eventObj) {
+          const eventId = eventObj.id || eventObj._id || (eventObj.timestamp ? `${eventObj.user || eventObj.username}_${eventObj.timestamp}` : null);
+          if (eventId && processedEvents.has(eventId)) return;
+          if (eventId) {
+            processedEvents.add(eventId);
+            if (processedEvents.size > 50) processedEvents.delete(processedEvents.values().next().value);
+          }
           const cleanStr = (s) => (s || '').toString().replace(/\u00a0/g, ' ').trim().toLowerCase();
           const rawReward = cleanStr(
             eventObj.redemption ||
@@ -589,7 +612,7 @@
           if (rawReward !== '' && targetReward !== '' && rawReward === targetReward) {
             const picked = killers[Math.floor(Math.random() * killers.length)];
             if (!enableVisualOverlayState) {
-              console.log('[Dossier] 💬 Chat-Only Mode active: Bypassing visual overlay on stream.');
+              console.log('[Dossier] Chat-Only Mode active: Bypassing visual overlay on stream.');
               sendChat(username, picked.name);
               if (window.recordRollHistory) {
                 window.recordRollHistory({
@@ -601,7 +624,7 @@
                 });
               }
             } else {
-              showDossier(username, picked.name, picked.img);
+              showDossier(username, picked.name, picked.img, false);
             }
           }
         }
@@ -611,7 +634,7 @@
     });
 
     // ── Main Reveal Sequence ────────────────────────────────────────────────────
-    function showDossier(username, finalKillerName, finalKillerImg) {
+    function showDossier(username, finalKillerName, finalKillerImg, skipRecord = false) {
       clearTimeout(hideTimeout);
       clearInterval(cycleInterval);
 
@@ -673,7 +696,7 @@
         sendChat(username, finalKillerName);
 
         // Record roll history for Solocast Dashboard
-        if (window.recordRollHistory) {
+        if (!skipRecord && window.recordRollHistory) {
           window.recordRollHistory({
             username: username,
             killer: finalKillerName,
@@ -773,13 +796,13 @@
 
     async function sendChat(username, killerName) {
       if (ENABLE_CHAT === false) {
-        console.log('[Dossier] 🔇 Twitch Chat is disabled in settings.');
+        console.log('[Dossier] Twitch Chat is disabled in settings.');
         return;
       }
       const chatMsg = (CHAT_TEMPLATE || '[Roll] {username} rolled -> {killer}')
         .replace(/{username}/g, username)
         .replace(/{killer}/g, killerName);
-      console.log('[Dossier] 🤖 Sending Twitch Chat message:', chatMsg);
+      console.log('[Dossier] Sending Twitch Chat message:', chatMsg);
 
       if (window.sendTwitchChat) {
         await window.sendTwitchChat(chatMsg);
