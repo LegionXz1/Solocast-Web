@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import ThemeToggle from '../components/ThemeToggle';
+import UpdateModal from '../components/UpdateModal';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { API_BASE, WS_BASE } from '../config';
@@ -257,6 +258,7 @@ function Dashboard() {
   const [token, setToken] = useState(() => localStorage.getItem('solocast_user_token') || '');
   const [status, setStatus] = useState({ connected: false, username: '', isAdmin: false, userId: '' });
   const [events, setEvents] = useState([]);
+  const [showUpdateModal, setShowUpdateModal] = useState(null);
 
   // Forward directly to new Settings Studio if widget query param is present
   useEffect(() => {
@@ -405,13 +407,14 @@ function Dashboard() {
             connected: true,
             username: data.user.displayName || data.user.username,
             isAdmin: data.user.isAdmin,
-            userId: data.user.userId
+            userId: data.user.userId,
+            overlayToken: data.user.overlayToken || ''
           });
-          socket.emit('join_user', { token: activeToken, userId: data.user.userId });
+          socket.emit('join_user', { token: activeToken, userId: data.user.userId, overlayToken: data.user.overlayToken });
         } else {
           localStorage.removeItem('solocast_user_token');
           setToken('');
-          setStatus({ connected: false, username: '', isAdmin: false, userId: '' });
+          setStatus({ connected: false, username: '', isAdmin: false, userId: '', overlayToken: '' });
         }
       })
       .catch(() => {
@@ -1254,12 +1257,16 @@ function Dashboard() {
   let previewUrl = '';
   if (selectedWidget) {
     const params = new URLSearchParams();
-    if (status.userId) params.append('user', status.userId);
-    if (status.username) params.append('channel', status.username);
+    if (status.overlayToken) {
+      params.append('token', status.overlayToken);
+    } else if (status.userId) {
+      params.append('user', status.userId);
+    }
     // ลิงก์ Browser Source ของ OBS จะคงที่ถาวร ไม่ต้องมี Query parameters ของการตั้งค่า
     // เพราะระบบจะซิงค์การตั้งค่าล่าสุดผ่าน Database & WebSocket แบบเรียลไทม์อัตโนมัติ
     widgetUrl = `${API_BASE}/widgets/${selectedWidget}/index.html?${params.toString()}`;
     const previewParams = new URLSearchParams();
+    if (status.overlayToken) previewParams.append('token', status.overlayToken);
     if (status.userId) previewParams.append('user', status.userId);
     if (status.username) previewParams.append('channel', status.username);
     previewParams.append('preview', '1');
@@ -1278,17 +1285,45 @@ function Dashboard() {
   };
 
   const handleCopyDockUrl = () => {
-    const userParam = status.userId || status.username || '';
-    const dockUrl = `${window.location.origin}/dock?user=${encodeURIComponent(userParam)}`;
+    const tokenParam = status.overlayToken ? `token=${encodeURIComponent(status.overlayToken)}` : `user=${encodeURIComponent(status.userId || status.username || '')}`;
+    const dockUrl = `${window.location.origin}/dock?${tokenParam}`;
     navigator.clipboard.writeText(dockUrl);
     setCopiedDockUrl(true);
     setTimeout(() => setCopiedDockUrl(false), 2500);
   };
 
+  const [isRegeneratingToken, setIsRegeneratingToken] = useState(false);
+  const handleRegenerateToken = async () => {
+    const confirmed = window.confirm('คุณแน่ใจหรือไม่ว่าต้องการรีเซ็ต Secret Key?\\n\\nหากรีเซ็ต ลิงก์ Browser Source และ OBS Dock เดิมทั้งหมดจะหยุดทำงานทันที คุณจะต้องคัดลอกลิงก์ใหม่ไปใส่ใน OBS');
+    if (!confirmed) return;
+    setIsRegeneratingToken(true);
+    try {
+      const activeToken = token || localStorage.getItem('solocast_user_token');
+      const res = await fetch(`${API_BASE}/api/user/overlay-token/regenerate`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${activeToken}` }
+      });
+      const data = await res.json();
+      if (data.success && data.overlayToken) {
+        setStatus(prev => ({ ...prev, overlayToken: data.overlayToken }));
+        alert('รีเซ็ต Secret Key สำเร็จแล้ว กรุณาคัดลอกลิงก์ใหม่ไปใส่ใน OBS');
+      } else {
+        alert(data.error || 'รีเซ็ตไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+      }
+    } catch (err) {
+      alert('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + err.message);
+    } finally {
+      setIsRegeneratingToken(false);
+    }
+  };
+
   const getWidgetObsUrl = (wId) => {
     const params = new URLSearchParams();
-    if (status.userId) params.append('user', status.userId);
-    if (status.username) params.append('channel', status.username);
+    if (status.overlayToken) {
+      params.append('token', status.overlayToken);
+    } else if (status.userId) {
+      params.append('user', status.userId);
+    }
     return `${API_BASE}/widgets/${wId}/index.html?${params.toString()}`;
   };
 
@@ -1545,6 +1580,90 @@ function Dashboard() {
 
   return (
     <div className="dashboard-container">
+      {/* Update Announcement Modal */}
+      <UpdateModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+      />
+
+      {/* Prominent Security Notice Banner for Streamers */}
+      <div
+        className="animate-fade-up"
+        style={{
+          margin: '0 0 1.25rem 0',
+          padding: '0.9rem 1.25rem',
+          borderRadius: '12px',
+          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(245, 158, 11, 0.1))',
+          border: '1px solid rgba(239, 68, 68, 0.35)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          flexWrap: 'wrap'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              background: 'rgba(239, 68, 68, 0.2)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+          >
+            <ShieldCheck size={20} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <strong style={{ fontSize: '0.92rem', color: '#f87171' }}>
+                แจ้งเตือนสำคัญ: รบกวนเปลี่ยนลิงก์ Widget ใน OBS ใหม่นะครับ
+              </strong>
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  background: 'rgba(239, 68, 68, 0.25)',
+                  color: '#fca5a5',
+                  border: '1px solid rgba(239, 68, 68, 0.5)'
+                }}
+              >
+                ต้องเปลี่ยนลิงก์
+              </span>
+            </div>
+            <p style={{ margin: '3px 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+              ระบบอัปเกรดความปลอดภัยใหม่ ป้องกันคนแอบส่องหรือกดปุ่มแกล้ง รบกวนคัดลอกลิงก์ใหม่ของแต่ละ Widget ไปวางทับใน OBS Studio ด้วยนะครับ
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <button
+            type="button"
+            onClick={() => setShowUpdateModal(true)}
+            className="btn-island"
+            style={{
+              padding: '0.45rem 0.95rem',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              background: 'rgba(239, 68, 68, 0.18)',
+              color: '#f87171',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              cursor: 'pointer'
+            }}
+          >
+            ดูวิธีเปลี่ยนลิงก์แบบง่ายๆ
+          </button>
+        </div>
+      </div>
+
       {!selectedWidget ? (
         /* MY OVERLAYS GALLERY (StreamElements Style) */
         <div className="my-overlays-container animate-fade-up">
@@ -1552,17 +1671,27 @@ function Dashboard() {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
                 <span className="eyebrow" style={{ margin: 0, letterSpacing: '0.08em' }}>STREAM OVERLAYS STUDIO</span>
-                <span style={{
-                  fontSize: '0.65rem',
-                  fontWeight: 700,
-                  padding: '2px 7px',
-                  borderRadius: '999px',
-                  background: 'rgba(59, 130, 246, 0.15)',
-                  color: '#60a5fa',
-                  border: '1px solid rgba(59, 130, 246, 0.3)'
-                }}>
-                  v1.3.0
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowUpdateModal(true)}
+                  style={{
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    color: '#f87171',
+                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title="คลิกเพื่อดูประกาศความปลอดภัย v1.4.0"
+                >
+                  <Sparkles size={11} />
+                  <span>v1.4.0 SECURITY UPDATE</span>
+                </button>
               </div>
               <h1 className="my-overlays-title">แผงควบคุม Overlays</h1>
               <p className="my-overlays-subtitle">เลือกและปรับแต่ง Widget สำหรับการสตรีมบน Twitch ของคุณ</p>
@@ -2529,30 +2658,54 @@ function Dashboard() {
                               </span>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={handleCopyUrl}
-                              className="btn-island"
-                              style={{
-                                padding: '0.4rem 0.85rem',
-                                fontSize: '0.8rem',
-                                background: '#FFFFFF',
-                                color: '#000000',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.4rem',
-                                fontWeight: 600,
-                                transition: 'all 0.2s ease'
-                              }}
-                            >
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                {copiedUrl ? <Check size={14} /> : <Copy size={14} />}
-                                {copiedUrl ? 'คัดลอกสำเร็จแล้ว!' : 'คัดลอกลิงก์ OBS'}
-                              </span>
-                            </button>
-                          </div>
+                              <button
+                                type="button"
+                                onClick={handleRegenerateToken}
+                                disabled={isRegeneratingToken}
+                                title="สร้าง Secret Key ใหม่ทันที (ลิงก์เดิมที่เคยแชร์หรือหลุดจะใช้การไม่ได้อีกต่อไป)"
+                                style={{
+                                  padding: '0.4rem 0.75rem',
+                                  fontSize: '0.8rem',
+                                  background: 'rgba(239, 68, 68, 0.12)',
+                                  color: '#f87171',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  borderRadius: '6px',
+                                  cursor: isRegeneratingToken ? 'not-allowed' : 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.35rem',
+                                  fontWeight: 600,
+                                  transition: 'all 0.2s ease'
+                                }}
+                              >
+                                <RefreshCw size={13} className={isRegeneratingToken ? 'spin' : ''} />
+                                <span>{isRegeneratingToken ? 'กำลังรีเซ็ต...' : 'รีเซ็ต Key'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={handleCopyUrl}
+                                className="btn-island"
+                                style={{
+                                  padding: '0.4rem 0.85rem',
+                                  fontSize: '0.8rem',
+                                  background: '#FFFFFF',
+                                  color: '#000000',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.4rem',
+                                  fontWeight: 600,
+                                  transition: 'all 0.2s ease'
+                                }}
+                              >
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                  {copiedUrl ? <Check size={14} /> : <Copy size={14} />}
+                                  {copiedUrl ? 'คัดลอกสำเร็จแล้ว!' : 'คัดลอกลิงก์ OBS'}
+                                </span>
+                              </button>
+                            </div>
 
                           <div style={{ position: 'relative' }}>
                             <input

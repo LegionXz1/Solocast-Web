@@ -177,11 +177,11 @@ export default function Landing() {
               type="button"
               className="hero-update-badge-btn"
               onClick={() => setShowUpdateModal(true)}
-              title="ดูรายละเอียดการอัปเดตระบบล่าสุด"
+              title="ดูรายละเอียดการอัปเดตระบบความปลอดภัยล่าสุด (v1.4)"
             >
               <Sparkles size={13} style={{ color: '#f59e0b' }} />
-              <span>มีอะไรใหม่ใน v1.3</span>
-              <span className="hero-update-badge-hot">NEW</span>
+              <span>อัปเดตความปลอดภัย v1.4</span>
+              <span className="hero-update-badge-hot">IMPORTANT</span>
             </button>
           </div>
           <h1 className="hero-title">

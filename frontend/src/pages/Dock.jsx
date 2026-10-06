@@ -46,8 +46,11 @@ export default function Dock() {
   const [searchParams] = useSearchParams();
   const { user: authUser } = useAuth();
 
-  // Target streamer user identifier (priority: ?user= query param, then logged-in user ID/username)
-  const targetUser = searchParams.get('user') || searchParams.get('userId') || authUser?.userId || authUser?.username || '';
+  // Target Secret Token or User
+  const dockToken = searchParams.get('token') || searchParams.get('key') || '';
+  const fallbackUser = searchParams.get('user') || searchParams.get('userId') || authUser?.userId || authUser?.username || '';
+  const [resolvedUserId, setResolvedUserId] = useState('');
+  const targetUser = resolvedUserId || fallbackUser;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -73,19 +76,28 @@ export default function Dock() {
 
   // 1. Fetch Dock Overview
   const fetchOverview = useCallback(async () => {
-    if (!targetUser) {
+    if (!dockToken && !targetUser && !authUser) {
       setLoading(false);
       return;
     }
     try {
       setError(null);
-      const res = await fetch(`${API_BASE}/api/dock/overview?user=${encodeURIComponent(targetUser)}`);
+      const query = new URLSearchParams();
+      if (dockToken) query.set('token', dockToken);
+      if (targetUser) query.set('user', targetUser);
+
+      const res = await fetch(`${API_BASE}/api/dock/overview?${query.toString()}`, {
+        credentials: 'include'
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `HTTP ${res.status}`);
       }
       const data = await res.json();
       setUserData(data.user);
+      if (data.user?.userId) {
+        setResolvedUserId(data.user.userId);
+      }
       setActiveTabs(data.activeTabs || []);
       if (data.data) {
         if (data.data.spotify) setSpotifyData(data.data.spotify);
@@ -121,7 +133,7 @@ export default function Dock() {
     } finally {
       setLoading(false);
     }
-  }, [targetUser]);
+  }, [dockToken, targetUser, authUser]);
 
   useEffect(() => {
     fetchOverview();
@@ -139,7 +151,7 @@ export default function Dock() {
 
   // 2. Setup Socket.io Real-time connection
   useEffect(() => {
-    if (!targetUser) return;
+    if (!dockToken && !targetUser) return;
 
     const socket = io(API_BASE, {
       transports: ['websocket', 'polling'],
@@ -153,8 +165,13 @@ export default function Dock() {
       if (userData?.userId) ids.add(String(userData.userId).trim().toLowerCase());
       if (userData?.username) ids.add(String(userData.username).trim().toLowerCase());
       ids.forEach(id => {
-        socket.emit('join_user', { userId: id });
-        socket.emit('join_channel', id);
+        if (dockToken) {
+          socket.emit('join_user', { overlayToken: dockToken, userId: id });
+          socket.emit('join_channel', { overlayToken: dockToken, channel: id });
+        } else {
+          socket.emit('join_user', { userId: id });
+          socket.emit('join_channel', id);
+        }
         socket.emit('join_user_room', id);
       });
     };
@@ -168,6 +185,10 @@ export default function Dock() {
 
     socket.on('disconnect', () => {
       setConnected(false);
+    });
+
+    socket.on('overlay_token_revoked', () => {
+      setError('Secret Token นี้ถูกรีเซ็ตหรือเพิกถอนสิทธิ์แล้ว กรุณาคัดลอกลิงก์ใหม่จาก Dashboard');
     });
 
     // Real-time Widget Status Changes
@@ -305,7 +326,7 @@ export default function Dock() {
       await fetch(`${API_BASE}/api/spotify/playback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: targetUser, userId: userData?.userId || targetUser, action: 'toggle' })
+        body: JSON.stringify({ user: targetUser, token: dockToken, userId: userData?.userId || targetUser, action: 'toggle' })
       });
       setSpotifyData(prev => ({ ...prev, isPlaying: !prev.isPlaying }));
     } catch (e) {
@@ -322,7 +343,7 @@ export default function Dock() {
       await fetch(`${API_BASE}/api/spotify/skip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: targetUser, userId: userData?.userId || targetUser })
+        body: JSON.stringify({ user: targetUser, token: dockToken, userId: userData?.userId || targetUser })
       });
       setTimeout(fetchOverview, 1000);
     } catch (e) {
@@ -334,7 +355,9 @@ export default function Dock() {
 
   const handleDeleteQueueItem = async (itemId) => {
     try {
-      await fetch(`${API_BASE}/api/spotify/queue/${itemId}?user=${encodeURIComponent(targetUser)}&userId=${encodeURIComponent(userData?.userId || targetUser)}`, {
+      const q = new URLSearchParams({ user: targetUser, userId: userData?.userId || targetUser });
+      if (dockToken) q.set('token', dockToken);
+      await fetch(`${API_BASE}/api/spotify/queue/${itemId}?${q.toString()}`, {
         method: 'DELETE'
       });
       setSpotifyData(prev => ({
@@ -349,7 +372,9 @@ export default function Dock() {
   const handleClearQueue = async () => {
     if (!window.confirm('คุณต้องการล้างคิวเพลงทั้งหมดใช่หรือไม่?')) return;
     try {
-      await fetch(`${API_BASE}/api/spotify/queue?user=${encodeURIComponent(targetUser)}&userId=${encodeURIComponent(userData?.userId || targetUser)}`, {
+      const q = new URLSearchParams({ user: targetUser, userId: userData?.userId || targetUser });
+      if (dockToken) q.set('token', dockToken);
+      await fetch(`${API_BASE}/api/spotify/queue?${q.toString()}`, {
         method: 'DELETE'
       });
       setSpotifyData(prev => ({ ...prev, queue: [] }));
@@ -364,7 +389,7 @@ export default function Dock() {
       const res = await fetch(`${API_BASE}/api/widgets/custom-counter/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: targetUser, action, delta, updatedBy: 'OBS Dock' })
+        body: JSON.stringify({ user: targetUser, token: dockToken, action, delta, updatedBy: 'OBS Dock' })
       });
       if (res.ok) {
         const result = await res.json();
@@ -383,7 +408,7 @@ export default function Dock() {
       const res = await fetch(`${API_BASE}/api/widgets/dbd-scoreboard/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: targetUser, action, updatedBy: 'OBS Dock' })
+        body: JSON.stringify({ user: targetUser, token: dockToken, action, updatedBy: 'OBS Dock' })
       });
       if (res.ok) {
         const result = await res.json();
@@ -406,7 +431,9 @@ export default function Dock() {
   const handleClearDbdPerksHistory = async () => {
     if (!window.confirm('คุณต้องการล้างประวัติการสุ่มเปิร์คทั้งหมดใช่หรือไม่?')) return;
     try {
-      await fetch(`${API_BASE}/api/widgets/dbd-perks/history?user=${encodeURIComponent(targetUser)}`, {
+      const q = new URLSearchParams({ user: targetUser });
+      if (dockToken) q.set('token', dockToken);
+      await fetch(`${API_BASE}/api/widgets/dbd-perks/history?${q.toString()}`, {
         method: 'DELETE'
       });
       setDbdPerksHistory([]);
@@ -445,7 +472,7 @@ export default function Dock() {
       const res = await fetch(`${API_BASE}/api/widgets/loyalty-card/simulate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: targetUser, username: userData?.displayName || targetUser })
+        body: JSON.stringify({ user: targetUser, token: dockToken, username: userData?.displayName || targetUser })
       });
       if (res.ok) {
         const result = await res.json();
@@ -465,7 +492,9 @@ export default function Dock() {
   const handleClearLoyaltyHistory = async () => {
     if (!window.confirm('คุณต้องการล้างประวัติการแลกแต้ม Loyalty Card ทั้งหมดใช่หรือไม่?')) return;
     try {
-      await fetch(`${API_BASE}/api/widgets/loyalty-card/history?user=${encodeURIComponent(targetUser)}`, {
+      const q = new URLSearchParams({ user: targetUser });
+      if (dockToken) q.set('token', dockToken);
+      await fetch(`${API_BASE}/api/widgets/loyalty-card/history?${q.toString()}`, {
         method: 'DELETE'
       });
       setLoyaltyHistory([]);
@@ -479,7 +508,9 @@ export default function Dock() {
   const handleClearRandomKillerHistory = async () => {
     if (!window.confirm('คุณต้องการล้างประวัติการสุ่มคิลเลอร์ทั้งหมดใช่หรือไม่?')) return;
     try {
-      await fetch(`${API_BASE}/api/widgets/random-killer/history?user=${encodeURIComponent(targetUser)}`, {
+      const q = new URLSearchParams({ user: targetUser });
+      if (dockToken) q.set('token', dockToken);
+      await fetch(`${API_BASE}/api/widgets/random-killer/history?${q.toString()}`, {
         method: 'DELETE'
       });
       setRandomKillerHistory([]);
@@ -505,6 +536,7 @@ export default function Dock() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user: targetUser,
+          token: dockToken,
           targetUsername: targetUsername
         })
       });
@@ -524,7 +556,7 @@ export default function Dock() {
       await fetch(`${API_BASE}/api/dock/shoutout/clear`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: targetUser })
+        body: JSON.stringify({ user: targetUser, token: dockToken })
       });
     } catch (e) {
       console.error('Error clearing stream chatters:', e);
@@ -543,6 +575,7 @@ export default function Dock() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user: targetUser,
+          token: dockToken,
           username: cleanName,
           message: 'สวัสดีครับ มาดูสตรีมแล้ว!'
         })
@@ -589,17 +622,17 @@ export default function Dock() {
   };
 
   // 3. Render Empty / Missing user state
-  if (!targetUser) {
+  if (!dockToken && !targetUser) {
     return (
       <div className="dock-container">
         <div className="dock-state-center">
           <div className="dock-state-icon">
             <Radio size={32} />
           </div>
-          <div className="dock-state-title">ไม่พบชื่อผู้ใช้สำหรับ OBS Dock</div>
+          <div className="dock-state-title">ไม่พบ Secret Token สำหรับ OBS Dock</div>
           <div className="dock-state-desc">
-            กรุณาใส่ Parameter <code>?user=ชื่อTwitch</code> ที่ URL ของ Custom Dock ใน OBS
-            <br />ตัวอย่าง: <code>/dock?user=legionxiz</code>
+            ระบบได้ยกเลิกรูปแบบลิงก์เก่าแล้วเพื่อความปลอดภัย<br />
+            กรุณาไปที่ Dashboard และคัดลอกลิงก์ OBS Quick Dock ใหม่ที่มี Secret Token
           </div>
           <Link to="/dashboard" className="dock-btn dock-btn-primary" style={{ textDecoration: 'none', marginTop: '0.5rem' }}>
             ไปยัง Dashboard

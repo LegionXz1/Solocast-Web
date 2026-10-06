@@ -10,7 +10,11 @@ import {
   BellRing,
   Layers,
   MonitorPlay,
-  Music
+  Music,
+  ShieldAlert,
+  KeyRound,
+  AlertTriangle,
+  Link2
 } from 'lucide-react';
 import { API_BASE } from '../config';
 
@@ -18,51 +22,46 @@ const STORAGE_KEY = 'fastchick_dismissed_update_id';
 
 // Default announcement fallback in case API is offline
 const DEFAULT_ANNOUNCEMENT = {
-  id: 'v1.3.0-settings-spotify-dock',
-  version: '1.3.0',
-  date: '2 ตุลาคม 2026',
-  badge: 'NEW MAJOR UPDATE',
-  title: 'อัปเดตใหม่ v1.3! หน้าจัดการ Widget โฉมใหม่ & Spotify Song Request',
-  subtitle: 'ยกระดับประสบการณ์ใช้งานด้วยหน้าตั้งค่าแยกหมวดหมู่ 8 แท็บ, Widget ขอเพลง Spotify และ OBS Custom Dock',
+  id: 'v1.4.0-security-token-upgrade',
+  version: '1.4.0',
+  date: '6 ตุลาคม 2026',
+  badge: 'แจ้งเตือนสำคัญ',
+  title: 'อัปเดตระบบความปลอดภัย: รบกวนเปลี่ยนลิงก์ใน OBS ใหม่นะครับ',
+  subtitle: 'เพื่อความปลอดภัยของช่องสตรีม ลิงก์ Widget แบบเดิมจะใช้งานไม่ได้แล้ว สตรีมเมอร์ต้องคัดลอกลิงก์ใหม่ไปใส่ใน OBS Studio เพื่อให้หน้าจอแสดงผลได้ตามปกติ',
   sections: [
     {
-      title: 'หน้าจัดการและปรับแต่ง Widget โฉมใหม่ (Studio Settings)',
-      badge: 'Studio UI',
-      color: '#6366F1',
-      icon: 'Layers',
+      title: 'ทำไมถึงต้องเปลี่ยนลิงก์?',
+      badge: 'เพื่อความปลอดภัย',
+      color: '#EF4444',
+      icon: 'ShieldAlert',
       items: [
-        'จัดระเบียบ 8 หมวดหมู่: แยกแท็บตั้งค่าด่วน (Quick), สกินและธีม (Design), Twitch & แชท, ตัวควบคุม (Content), เสียง, OBS, ประวัติ และการตั้งค่าทั้งหมดอย่างชัดเจน',
-        'แท็บตั้งค่าด่วน (Quick Start): รวมการเชื่อมต่อบัญชี, คำสั่งแชท และลิงก์ OBS ไว้ในที่เดียว พร้อมข้อความแนะนำไปที่แท็บการตั้งค่าทั้งหมด',
-        'ระบบค้นหาการตั้งค่า (Live Search): ค้นหาชื่อตัวเลือกหรือฟิลด์ที่ต้องการปรับแต่งได้ทันที',
-        'ปุ่มประวัติกิจกรรม (History): ตรวจสอบรายการสุ่มและประวัติแลกแต้มได้จากหัวการ์ดวิดเจ็ตทันที'
+        'ป้องกันคนอื่นแอบส่องหรือกดปุ่มแกล้ง: ลิงก์แบบเก่าใครรู้ชื่อช่องก็อาจเปิดดูหรือกดปุ่มสุ่มเล่นได้ ตอนนี้ระบบเพิ่มกุญแจลับเฉพาะตัวของแต่ละคนแล้ว',
+        'ลิงก์เก่าปิดใช้งานแล้ว: ถ้าไม่เปลี่ยน ลิงก์เดิมใน OBS จะขึ้นจอดำหรือไม่แสดงผล'
       ]
     },
     {
-      title: 'Spotify Song Request Widget',
-      badge: 'Music Overlay',
-      color: '#1DB954',
-      icon: 'Music',
+      title: 'วิธีเปลี่ยนลิงก์ง่ายๆ ใน 3 ขั้นตอน',
+      badge: 'ทำตามนี้ได้เลย',
+      color: '#F59E0B',
+      icon: 'KeyRound',
       items: [
-        'เชื่อมต่อ Spotify ในคลิกเดียว: ผูกบัญชีและแสดงสถานะเพลง Now Playing แบบเรียลไทม์',
-        'ขอเพลงผ่าน Twitch Chat: ผู้ชมพิมพ์ !sr ตามด้วยชื่อเพลงหรือลิงก์ Spotify ได้ทันที',
-        'หลากหลายสไตล์ดีไซน์: ธีม Waveform Compact, Vinyl Record, Cyberpunk, Glassmorphism และ Clean Minimalist',
-        'จัดการคิวเพลงแบบ Realtime: ดูคิวเพลง ลบเพลง หรือข้ามเพลงได้โดยตรงจากหน้าควบคุม'
+        '1. เข้าหน้าเว็บนี้: ไปที่หน้ารวม Widget หรือหน้าตั้งค่า',
+        '2. กดปุ่มคัดลอก: มองหา Widget ที่ใช้อยู่ แล้วกดปุ่ม "คัดลอกลิงก์ OBS"',
+        '3. วางใน OBS: เปิดโปรแกรม OBS ดับเบิ้ลคลิกตัว Browser Source เดิม ลบของเก่าออกแล้ววางลิงก์ใหม่ลงไป กด OK เป็นอันเสร็จเรียบร้อย (รวมถึงหน้าจอควบคุม Custom Dock ด้วยนะ)'
       ]
     },
     {
-      title: 'OBS Custom Dock & ประสิทธิภาพระบบ',
-      badge: 'Core System',
-      color: '#0EA5E9',
-      icon: 'MonitorPlay',
+      title: 'ถ้าเผลอทำลิงก์หลุดในสตรีม ทำยังไงดี?',
+      badge: 'มีปุ่มกดเปลี่ยนใหม่ได้',
+      color: '#3B82F6',
+      icon: 'Link2',
       items: [
-        'OBS Browser Dock (/dock): แผงควบคุมสตรีมเมอร์ขนาดย่อสำหรับใส่ใน Custom Browser Dock ของ OBS Studio ตรวจจับวิดเจ็ตที่เปิดอยู่อัตโนมัติ',
-        'Live Preview Sync: พรีวิวการปรับแต่งขนาด สี และธีมสดทันทีแบบไม่ต้องรีเฟรชหน้าจอ',
-        'ปรับปรุง Custom Counter: ปรับแต่งคำสั่ง Twitch Chat อิสระ และปรับปรุงฟอนต์ตัวเลขให้สวยงามคมชัด'
+        'กดปุ่ม "รีเซ็ต Key" ได้ทันที: อยู่ที่หน้าแรกหรือหน้าตั้งค่า กดปุ๊บระบบจะเปลี่ยนรหัสลับใหม่ให้ทันที คนที่เห็นลิงก์เก่าจะเข้าไม่ได้อีกเลย ปลอดภัยหายห่วงครับ'
       ]
     }
   ],
   cta: {
-    text: 'เข้าสู่หน้าจัดการ Overlays',
+    text: 'ไปคัดลอกลิงก์ใหม่กันเลย',
     link: '/dashboard'
   }
 };
@@ -206,6 +205,10 @@ export default function UpdateModal({ isOpen: manualIsOpen, onClose: manualOnClo
           {data.sections &&
             data.sections.map((sec, idx) => {
               const renderSectionIcon = () => {
+                if (sec.icon === 'ShieldAlert') return <ShieldAlert size={18} />;
+                if (sec.icon === 'KeyRound') return <KeyRound size={18} />;
+                if (sec.icon === 'Link2') return <Link2 size={18} />;
+                if (sec.icon === 'AlertTriangle') return <AlertTriangle size={18} />;
                 if (sec.icon === 'Music') return <Music size={18} />;
                 if (sec.icon === 'Layers') return <Layers size={18} />;
                 if (sec.icon === 'MonitorPlay') return <MonitorPlay size={18} />;

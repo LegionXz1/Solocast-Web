@@ -138,6 +138,66 @@ app.use(express.static(frontendDist, {
     }
   }
 }));
+// ป้องกันการเข้าถึง Widget โดยตรงโดยไม่มี Secret Token (ยกเลิกการเข้าถึงแบบ ?user= เก่าอย่างเด็ดขาด)
+app.use('/widgets', (req, res, next) => {
+  // อนุญาต Static Assets เช่น รูปภาพ, เสียง, ฟอนต์, CSS, JS
+  if (/\.(png|jpg|jpeg|gif|svg|webp|ico|mp3|wav|ogg|woff|woff2|ttf|css|js|txt)$/i.test(req.path)) {
+    return next();
+  }
+
+  const token = req.query.token || req.query.key;
+  if (token && tokenToUser[String(token).trim()]) {
+    return next();
+  }
+
+  // อนุญาตโหมด Preview จากหน้า Dashboard (เมื่อผู้ใช้ล็อกอินอยู่)
+  if (req.query.preview === '1') {
+    const session = getSessionFromReq(req);
+    if (session && session.userId) return next();
+  }
+
+  return res.status(401).send(`<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>401 Unauthorized - Solocast</title>
+  <style>
+    body {
+      background: #0b0e14;
+      color: #ef4444;
+      font-family: 'Outfit', sans-serif, system-ui;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      text-align: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 520px;
+    }
+    h2 { margin: 0 0 12px; font-size: 1.25rem; }
+    p { margin: 0; color: #94a3b8; font-size: 0.88rem; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Access Denied: Missing or Invalid Secret Token</h2>
+    <p>
+      ระบบได้ยกเลิกรูปแบบลิงก์เก่า (user=...) แล้วเพื่อความปลอดภัยสูงสุดของสตรีมเมอร์<br>
+      กรุณาเข้าสู่ระบบ Dashboard เพื่อคัดลอกลิงก์ใหม่ที่มี Secret Key ไปใส่ใน OBS อีกครั้ง
+    </p>
+  </div>
+</body>
+</html>`);
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
   index: false,
   setHeaders: (res, filePath) => {
@@ -209,6 +269,98 @@ function emitToUser(userId, event, payload) {
     broadcaster = broadcaster.to('user_' + id).to('channel_' + id);
   }
   broadcaster.emit(event, payload);
+}
+
+// --- Secure Overlay Token Management ---
+const OVERLAY_TOKENS_FILE = path.join(__dirname, 'data', 'overlay_tokens.json');
+
+function loadOverlayTokens() {
+  try {
+    if (fs.existsSync(OVERLAY_TOKENS_FILE)) {
+      return JSON.parse(fs.readFileSync(OVERLAY_TOKENS_FILE, 'utf8'));
+    }
+  } catch (e) {}
+  return {};
+}
+
+function saveOverlayTokens(data) {
+  try {
+    const dir = path.dirname(OVERLAY_TOKENS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(OVERLAY_TOKENS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {}
+  saveAllItems('overlay_tokens', data);
+}
+
+const overlayTokens = loadOverlayTokens();
+const tokenToUser = {};
+
+function buildTokenToUserIndex() {
+  for (const k of Object.keys(tokenToUser)) delete tokenToUser[k];
+  for (const [uid, item] of Object.entries(overlayTokens)) {
+    if (item && item.token) {
+      tokenToUser[item.token] = String(uid).trim().toLowerCase();
+    }
+  }
+}
+buildTokenToUserIndex();
+
+function generateOverlayToken(userId) {
+  if (!userId) return null;
+  const uid = String(userId).trim().toLowerCase();
+  const token = 'sec_' + crypto.randomBytes(18).toString('base64url');
+
+  const old = overlayTokens[uid];
+  if (old && old.token) {
+    delete tokenToUser[old.token];
+  }
+
+  overlayTokens[uid] = {
+    token,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
+  tokenToUser[token] = uid;
+  saveOverlayTokens(overlayTokens);
+  return token;
+}
+
+function getOrCreateOverlayToken(userId) {
+  if (!userId) return null;
+  const uid = String(userId).trim().toLowerCase();
+  if (overlayTokens[uid] && overlayTokens[uid].token) {
+    return overlayTokens[uid].token;
+  }
+  return generateOverlayToken(uid);
+}
+
+function getUserByOverlayToken(token) {
+  if (!token) return null;
+  const cleanToken = String(token).trim();
+  const uid = tokenToUser[cleanToken];
+  if (!uid) return null;
+
+  let username = uid;
+  let displayName = uid;
+  for (const s of Object.values(sessions)) {
+    if (s && String(s.userId).toLowerCase() === uid) {
+      username = s.username || uid;
+      displayName = s.displayName || username;
+      break;
+    }
+  }
+  if (typeof userTokens !== 'undefined' && userTokens[uid]?.displayName) {
+    displayName = userTokens[uid].displayName;
+  }
+
+  return { userId: uid, username, displayName };
+}
+
+// Auto-seed overlay tokens for all existing local sessions
+for (const s of Object.values(sessions)) {
+  if (s && s.userId && !overlayTokens[s.userId]?.token) {
+    generateOverlayToken(s.userId);
+  }
 }
 
 const ADMIN_USERS_FILE = path.join(__dirname, 'data', 'admin_users.json');
@@ -427,21 +579,78 @@ function checkUserAuth(req, res, next) {
   });
 }
 
+// ตรวจสอบและระบุตัวตนผู้ใช้จาก Request (รองรับทั้ง Secret Overlay Token, Web Session)
+// ไม่อนุญาตให้เข้าถึงด้วยการระบุ ?user= ตรงๆ อีกต่อไปเพื่อความปลอดภัยสูงสุด
+function resolveUserFromRequest(req) {
+  const token = req.query.token || req.body?.token || req.headers['x-overlay-token'] || req.query.key || req.body?.key;
+  if (token) {
+    const userObj = getUserByOverlayToken(token);
+    if (userObj) return userObj;
+  }
+
+  const session = getSessionFromReq(req);
+  if (session && session.userId) {
+    return {
+      userId: String(session.userId).toLowerCase(),
+      username: session.username || session.userId,
+      displayName: session.displayName || session.username,
+      isAdmin: Boolean(session.isAdmin)
+    };
+  }
+
+  return null;
+}
+
 // ตรวจสอบข้อมูล Session ของผู้ใช้ในเบราว์เซอร์นี้
 app.get('/api/auth/me', (req, res) => {
   const session = getSessionFromReq(req);
   if (session) {
+    const overlayToken = getOrCreateOverlayToken(session.userId);
     return res.json({
       loggedIn: true,
       user: {
         userId: session.userId,
         username: session.username,
         displayName: session.displayName,
-        isAdmin: session.isAdmin
+        isAdmin: session.isAdmin,
+        overlayToken: overlayToken
       }
     });
   }
   return res.json({ loggedIn: false });
+});
+
+// ดึง Secret Overlay Token ของผู้ใช้ปัจจุบัน
+app.get('/api/user/overlay-token', checkUserAuth, (req, res) => {
+  const session = getSessionFromReq(req);
+  const token = getOrCreateOverlayToken(session.userId);
+  res.json({ overlayToken: token });
+});
+
+// สร้าง Secret Overlay Token ใหม่ (Regenerate) และเพิกถอน Token เก่าทันที
+app.post('/api/user/overlay-token/regenerate', checkUserAuth, (req, res) => {
+  const session = getSessionFromReq(req);
+  const newToken = generateOverlayToken(session.userId);
+  emitToUser(session.userId, 'overlay_token_revoked', { userId: session.userId });
+  res.json({ success: true, overlayToken: newToken });
+});
+
+// Resolve Overlay Token สำหรับ Browser Source Widgets และ OBS Dock
+app.get('/api/overlay/resolve', (req, res) => {
+  const token = req.query.token || req.query.key;
+  if (!token) {
+    return res.status(401).json({ valid: false, error: 'Missing overlay token' });
+  }
+  const user = getUserByOverlayToken(token);
+  if (!user) {
+    return res.status(401).json({ valid: false, error: 'Invalid or revoked overlay token' });
+  }
+  res.json({
+    valid: true,
+    userId: user.userId,
+    username: user.username,
+    displayName: user.displayName
+  });
 });
 
 // ออกจากระบบ
@@ -937,20 +1146,11 @@ const widgetSettingsStore = loadWidgetSettings();
 app.get('/api/widgets/:id/settings', (req, res) => {
   try {
     const widgetId = req.params.id;
-    let user = req.query.user || req.query.channel;
-
-    // ถ้าไม่ได้ระบุ User ใน Query String ให้ค้นหาการตั้งค่าของ User ที่มีบันทึกไว้
-    if (!user) {
-      if (widgetSettingsStore[widgetId]) {
-        const uids = Object.keys(widgetSettingsStore[widgetId]).filter(k => k !== 'default');
-        if (uids.length > 0) user = uids[0];
-      }
-      if (!user) {
-        const uids = Object.keys(userTokens);
-        if (uids.length > 0) user = uids[0];
-        else if (process.env.TWITCH_USER_ID) user = process.env.TWITCH_USER_ID;
-      }
+    const authUser = resolveUserFromRequest(req);
+    if (!authUser) {
+      return res.status(401).json({ error: 'Unauthorized: Missing or invalid widget token' });
     }
+    let user = authUser.userId;
 
     // 1. ถ้ามี User ID หรือ Username ให้ดึงการตั้งค่าเฉพาะของ User คนนั้น (รองรับทั้ง userId และ username)
     if (user && widgetSettingsStore[widgetId]) {
@@ -1097,8 +1297,9 @@ app.get('/api/widgets/custom-counter/data', (req, res) => {
 
 app.post('/api/widgets/custom-counter/update', (req, res) => {
   try {
+    const authUser = resolveUserFromRequest(req);
     const { user, action, delta, value, updatedBy } = req.body || {};
-    const userKey = user || 'default';
+    const userKey = authUser?.userId || user || 'default';
 
     if (!widgetSettingsStore['custom-counter']) {
       widgetSettingsStore['custom-counter'] = {};
@@ -1216,8 +1417,9 @@ app.get('/api/widgets/dbd-scoreboard/data', (req, res) => {
 
 app.post('/api/widgets/dbd-scoreboard/update', (req, res) => {
   try {
+    const authUser = resolveUserFromRequest(req);
     const { user, action, target, value, updatedBy } = req.body || {};
-    const userKey = user || 'default';
+    const userKey = authUser?.userId || user || 'default';
     const cleanUser = String(userKey).trim().toLowerCase().replace('@', '');
     const allIds = getAssociatedUserIdentifiers(cleanUser);
     allIds.add(cleanUser);
@@ -1306,8 +1508,16 @@ app.post('/api/widgets/dbd-scoreboard/update', (req, res) => {
 // GET /api/widgets/:id/live-status — ตรวจสอบสถานะว่า Widget นี้ Active อยู่หรือไม่ (ใช้โดย OBS Overlay)
 app.get('/api/widgets/:id/live-status', (req, res) => {
   const widgetId = req.params.id;
-  const user = req.query.user || req.query.channel || 'default';
-  const channel = req.query.channel || req.query.username || '';
+  const authUser = resolveUserFromRequest(req);
+  if (!authUser) {
+    return res.status(401).json({
+      widgetId,
+      active: false,
+      reason: 'ไม่อนุญาตให้เข้าถึง: จำเป็นต้องใช้ Secret Token สำหรับ Widget'
+    });
+  }
+  const user = authUser.userId;
+  const channel = authUser.username || '';
   const globalEnabled = isWidgetGloballyEnabled(widgetId);
   const userAllowed = isUserAllowedForWidget(user, channel, widgetId);
   const userEnabled = isWidgetUserEnabled(user, widgetId);
@@ -2264,7 +2474,8 @@ function clearStreamChatters(userId) {
 app.get('/api/widgets/:id/history', (req, res) => {
   try {
     const widgetId = req.params.id;
-    let user = (req.query.user || req.query.channel || '').trim();
+    const authUser = resolveUserFromRequest(req);
+    let user = authUser?.userId || (req.query.user || req.query.channel || '').trim();
 
     // If no user specified in query, check auth session
     if (!user) {
@@ -2342,6 +2553,7 @@ app.get('/api/widgets/:id/checkin-summary', (req, res) => {
 app.post('/api/widgets/:id/history', (req, res) => {
   try {
     const widgetId = req.params.id;
+    const authUser = resolveUserFromRequest(req);
     let { user, item } = req.body;
     if (!item) {
       const { user: u, userId, ...rest } = req.body;
@@ -2357,7 +2569,7 @@ app.post('/api/widgets/:id/history', (req, res) => {
       return res.json({ success: true, skipped: true, message: 'Skipped GamerGod88' });
     }
 
-    const userKey = user || 'default';
+    const userKey = authUser?.userId || user || 'default';
     if (!rollHistoryStore[widgetId]) {
       rollHistoryStore[widgetId] = {};
     }
@@ -2405,7 +2617,8 @@ app.post('/api/widgets/:id/history', (req, res) => {
 app.delete('/api/widgets/:id/history', (req, res) => {
   try {
     const widgetId = req.params.id;
-    let user = (req.query.user || req.query.channel || '').trim();
+    const authUser = resolveUserFromRequest(req);
+    let user = authUser?.userId || (req.query.user || req.query.channel || '').trim();
     if (!user) {
       const sess = getSessionFromReq(req);
       if (sess && sess.userId) user = sess.userId;
@@ -2522,7 +2735,8 @@ app.get('/api/widgets/:id/store/:key', (req, res) => {
   try {
     const widgetId = req.params.id;
     const key = req.params.key;
-    const user = req.query.user || req.query.channel || 'default';
+    const authUser = resolveUserFromRequest(req);
+    const user = authUser?.userId || req.query.user || req.query.channel || 'default';
     const val = widgetStore[widgetId]?.[user]?.[key];
     if (val === undefined || val === null) {
       return res.status(404).json({ error: 'Key not found' });
@@ -2544,8 +2758,9 @@ app.post('/api/widgets/:id/store/:key', (req, res) => {
   try {
     const widgetId = req.params.id;
     const key = req.params.key;
+    const authUser = resolveUserFromRequest(req);
     const { user, value } = req.body;
-    const userKey = user || 'default';
+    const userKey = authUser?.userId || user || 'default';
 
     if (!widgetStore[widgetId]) widgetStore[widgetId] = {};
     if (!widgetStore[widgetId][userKey]) widgetStore[widgetId][userKey] = {};
@@ -2570,7 +2785,8 @@ app.post('/api/widgets/:id/store/:key', (req, res) => {
 app.delete('/api/widgets/:id/store', (req, res) => {
   try {
     const widgetId = req.params.id;
-    const user = req.query.user || req.query.channel || 'default';
+    const authUser = resolveUserFromRequest(req);
+    const user = authUser?.userId || req.query.user || req.query.channel || 'default';
     if (widgetStore[widgetId] && widgetStore[widgetId][user]) {
       delete widgetStore[widgetId][user];
       saveWidgetStore(widgetStore);
@@ -2636,12 +2852,16 @@ app.post('/api/widgets/twitch-shoutout/simulate', (req, res) => {
 // API สำหรับยิง Shoutout จาก OBS Dock
 app.post('/api/dock/shoutout/trigger', async (req, res) => {
   try {
-    const { user, targetUsername } = req.body;
-    if (!user || !targetUsername) {
-      return res.status(400).json({ error: 'Missing user or targetUsername' });
+    const authUser = resolveUserFromRequest(req);
+    if (!authUser) {
+      return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+    }
+    const cleanUser = authUser.userId;
+    const { targetUsername } = req.body;
+    if (!targetUsername) {
+      return res.status(400).json({ error: 'Missing targetUsername' });
     }
 
-    const cleanUser = String(user).trim().toLowerCase().replace(/^@/, '');
     const cleanTarget = String(targetUsername).trim().toLowerCase().replace(/^@/, '');
 
     markChatterAsShoutedOut(cleanUser, cleanTarget);
@@ -2692,9 +2912,11 @@ app.post('/api/dock/shoutout/trigger', async (req, res) => {
 // API สำหรับล้างรายชื่อคนดูของสตรีมปัจจุบัน (Reset Session)
 app.post('/api/dock/shoutout/clear', (req, res) => {
   try {
-    const { user } = req.body;
-    if (!user) return res.status(400).json({ error: 'Missing user' });
-    clearStreamChatters(user);
+    const authUser = resolveUserFromRequest(req);
+    if (!authUser) {
+      return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+    }
+    clearStreamChatters(authUser.userId);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -2704,11 +2926,14 @@ app.post('/api/dock/shoutout/clear', (req, res) => {
 // API สำหรับจำลองคนดูพิมพ์ในแชท (สำหรับทดสอบ Dock)
 app.post('/api/dock/shoutout/simulate-chatter', (req, res) => {
   try {
-    const { user, username, message } = req.body;
-    if (!user || !username) return res.status(400).json({ error: 'Missing user or username' });
-    const cleanUser = String(user).trim().toLowerCase().replace(/^@/, '');
+    const authUser = resolveUserFromRequest(req);
+    if (!authUser) {
+      return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+    }
+    const { username, message } = req.body;
+    if (!username) return res.status(400).json({ error: 'Missing username' });
     const cleanUsername = String(username).trim().toLowerCase().replace(/^@/, '');
-    trackStreamChatter(cleanUser, {
+    trackStreamChatter(authUser.userId, {
       username: cleanUsername,
       displayName: cleanUsername,
       lastMessage: message || 'สวัสดีครับ มาดูสตรีมแล้ว!',
@@ -4719,12 +4944,18 @@ app.post('/api/test/chat', async (req, res) => {
 io.on('connection', (socket) => {
   console.log('🟢 Socket connected:', socket.id);
 
-  // ให้เบราว์เซอร์หรือ Widget เข้าร่วมห้องเฉพาะของตนเอง
+  // ให้เบราว์เซอร์หรือ Widget เข้าร่วมห้องเฉพาะของตนเอง (ต้องมี Secret Overlay Token หรือ Web Session ที่ถูกต้อง)
   socket.on('join_user', (payload) => {
-    let targetUserId = payload?.userId;
-    if (payload?.token && sessions[payload.token]) {
+    let targetUserId = null;
+    const overlayTok = payload?.overlayToken || payload?.token;
+    if (overlayTok && tokenToUser[String(overlayTok).trim()]) {
+      targetUserId = tokenToUser[String(overlayTok).trim()];
+      socket.authenticatedUserId = targetUserId;
+    } else if (payload?.token && sessions[payload.token]) {
       targetUserId = sessions[payload.token].userId;
+      socket.authenticatedUserId = targetUserId;
     }
+
     if (targetUserId) {
       const clean = String(targetUserId).trim().toLowerCase().replace('@', '');
       const allIds = getAssociatedUserIdentifiers(clean);
@@ -4734,23 +4965,28 @@ io.on('connection', (socket) => {
         socket.join('channel_' + id);
       }
       console.log(`Socket ${socket.id} joined user/channel rooms:`, Array.from(allIds));
+    } else {
+      console.warn(`[Socket] Unauthorized join_user attempt on socket ${socket.id}`);
     }
   });
 
-  // ให้ Overlay หรือ Browser Source เข้าร่วมห้องประจำ Channel
+  // ให้ Overlay หรือ Browser Source เข้าร่วมห้องประจำ Channel (ต้องผ่านการยืนยันตัวตนแล้วเท่านั้น)
   socket.on('join_channel', (payload) => {
-    const channelName = typeof payload === 'string' ? payload : (payload?.channel || payload?.user);
-    if (channelName && typeof channelName === 'string') {
-      const clean = channelName.trim().toLowerCase().replace('@', '');
-      if (clean) {
-        const allIds = getAssociatedUserIdentifiers(clean);
-        allIds.add(clean);
-        for (const id of allIds) {
-          socket.join('channel_' + id);
-          socket.join('user_' + id);
-        }
-        console.log(`Socket ${socket.id} joined channel/user rooms:`, Array.from(allIds));
+    let targetUserId = socket.authenticatedUserId;
+    const overlayTok = typeof payload === 'object' ? (payload?.overlayToken || payload?.token) : null;
+    if (!targetUserId && overlayTok && tokenToUser[String(overlayTok).trim()]) {
+      targetUserId = tokenToUser[String(overlayTok).trim()];
+      socket.authenticatedUserId = targetUserId;
+    }
+    if (targetUserId) {
+      const clean = String(targetUserId).trim().toLowerCase().replace('@', '');
+      const allIds = getAssociatedUserIdentifiers(clean);
+      allIds.add(clean);
+      for (const id of allIds) {
+        socket.join('channel_' + id);
+        socket.join('user_' + id);
       }
+      console.log(`Socket ${socket.id} joined channel/user rooms:`, Array.from(allIds));
     }
   });
 
@@ -5457,9 +5693,9 @@ app.delete('/api/spotify/queue/:id', (req, res) => {
 // DELETE /api/spotify/queue — ล้าง Queue ของตัวเอง
 app.delete('/api/spotify/queue', (req, res) => {
   try {
-    const session = getSessionFromReq(req);
-    const userId = req.user?.userId || session?.userId || req.query.user || req.query.userId || req.body?.user || req.body?.userId || '';
-    if (!userId) return res.status(401).json({ error: 'กรุณาระบุผู้ใช้ (user)' });
+    const authUser = resolveUserFromRequest(req);
+    if (!authUser) return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+    const userId = authUser.userId;
 
     spotify.clearSongQueue(userId || undefined);
     emitToUser(userId, 'spotify_queue_updated', { userId, queue: [] });
@@ -5472,9 +5708,9 @@ app.delete('/api/spotify/queue', (req, res) => {
 // POST /api/spotify/skip — ข้ามเพลง (เจ้าของบัญชีนั้น หรือจาก Dock)
 app.post('/api/spotify/skip', async (req, res) => {
   try {
-    const session = getSessionFromReq(req);
-    const userId = req.user?.userId || session?.userId || req.query.user || req.query.userId || req.body?.user || req.body?.userId || '';
-    if (!userId) return res.status(401).json({ error: 'กรุณาระบุผู้ใช้ (user)' });
+    const authUser = resolveUserFromRequest(req);
+    if (!authUser) return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+    const userId = authUser.userId;
 
     const accessToken = await spotify.getValidAccessToken(userId || undefined);
     if (!accessToken) return res.status(503).json({ error: 'ยังไม่ได้เชื่อมต่อ Spotify' });
@@ -5491,9 +5727,9 @@ app.post('/api/spotify/skip', async (req, res) => {
 // POST /api/spotify/playback — Play / Pause สลับสถานะเล่นเพลง
 app.post('/api/spotify/playback', async (req, res) => {
   try {
-    const session = getSessionFromReq(req);
-    const userId = req.user?.userId || session?.userId || req.query.user || req.query.userId || req.body?.user || req.body?.userId || '';
-    if (!userId) return res.status(401).json({ error: 'กรุณาระบุผู้ใช้ (user)' });
+    const authUser = resolveUserFromRequest(req);
+    if (!authUser) return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+    const userId = authUser.userId;
 
     const accessToken = await spotify.getValidAccessToken(userId || undefined);
     if (!accessToken) return res.status(503).json({ error: 'ยังไม่ได้เชื่อมต่อ Spotify' });
@@ -5524,24 +5760,24 @@ app.post('/api/spotify/playback', async (req, res) => {
 // GET /api/dock/overview — รวบรวม Widget ที่สตรีมเมอร์คนนี้เปิดใช้งานสำหรับ OBS Custom Dock
 app.get('/api/dock/overview', async (req, res) => {
   try {
-    const session = getSessionFromReq(req);
-    const userParam = req.query.user || req.query.userId || session?.userId || '';
-    if (!userParam) {
-      return res.status(400).json({ error: 'กรุณาระบุพารามิเตอร์ ?user=<userId หรือ username>' });
+    const authUser = resolveUserFromRequest(req);
+    if (!authUser) {
+      return res.status(401).json({
+        error: 'ไม่อนุญาตให้เข้าถึง: จำเป็นต้องใช้ Secret Token สำหรับ OBS Dock (ลิงก์แบบเก่าถูกยกเลิกแล้ว กรุณาคัดลอกลิงก์ใหม่จาก Dashboard)'
+      });
     }
 
-    const cleanUser = String(userParam).trim().toLowerCase().replace('@', '');
-    let matchedUserId = cleanUser;
-    let matchedUsername = cleanUser;
-    let displayName = cleanUser;
+    const matchedUserId = authUser.userId;
+    const cleanUser = String(matchedUserId).trim().toLowerCase().replace('@', '');
+    let matchedUsername = authUser.username || matchedUserId;
+    let displayName = authUser.displayName || matchedUsername;
     let avatarUrl = '';
 
     // ค้นหาใน sessions
     for (const s of Object.values(sessions)) {
-      if (String(s.userId).toLowerCase() === cleanUser || String(s.username).toLowerCase() === cleanUser) {
-        matchedUserId = String(s.userId);
-        matchedUsername = s.username || cleanUser;
-        displayName = s.displayName || s.username || cleanUser;
+      if (String(s.userId).toLowerCase() === matchedUserId) {
+        matchedUsername = s.username || matchedUsername;
+        displayName = s.displayName || displayName;
         avatarUrl = s.avatar || '';
         break;
       }
@@ -5814,6 +6050,20 @@ async function hydrateFromMongo() {
 
     const mongoUserStatus = await syncStore('user_widget_status', userWidgetStatus);
     Object.assign(userWidgetStatus, mongoUserStatus);
+
+    const mongoOverlayTokens = await syncStore('overlay_tokens', overlayTokens);
+    Object.assign(overlayTokens, mongoOverlayTokens);
+    buildTokenToUserIndex();
+
+    const allKnownUserIds = new Set([
+      ...Object.keys(userTokens),
+      ...Object.values(sessions).map(s => s?.userId).filter(Boolean)
+    ]);
+    for (const uid of allKnownUserIds) {
+      if (!overlayTokens[uid] || !overlayTokens[uid].token) {
+        generateOverlayToken(uid);
+      }
+    }
 
     console.log('✨ [Database] In-memory stores successfully synchronized with MongoDB Atlas!');
   } catch (err) {

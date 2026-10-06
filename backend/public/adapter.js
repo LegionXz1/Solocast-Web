@@ -30,6 +30,8 @@ function getWidgetId() {
 
 const currentWidgetId = getWidgetId();
 const initialParams = new URLSearchParams(window.location.search);
+const secretOverlayToken = initialParams.get('token') || initialParams.get('key') || '';
+const isPreviewMode = initialParams.get('preview') === '1';
 let targetUser = initialParams.get('user') || initialParams.get('channel') || '';
 
 function isUserMatchingTarget(data) {
@@ -55,25 +57,35 @@ function isUserMatchingTarget(data) {
 
 function joinAllUserRooms() {
   const u = targetUser || window.SolocastTargetUser || '';
-  if (u && socket.connected) {
-    socket.emit('join_user', { userId: u });
-    socket.emit('join_channel', u);
-    console.log('[Solocast Adapter] 🔄 Room membership refreshed for user & channel:', u);
+  if (socket.connected) {
+    if (secretOverlayToken) {
+      socket.emit('join_user', { overlayToken: secretOverlayToken, userId: u });
+      socket.emit('join_channel', { overlayToken: secretOverlayToken, channel: u });
+    } else if (u) {
+      socket.emit('join_user', { userId: u });
+      socket.emit('join_channel', u);
+    }
+    console.log('[Solocast Adapter] Room membership refreshed for user & channel:', u);
   }
 }
 
 socket.on('connect', () => {
-  console.log('[Solocast Adapter] 🟢 Socket connected/reconnected:', socket.id);
+  console.log('[Solocast Adapter] Socket connected/reconnected:', socket.id);
   joinAllUserRooms();
   checkLiveStatus();
   syncSavedSettings();
 });
 
 socket.on('reconnect', () => {
-  console.log('[Solocast Adapter] 🔄 Socket reconnected, resyncing rooms and settings...');
+  console.log('[Solocast Adapter] Socket reconnected, resyncing rooms and settings...');
   joinAllUserRooms();
   checkLiveStatus();
   syncSavedSettings();
+});
+
+socket.on('overlay_token_revoked', () => {
+  console.warn('[Solocast Adapter] Overlay token was revoked or regenerated. Deactivating overlay.');
+  applyOverlayVisibility(false, 'Token revoked');
 });
 
 console.log('[Solocast Adapter] Initialized');
@@ -122,14 +134,14 @@ function applyOverlayVisibility(active, reason) {
         media.currentTime = 0;
       });
     } catch (_) {}
-    console.warn(`[Solocast Adapter] ⛔ Widget "${currentWidgetId}" is DISABLED (${disabledReason || 'inactive'}). Overlay hidden from stream.`);
+    console.warn(`[Solocast Adapter] Widget "${currentWidgetId}" is DISABLED (${disabledReason || 'inactive'}). Overlay hidden from stream.`);
   } else {
     document.documentElement.removeAttribute('data-solocast-disabled');
     statusStyle.textContent = '';
     if (document.body) {
       document.body.style.display = '';
     }
-    console.log(`[Solocast Adapter] ✅ Widget "${currentWidgetId}" is ACTIVE.`);
+    console.log(`[Solocast Adapter] Widget "${currentWidgetId}" is ACTIVE.`);
     // หากก่อนหน้านี้ปิดอยู่แล้วเพิ่งเปิด ให้โหลดข้อมูลและแสดงผลทันที
     if (!hasInitialLoaded && typeof dispatchWidgetLoad === 'function') {
       hasInitialLoaded = true;
@@ -143,44 +155,67 @@ function applyOverlayVisibility(active, reason) {
 async function checkLiveStatus() {
   if (!currentWidgetId) return;
   try {
-    const u = targetUser || window.SolocastTargetUser || '';
-    const ch = initialParams.get('channel') || initialParams.get('username') || '';
-    const query = new URLSearchParams({ user: u });
-    if (ch) query.set('channel', ch);
+    const query = new URLSearchParams();
+    if (secretOverlayToken) {
+      query.set('token', secretOverlayToken);
+    } else {
+      const u = targetUser || window.SolocastTargetUser || '';
+      const ch = initialParams.get('channel') || initialParams.get('username') || '';
+      if (u) query.set('user', u);
+      if (ch) query.set('channel', ch);
+    }
     const res = await fetch(`/api/widgets/${currentWidgetId}/live-status?${query.toString()}`);
     if (res.ok) {
       const data = await res.json();
       applyOverlayVisibility(data.active, data.reason);
+    } else if (res.status === 401) {
+      applyOverlayVisibility(false, 'Unauthorized: Missing or invalid Secret Token');
     }
   } catch (err) {
     console.warn('[Solocast Adapter] Failed to fetch live status:', err);
   }
 }
 
-// ตรวจสอบสถานะทันทีเมื่อโหลดสคริปต์
-checkLiveStatus();
-
-// เข้าร่วมห้องของผู้ใช้
-window.SolocastTargetUser = targetUser;
-if (targetUser) {
-  joinAllUserRooms();
-  console.log('[Solocast Adapter] Joined room for user:', targetUser);
-} else {
-  // หากไม่ได้ระบุ user ใน URL ให้พยายามดึง user เริ่มต้นของเซิร์ฟเวอร์
-  fetch('/api/default-user')
-    .then(r => r.json())
-    .then(d => {
-      if (d.userId) {
-        targetUser = d.userId;
-        window.SolocastTargetUser = targetUser;
-        joinAllUserRooms();
-        console.log('[Solocast Adapter] Auto-joined room for default user:', targetUser);
-        checkLiveStatus();
-        syncSavedSettings();
+// ตรวจสอบและระบุตัวตนผู้ใช้ผ่าน Secret Overlay Token
+async function initIdentityAndStatus() {
+  if (secretOverlayToken) {
+    try {
+      const res = await fetch(`/api/overlay/resolve?token=${encodeURIComponent(secretOverlayToken)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.valid && data.userId) {
+          targetUser = data.userId;
+          window.SolocastTargetUser = data.userId;
+          joinAllUserRooms();
+          checkLiveStatus();
+          syncSavedSettings();
+          return;
+        }
       }
-    })
-    .catch(() => {});
+    } catch (e) {
+      console.warn('[Solocast Adapter] Token resolve failed:', e);
+    }
+    // หาก Token ไม่ถูกต้อง ให้บล็อกการแสดงผล
+    applyOverlayVisibility(false, 'Unauthorized: Invalid Secret Token');
+    return;
+  }
+
+  // หากไม่มี Token และไม่ใช่โหมด Preview ให้ปฏิเสธการเข้าถึงทันที (ยกเลิกแบบเก่า)
+  if (!isPreviewMode) {
+    applyOverlayVisibility(false, 'Unauthorized: Missing Secret Token. Please copy the new URL from dashboard.');
+    return;
+  }
+
+  // โหมด Preview ใน Dashboard (มี session)
+  window.SolocastTargetUser = targetUser;
+  if (targetUser) {
+    joinAllUserRooms();
+    checkLiveStatus();
+    syncSavedSettings();
+  }
 }
+
+initIdentityAndStatus();
 
 // 🛡️ Auto-healer: ตรวจสอบสถานะและความพร้อมของการเชื่อมต่อห้องทุกๆ 30 วินาที
 // ช่วยแก้ปัญหาเวลา OBS พักหน้าจอ (Sleep/Hidden Scene) หรือเครือข่ายกระตุก ทำให้ Widget กลับมาทำงานได้เองอัตโนมัติ
@@ -201,18 +236,19 @@ window.sendTwitchChat = async function(message) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         user: targetUser,
+        token: secretOverlayToken,
         message: message
       })
     });
     const data = await res.json();
     if (data.success) {
-      console.log('[Solocast Adapter] ✅ Twitch chat sent successfully as streamer:', data);
+      console.log('[Solocast Adapter] Twitch chat sent successfully as streamer:', data);
     } else {
-      console.warn('[Solocast Adapter] ⚠️ Twitch chat send response:', data.error);
+      console.warn('[Solocast Adapter] Twitch chat send response:', data.error);
     }
     return data;
   } catch (err) {
-    console.error('[Solocast Adapter] ❌ Failed to call /api/chat/send:', err);
+    console.error('[Solocast Adapter] Failed to call /api/chat/send:', err);
   }
 };
 
@@ -220,13 +256,13 @@ window.sendTwitchChat = async function(message) {
 window.recordRollHistory = async function(item) {
   if (!item || !currentWidgetId) return;
   if (!isWidgetActive) {
-    console.log('[Solocast Adapter] 🚫 Skipped recording roll history because widget is disabled');
+    console.log('[Solocast Adapter] Skipped recording roll history because widget is disabled');
     return { success: false, disabled: true };
   }
 
   // หากผู้ส่งแต้มเป็น GamerGod88 ให้ไม่เก็บประวัติ
   if (item.username && item.username.toLowerCase() === 'gamergod88') {
-    console.log('[Solocast Adapter] 🚫 Skipped recording roll history because user is GamerGod88');
+    console.log('[Solocast Adapter] Skipped recording roll history because user is GamerGod88');
     return { success: true, skipped: true };
   }
 
@@ -237,6 +273,7 @@ window.recordRollHistory = async function(item) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         user: targetUser,
+        token: secretOverlayToken,
         item: item
       })
     });
@@ -252,7 +289,9 @@ window.SE_API.store = {
   get: function(key) {
     return new Promise((resolve, reject) => {
       const u = targetUser || window.SolocastTargetUser || getUrlParams().user || getUrlParams().channel || 'default';
-      const userParam = `?user=${encodeURIComponent(u)}`;
+      const query = new URLSearchParams();
+      if (secretOverlayToken) query.set('token', secretOverlayToken);
+      if (u) query.set('user', u);
       const localKey = `se_store_${currentWidgetId}_${u}_${key}`;
 
       let cachedVal = null;
@@ -260,7 +299,7 @@ window.SE_API.store = {
         cachedVal = localStorage.getItem(localKey);
       } catch (e) {}
 
-      fetch(`/api/widgets/${currentWidgetId}/store/${encodeURIComponent(key)}${userParam}`)
+      fetch(`/api/widgets/${currentWidgetId}/store/${encodeURIComponent(key)}?${query.toString()}`)
         .then(res => {
           if (res.ok) {
             return res.json();
@@ -275,7 +314,7 @@ window.SE_API.store = {
           throw new Error('Store request failed');
         })
         .then(data => {
-          console.log(`[Solocast Adapter] 📦 SE_API.store.get "${key}":`, data.value);
+          console.log(`[Solocast Adapter] SE_API.store.get "${key}":`, data.value);
           let parsed = data.value;
           if (typeof parsed === 'string') {
             try {
@@ -297,7 +336,7 @@ window.SE_API.store = {
         })
         .catch(err => {
           if (cachedVal !== null) {
-            console.log(`[Solocast Adapter] 📦 SE_API.store.get (cached) "${key}":`, cachedVal);
+            console.log(`[Solocast Adapter] SE_API.store.get (cached) "${key}":`, cachedVal);
             let parsed = cachedVal;
             if (typeof parsed === 'string') {
               try {
@@ -312,7 +351,7 @@ window.SE_API.store = {
             }
             resolve(resObj);
           } else {
-            console.log(`[Solocast Adapter] ℹ️ SE_API.store.get "${key}": not found (initial state)`);
+            console.log(`[Solocast Adapter] SE_API.store.get "${key}": not found (initial state)`);
             reject(err);
           }
         });
@@ -321,7 +360,7 @@ window.SE_API.store = {
   set: function(key, payload) {
     return new Promise((resolve) => {
       if (!isWidgetActive) {
-        console.log(`[Solocast Adapter] 🚫 SE_API.store.set "${key}" skipped because widget is disabled`);
+        console.log(`[Solocast Adapter] SE_API.store.set "${key}" skipped because widget is disabled`);
         return resolve({ success: false, disabled: true });
       }
 
@@ -329,7 +368,7 @@ window.SE_API.store = {
       const u = targetUser || window.SolocastTargetUser || getUrlParams().user || getUrlParams().channel || 'default';
       const localKey = `se_store_${currentWidgetId}_${u}_${key}`;
 
-      console.log(`[Solocast Adapter] 💾 SE_API.store.set "${key}":`, val);
+      console.log(`[Solocast Adapter] SE_API.store.set "${key}":`, val);
       try {
         localStorage.setItem(localKey, typeof val === 'object' ? JSON.stringify(val) : String(val));
       } catch (e) {}
@@ -339,6 +378,7 @@ window.SE_API.store = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user: u,
+          token: secretOverlayToken,
           value: val
         })
       })
@@ -359,7 +399,7 @@ try {
     const parsed = JSON.parse(cachedSettings);
     if (parsed && typeof parsed === 'object') {
       activeFields = { ...parsed, ...activeFields };
-      console.log('[Solocast Adapter] 📦 Loaded cached settings from localStorage:', activeFields);
+      console.log('[Solocast Adapter] Loaded cached settings from localStorage:', activeFields);
     }
   }
 } catch (_) {}
@@ -367,7 +407,7 @@ try {
 // ฟังก์ชันส่งอีเวนต์ onWidgetLoad และ onFieldsUpdate ไปยัง Custom Widget
 function dispatchWidgetLoad(fieldsToApply) {
   if (!isWidgetActive) {
-    console.log('[Solocast Adapter] ⏸️ Skipping onWidgetLoad because widget is disabled.');
+    console.log('[Solocast Adapter] Skipping onWidgetLoad because widget is disabled.');
     return;
   }
   hasInitialLoaded = true;
@@ -401,9 +441,11 @@ function dispatchWidgetLoad(fieldsToApply) {
 async function syncSavedSettings() {
   if (!currentWidgetId) return;
   try {
+    const query = new URLSearchParams();
+    if (secretOverlayToken) query.set('token', secretOverlayToken);
     const u = targetUser || window.SolocastTargetUser || '';
-    const userParam = u ? `?user=${encodeURIComponent(u)}` : '';
-    const res = await fetch(`/api/widgets/${currentWidgetId}/settings${userParam}`);
+    if (u) query.set('user', u);
+    const res = await fetch(`/api/widgets/${currentWidgetId}/settings?${query.toString()}`);
     if (res.ok) {
       const saved = await res.json();
       if (saved && typeof saved === 'object') {

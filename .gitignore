@@ -15,6 +15,7 @@ backend/data/*
 !backend/data/dbd_killers.json
 !backend/data/dbd_perks.json
 !backend/data/valorant_agents.json
+!backend/data/announcements.json
 
 # Build outputs
 frontend/dist/

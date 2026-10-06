@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
+import UpdateModal from '../components/UpdateModal';
 import { API_BASE, WS_BASE } from '../config';
 import './SecretSettings.css';
 import {
@@ -154,6 +155,7 @@ export default function SecretSettings() {
   const navigate = useNavigate();
   const [token, setToken] = useState(() => localStorage.getItem('solocast_user_token') || '');
   const [status, setStatus] = useState({ connected: false, username: '', isAdmin: false, userId: '' });
+  const [showUpdateModal, setShowUpdateModal] = useState(null);
 
   // Widget Selection & List
   const [widgets, setWidgets] = useState([]);
@@ -309,9 +311,10 @@ export default function SecretSettings() {
             connected: true,
             username: data.user.displayName || data.user.username,
             isAdmin: data.user.isAdmin,
-            userId: data.user.userId
+            userId: data.user.userId,
+            overlayToken: data.user.overlayToken || ''
           });
-          socket.emit('join_user', { token: activeToken, userId: data.user.userId });
+          socket.emit('join_user', { token: activeToken, userId: data.user.userId, overlayToken: data.user.overlayToken });
         }
       })
       .catch(() => { });
@@ -1112,26 +1115,55 @@ export default function SecretSettings() {
   // OBS URL Generation
   const obsUrl = useMemo(() => {
     const params = new URLSearchParams();
-    if (status.userId) params.append('user', status.userId);
-    if (status.username) params.append('channel', status.username);
-    if (!status.userId && !status.username) params.append('user', 'default');
+    if (status.overlayToken) {
+      params.append('token', status.overlayToken);
+    } else if (status.userId) {
+      params.append('user', status.userId);
+    } else {
+      params.append('user', 'default');
+    }
     return `${API_BASE}/widgets/${selectedWidget}/index.html?${params.toString()}`;
-  }, [selectedWidget, status.userId, status.username]);
+  }, [selectedWidget, status.overlayToken, status.userId]);
 
   const previewUrl = useMemo(() => {
-    const u = status.userId || status.username || 'default';
     const params = new URLSearchParams({
-      preview: '1',
-      user: u,
-      channel: status.username || ''
+      preview: '1'
     });
+    if (status.overlayToken) params.set('token', status.overlayToken);
+    if (status.userId) params.set('user', status.userId);
+    if (status.username) params.set('channel', status.username);
     for (const [k, v] of Object.entries(fieldData)) {
       if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
         params.set(k, String(v));
       }
     }
     return `${API_BASE}/widgets/${selectedWidget}/index.html?${params.toString()}`;
-  }, [selectedWidget, status.userId, status.username, fieldData]);
+  }, [selectedWidget, status.overlayToken, status.userId, status.username, fieldData]);
+
+  const [isRegeneratingToken, setIsRegeneratingToken] = useState(false);
+  const handleRegenerateToken = async () => {
+    const confirmed = window.confirm('คุณแน่ใจหรือไม่ว่าต้องการรีเซ็ต Secret Key?\\n\\nหากรีเซ็ต ลิงก์ Browser Source เดิมทั้งหมดจะหยุดทำงานทันที คุณจะต้องคัดลอกลิงก์ใหม่ไปใส่ใน OBS');
+    if (!confirmed) return;
+    setIsRegeneratingToken(true);
+    try {
+      const activeToken = token || localStorage.getItem('solocast_user_token');
+      const res = await fetch(`${API_BASE}/api/user/overlay-token/regenerate`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${activeToken}` }
+      });
+      const data = await res.json();
+      if (data.success && data.overlayToken) {
+        setStatus(prev => ({ ...prev, overlayToken: data.overlayToken }));
+        alert('รีเซ็ต Secret Key สำเร็จแล้ว กรุณาคัดลอกลิงก์ใหม่ไปใส่ใน OBS');
+      } else {
+        alert(data.error || 'รีเซ็ตไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+      }
+    } catch (err) {
+      alert('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + err.message);
+    } finally {
+      setIsRegeneratingToken(false);
+    }
+  };
 
   // Copy helper
   const copyText = (txt, type) => {
@@ -1534,6 +1566,88 @@ export default function SecretSettings() {
 
   return (
     <div className="secret-settings-page">
+      {/* Update Announcement Modal */}
+      <UpdateModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+      />
+
+      {/* Prominent Security Notice Banner */}
+      <div
+        className="animate-fade-up"
+        style={{
+          margin: '0 0 1rem 0',
+          padding: '0.8rem 1.25rem',
+          borderRadius: '12px',
+          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(245, 158, 11, 0.1))',
+          border: '1px solid rgba(239, 68, 68, 0.35)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          flexWrap: 'wrap'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '8px',
+              background: 'rgba(239, 68, 68, 0.2)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+          >
+            <ShieldCheck size={18} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <strong style={{ fontSize: '0.88rem', color: '#f87171' }}>
+                แจ้งเตือนสำคัญ: รบกวนเปลี่ยนลิงก์ใน OBS ใหม่นะครับ
+              </strong>
+              <span
+                style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 800,
+                  padding: '2px 7px',
+                  borderRadius: '999px',
+                  background: 'rgba(239, 68, 68, 0.25)',
+                  color: '#fca5a5',
+                  border: '1px solid rgba(239, 68, 68, 0.5)'
+                }}
+              >
+                ต้องเปลี่ยนลิงก์
+              </span>
+            </div>
+            <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              ระบบเพิ่มกุญแจลับป้องกันคนอื่นแกล้ง ลิงก์เดิมใช้งานไม่ได้แล้ว รบกวนคัดลอกลิงก์ใหม่จากแท็บนี้ไปใส่ใน OBS Studio นะครับ
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowUpdateModal(true)}
+          className="btn-island"
+          style={{
+            padding: '0.4rem 0.85rem',
+            fontSize: '0.8rem',
+            fontWeight: 700,
+            background: 'rgba(239, 68, 68, 0.18)',
+            color: '#f87171',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            cursor: 'pointer'
+          }}
+        >
+          ดูวิธีเปลี่ยนลิงก์แบบง่ายๆ
+        </button>
+      </div>
+
       {/* ── Top Header ── */}
       <div className="secret-header">
         <div className="secret-header-left">
@@ -1544,6 +1658,24 @@ export default function SecretSettings() {
             <div className="secret-header-title">
               <span>แผงควบคุม</span>
               <span className="secret-badge">Pro Studio</span>
+              <button
+                type="button"
+                onClick={() => setShowUpdateModal(true)}
+                style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  color: '#f87171',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  cursor: 'pointer',
+                  marginLeft: '6px'
+                }}
+                title="คลิกเพื่อดูประกาศความปลอดภัย v1.4.0"
+              >
+                v1.4.0 UPDATE
+              </button>
             </div>
             <p className="secret-header-desc">
               ระบบตั้งค่าวิดเจ็ตสตรีมเมอร์แบบเต็มรูปแบบ
@@ -2139,6 +2271,24 @@ export default function SecretSettings() {
                         color: 'var(--text-secondary)'
                       }}
                     />
+                    <button
+                      type="button"
+                      className="btn-island"
+                      onClick={handleRegenerateToken}
+                      disabled={isRegeneratingToken}
+                      title="รีเซ็ต Secret Key ใหม่ (ลิงก์เดิมที่เคยแชร์จะหยุดทำงานทันที)"
+                      style={{
+                        padding: '0.65rem 0.95rem',
+                        fontSize: '0.85rem',
+                        whiteSpace: 'nowrap',
+                        background: 'rgba(239, 68, 68, 0.12)',
+                        color: '#f87171',
+                        border: '1px solid rgba(239, 68, 68, 0.3)'
+                      }}
+                    >
+                      <RefreshCw size={14} className={isRegeneratingToken ? 'spin' : ''} />
+                      <span>{isRegeneratingToken ? 'กำลังรีเซ็ต...' : 'รีเซ็ต Key'}</span>
+                    </button>
                     <button
                       type="button"
                       className="btn-island accent"
@@ -3368,6 +3518,24 @@ export default function SecretSettings() {
                     />
                     <button
                       type="button"
+                      className="btn-island"
+                      onClick={handleRegenerateToken}
+                      disabled={isRegeneratingToken}
+                      title="รีเซ็ต Secret Key ใหม่ (ลิงก์เดิมที่เคยแชร์จะหยุดทำงานทันที)"
+                      style={{
+                        padding: '0.65rem 0.95rem',
+                        fontSize: '0.85rem',
+                        whiteSpace: 'nowrap',
+                        background: 'rgba(239, 68, 68, 0.12)',
+                        color: '#f87171',
+                        border: '1px solid rgba(239, 68, 68, 0.3)'
+                      }}
+                    >
+                      <RefreshCw size={14} className={isRegeneratingToken ? 'spin' : ''} />
+                      <span>{isRegeneratingToken ? 'กำลังรีเซ็ต...' : 'รีเซ็ต Key'}</span>
+                    </button>
+                    <button
+                      type="button"
                       className="btn-island accent"
                       onClick={() => copyText(obsUrl, 'obs')}
                     >
@@ -3943,6 +4111,24 @@ export default function SecretSettings() {
                     color: 'var(--text-secondary)'
                   }}
                 />
+                <button
+                  type="button"
+                  className="btn-island"
+                  onClick={handleRegenerateToken}
+                  disabled={isRegeneratingToken}
+                  title="รีเซ็ต Secret Key ใหม่ (ลิงก์เดิมที่เคยแชร์จะหยุดทำงานทันที)"
+                  style={{
+                    padding: '0.55rem 0.85rem',
+                    fontSize: '0.8rem',
+                    whiteSpace: 'nowrap',
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    color: '#f87171',
+                    border: '1px solid rgba(239, 68, 68, 0.3)'
+                  }}
+                >
+                  <RefreshCw size={13} className={isRegeneratingToken ? 'spin' : ''} />
+                  <span>{isRegeneratingToken ? 'รีเซ็ต...' : 'รีเซ็ต Key'}</span>
+                </button>
                 <button
                   type="button"
                   className="btn-island accent"
