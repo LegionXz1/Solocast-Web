@@ -374,9 +374,13 @@ export default function SecretSettings() {
     setSchema(null);
 
     const u = status.userId || status.username || '';
+    const activeToken = token || localStorage.getItem('solocast_user_token');
+    const tokenQuery = status.overlayToken ? `&token=${encodeURIComponent(status.overlayToken)}` : '';
     Promise.all([
       fetch(`${API_BASE}/api/widgets/${selectedWidget}/schema`).then(r => r.ok ? r.json() : null),
-      fetch(`${API_BASE}/api/widgets/${selectedWidget}/settings?user=${encodeURIComponent(u)}`).then(r => r.ok ? r.json() : null)
+      fetch(`${API_BASE}/api/widgets/${selectedWidget}/settings?user=${encodeURIComponent(u)}${tokenQuery}`, {
+        headers: activeToken ? { 'Authorization': `Bearer ${activeToken}` } : {}
+      }).then(r => r.ok ? r.json() : null)
     ]).then(([sch, setts]) => {
       setSchema(sch || {});
       const defaults = {};

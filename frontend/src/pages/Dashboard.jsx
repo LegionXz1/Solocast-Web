@@ -546,9 +546,14 @@ function Dashboard() {
   useEffect(() => {
     if (!selectedWidget) return;
 
+    const activeToken = token || localStorage.getItem('solocast_user_token');
+    const u = status.userId || '';
+    const tokenQuery = status.overlayToken ? `&token=${encodeURIComponent(status.overlayToken)}` : '';
     Promise.all([
       fetch(`${API_BASE}/api/widgets/${selectedWidget}/schema`).then(res => res.ok ? res.json() : null),
-      fetch(`${API_BASE}/api/widgets/${selectedWidget}/settings?user=${status.userId || ''}`).then(res => res.ok ? res.json() : null)
+      fetch(`${API_BASE}/api/widgets/${selectedWidget}/settings?user=${encodeURIComponent(u)}${tokenQuery}`, {
+        headers: activeToken ? { 'Authorization': `Bearer ${activeToken}` } : {}
+      }).then(res => res.ok ? res.json() : null)
     ])
       .then(([schemaData, savedSettings]) => {
         setSchema(schemaData);

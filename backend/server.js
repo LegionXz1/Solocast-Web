@@ -1147,10 +1147,8 @@ app.get('/api/widgets/:id/settings', (req, res) => {
   try {
     const widgetId = req.params.id;
     const authUser = resolveUserFromRequest(req);
-    if (!authUser) {
-      return res.status(401).json({ error: 'Unauthorized: Missing or invalid widget token' });
-    }
-    let user = authUser.userId;
+    const requestedUser = req.query.user || req.query.channel;
+    let user = authUser ? authUser.userId : (requestedUser ? String(requestedUser).trim().toLowerCase().replace(/^@/, '') : '');
 
     // 1. ถ้ามี User ID หรือ Username ให้ดึงการตั้งค่าเฉพาะของ User คนนั้น (รองรับทั้ง userId และ username)
     if (user && widgetSettingsStore[widgetId]) {
