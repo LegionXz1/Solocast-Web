@@ -1146,7 +1146,14 @@ export default function SecretSettings() {
 
   const [isRegeneratingToken, setIsRegeneratingToken] = useState(false);
   const handleRegenerateToken = async () => {
-    const confirmed = window.confirm('คุณแน่ใจหรือไม่ว่าต้องการรีเซ็ต Secret Key?\\n\\nหากรีเซ็ต ลิงก์ Browser Source เดิมทั้งหมดจะหยุดทำงานทันที คุณจะต้องคัดลอกลิงก์ใหม่ไปใส่ใน OBS');
+    const confirmed = window.confirm(
+      'คำเตือนสำคัญ: การรีเซ็ตนี้จะเป็นการเปลี่ยน Secret Key "ทั้งระบบของบัญชีคุณ"\n\n' +
+      '- ไม่ใช่แค่เฉพาะ Widget นี้ แต่จะมีผลกับ "ทุก Widget และ OBS Dock ทั้งหมดของคุณ"\n' +
+      '- ลิงก์ Browser Source และ Dock เดิมทั้งหมดที่ใส่ไว้ใน OBS จะหยุดทำงานทันที\n' +
+      '- ข้อมูลการตั้งค่าต่างๆ (ชื่อแต้ม, สถิติตัวนับ ฯลฯ) จะยังอยู่ครบ ไม่สูญหาย\n' +
+      '- คุณจะต้องคัดลอกลิงก์ใหม่ของแต่ละ Widget ไปอัปเดตใน OBS Studio อีกครั้ง\n\n' +
+      'คุณต้องการยืนยันการรีเซ็ต Key ทั้งระบบใช่หรือไม่?'
+    );
     if (!confirmed) return;
     setIsRegeneratingToken(true);
     try {
