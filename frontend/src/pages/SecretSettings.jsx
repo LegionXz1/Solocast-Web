@@ -338,15 +338,18 @@ export default function SecretSettings() {
   // Fetch Status Overview
   const fetchStatusOverview = useCallback(() => {
     if (!status.userId) return;
-    fetch(`${API_BASE}/api/widgets/status-overview?user=${encodeURIComponent(status.userId)}&username=${encodeURIComponent(status.username || '')}`)
-      .then(res => res.json())
+    const activeToken = token || localStorage.getItem('solocast_user_token');
+    fetch(`${API_BASE}/api/widgets/status-overview?user=${encodeURIComponent(status.userId)}&username=${encodeURIComponent(status.username || '')}`, {
+      headers: activeToken ? { 'Authorization': `Bearer ${activeToken}` } : {}
+    })
+      .then(res => res.ok ? res.json() : null)
       .then(data => {
-        if (data && data.success) {
+        if (data && data.user) {
           setWidgetStatusOverview(data);
         }
       })
       .catch(() => { });
-  }, [status.userId, status.username]);
+  }, [status.userId, status.username, token]);
 
   useEffect(() => {
     fetchStatusOverview();
