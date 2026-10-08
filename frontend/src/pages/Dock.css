@@ -614,6 +614,13 @@ html {
   flex-shrink: 0;
 }
 
+.dock-perk-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
 .dock-perk-name {
   font-size: 0.72rem;
   font-weight: 600;
@@ -622,6 +629,17 @@ html {
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.2;
+}
+
+.dock-perk-char {
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: #a78bfa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+  margin-top: 1px;
 }
 
 .dock-history-raw-result {

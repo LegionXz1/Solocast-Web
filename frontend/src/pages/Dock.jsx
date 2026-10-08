@@ -64,6 +64,7 @@ export default function Dock() {
   const [counterData, setCounterData] = useState({ title: 'สถิติ', count: 0, unit: 'ครั้ง', stepAmount: 1 });
   const [scoreboardData, setScoreboardData] = useState({ killerKills: 0, killerDraws: 0, killerEscapes: 0, title: 'DBD Scoreboard', stat1Title: 'WINS', stat2Title: 'LOSES', stat3Title: 'DRAWS' });
   const [dbdPerksHistory, setDbdPerksHistory] = useState([]);
+  const [perksMap, setPerksMap] = useState({});
   const [loyaltyHistory, setLoyaltyHistory] = useState([]);
   const [randomKillerHistory, setRandomKillerHistory] = useState([]);
   const [streamChatters, setStreamChatters] = useState([]);
@@ -138,6 +139,24 @@ export default function Dock() {
   useEffect(() => {
     fetchOverview();
   }, [fetchOverview]);
+
+  // Load DBD perks database to enrich perk metadata (such as character/owner name)
+  useEffect(() => {
+    fetch(`${API_BASE}/api/widgets/dbd-perks/perks`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data) return;
+        const map = {};
+        const allList = [...(data.survivor || []), ...(data.killer || [])];
+        allList.forEach(p => {
+          if (!p) return;
+          if (p.id) map[p.id.toLowerCase()] = p;
+          if (p.name) map[p.name.toLowerCase().trim()] = p;
+        });
+        setPerksMap(map);
+      })
+      .catch(() => {});
+  }, []);
 
   // Helper to verify if an incoming real-time socket payload belongs to this Dock's streamer
   const isTargetUserEvent = useCallback((eventUserId) => {
@@ -311,6 +330,19 @@ export default function Dock() {
       if (!data) return;
       if (data.userId && !isTargetUserEvent(data.userId)) return;
       setStreamChatters([]);
+    });
+
+    // Real-time DBD Perks Database Update
+    socket.on('dbd_perks_updated', (data) => {
+      if (!data) return;
+      const map = {};
+      const allList = [...(data.survivor || []), ...(data.killer || [])];
+      allList.forEach(p => {
+        if (!p) return;
+        if (p.id) map[p.id.toLowerCase()] = p;
+        if (p.name) map[p.name.toLowerCase().trim()] = p;
+      });
+      setPerksMap(map);
     });
 
     return () => {
@@ -1021,9 +1053,11 @@ export default function Dock() {
                       {Array.isArray(item.perks) && item.perks.length > 0 ? (
                         <div className="dock-perks-grid">
                           {item.perks.map((p, pIdx) => {
-                            const iconUrl = p.icon ? (p.icon.startsWith('http') ? p.icon : `${API_BASE}${p.icon}`) : '';
+                            const enrichedPerk = perksMap[p.id?.toLowerCase()] || perksMap[p.name?.toLowerCase().trim()] || p;
+                            const charName = p.character || enrichedPerk.character || '';
+                            const iconUrl = p.icon ? (p.icon.startsWith('http') ? p.icon : `${API_BASE}${p.icon}`) : (enrichedPerk.icon ? (enrichedPerk.icon.startsWith('http') ? enrichedPerk.icon : `${API_BASE}${enrichedPerk.icon}`) : '');
                             return (
-                              <div key={p.id || pIdx} className="dock-perk-badge" title={`${p.name}${p.character ? ` (${p.character})` : ''}`}>
+                              <div key={p.id || pIdx} className="dock-perk-badge" title={`${p.name}${charName ? ` (${charName})` : ''}`}>
                                 {iconUrl ? (
                                   <img
                                     src={iconUrl}
@@ -1034,7 +1068,12 @@ export default function Dock() {
                                 ) : (
                                   <div className="dock-perk-icon-fallback" />
                                 )}
-                                <div className="dock-perk-name">{p.name}</div>
+                                <div className="dock-perk-info">
+                                  <div className="dock-perk-name">{p.name}</div>
+                                  {charName && (
+                                    <div className="dock-perk-char">{charName}</div>
+                                  )}
+                                </div>
                               </div>
                             );
                           })}
